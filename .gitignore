@@ -1,0 +1,14 @@
+# Secrets — never commit
+.env*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+target/
+dist/
+
+# Local-only material
+.ref/
+vendor-bin/
+test-media/
+*.log
