@@ -1,0 +1,11 @@
+{
+  "server_version": "1.0.0-dev",
+  "api_major": 2,
+  "contract_digest": "6a439ae59ca9e14e1c0edea0af872fc076fde5ddec60a2e978ee2dd74a9fb8b9",
+  "links": {
+    "openapi": "/api/v2/openapi.json",
+    "capabilities": "/api/v2/capabilities",
+    "identity": "/api/v2/system/identity"
+  },
+  "request_origin": "http://127.0.0.1"
+}

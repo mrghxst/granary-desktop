@@ -1,0 +1,7 @@
+{
+  "type": "https://siloserver.org/docs/api/v2/problems/profile_verification_required",
+  "title": "Profile verification required",
+  "status": 403,
+  "detail": "This profile needs its PIN.",
+  "instance": "urn:silo:request:000000000000000000000004"
+}

@@ -10,6 +10,7 @@ pub mod commands;
 pub mod logging;
 pub mod paths;
 pub mod redact;
+pub mod silo;
 
 use commands::{AppInfo, LibmpvStatus};
 use tauri::{Manager, RunEvent};
@@ -40,10 +41,48 @@ fn probe_libmpv() -> Result<u64, String> {
     Err("libmpv playback is only supported on Windows".into())
 }
 
+/// Server/account state (ADR-0004): HTTP client with this installation's device identity, refresh tokens in
+/// Windows Credential Manager, server list in `%APPDATA%\Granary\servers.json`.
+///
+/// Debug builds only: `GRANARY_MOCK_SERVER=1` swaps in the in-process mock server and an in-memory credential store
+/// (UI development and end-to-end tests without a Silo server; user `alice` / `pw`, Kids PIN `1234`).
+fn silo_state(version: &str) -> Result<silo::SiloState, Box<dyn std::error::Error>> {
+    use granary_silo_api::credentials::{CredentialStore, MemoryStore};
+    use granary_silo_api::device::DeviceIdentity;
+    use granary_silo_api::{HttpSiloApi, SiloApi};
+    use std::sync::Arc;
+
+    let registry = paths::config_dir().join("servers.json");
+    if cfg!(debug_assertions) && std::env::var("GRANARY_MOCK_SERVER").is_ok_and(|v| v == "1") {
+        tracing::warn!("GRANARY_MOCK_SERVER=1: using the in-process mock server");
+        let api: Arc<dyn SiloApi> = Arc::new(granary_silo_api::mock::MockSiloApi::demo());
+        let store: Arc<dyn CredentialStore> = Arc::new(MemoryStore::default());
+        return Ok(silo::SiloState::new(
+            api,
+            store,
+            paths::local_dir().join("mock-servers.json"),
+        ));
+    }
+    let device = DeviceIdentity::load_or_create(&paths::config_dir().join("device.json"), version)?;
+    let api: Arc<dyn SiloApi> = Arc::new(HttpSiloApi::new(device)?);
+    #[cfg(windows)]
+    let store: Arc<dyn CredentialStore> = match granary_silo_api::credentials::WindowsCredentialStore::new() {
+        Ok(s) => Arc::new(s),
+        Err(e) => {
+            tracing::error!(error = %e, "Credential Manager unavailable; sign-ins last until the app closes");
+            Arc::new(MemoryStore::default())
+        }
+    };
+    #[cfg(not(windows))]
+    let store: Arc<dyn CredentialStore> = Arc::new(MemoryStore::default());
+    Ok(silo::SiloState::new(api, store, registry))
+}
+
 fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::error::Error>> {
     // The bundler's version (tauri.conf.json → package.json) is the one users see in the installer (review M6).
     let version = app.package_info().version.to_string();
     tracing::info!(%version, "Granary starting");
+    app.manage(silo_state(&version)?);
     app.manage(AppInfo { version, libmpv });
 
     #[cfg(windows)]
@@ -94,7 +133,19 @@ pub fn run() {
                 .build(),
         )
         .setup(move |app| setup(app, libmpv))
-        .invoke_handler(tauri::generate_handler![commands::app_info])
+        .invoke_handler(tauri::generate_handler![
+            commands::app_info,
+            silo::servers_list,
+            silo::servers_probe,
+            silo::servers_add,
+            silo::servers_remove,
+            silo::servers_activate,
+            silo::auth_login,
+            silo::auth_logout,
+            silo::profiles_list,
+            silo::profiles_select,
+            silo::libraries_list,
+        ])
         .build(tauri::generate_context!());
     match app {
         Ok(app) => app.run(|_, event| {

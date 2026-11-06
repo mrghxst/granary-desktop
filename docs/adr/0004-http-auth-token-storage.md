@@ -19,7 +19,7 @@
 2. Tauri HTTP plugin from TS — avoids CORS but still exposes tokens to JS and needs broad URL scopes.
 3. **Rust-side client** (`crates/silo-api`, `reqwest` with rustls) behind narrow Tauri commands; tokens stay in Rust.
 
-Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows Credential Manager via `keyring`**
+Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows Credential Manager via `keyring-core` + `windows-native-keyring-store`**
 (DPAPI-protected, per-user).
 
 ## Decision
@@ -30,8 +30,8 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
   a private/LAN CA that the user trusts in Windows work; TLS errors are mapped to clear, specific messages (expired,
   untrusted issuer, name mismatch). Plain `http://` is allowed only after an explicit warning in the add-server flow.
 - **Credential scoping** (M4): Bearer/profile headers are attached **only** to requests whose origin (scheme, host,
-  port) equals the configured server origin. Redirects to other origins drop credentials (custom `reqwest` redirect
-  policy). Stream and artwork URLs on other origins (proxy nodes, object storage) rely solely on their `st`
+  port) equals the configured server origin. Redirects are never followed (`reqwest` redirect policy `none`; a 3xx is
+  reported as `redirected` so the user enters the final address). Stream and artwork URLs on other origins (proxy nodes, object storage) rely solely on their `st`
   signatures. For mpv, the host sets `http-header-fields` only when the stream URL is same-origin, and otherwise
   passes the signed URL without headers (mpv applies header fields to every request, including redirects).
 - **Images** are served through a custom URI scheme handler named `granary-img`, which on Windows is reachable as
@@ -40,15 +40,16 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 - **Login methods** (L4): password login only in v0.1. The device-code flow (`/api/v2/auth/device/start|poll`) and
   OAuth found in R2 are deferred; they must be documented in silo-api.md before use. `X-Profile-Token` (PIN-verified
   profile) is kept in memory only; the PIN is asked again after an app restart.
-- **Tokens in Windows Credential Manager** via the `keyring` crate (service `Granary`, account
+- **Tokens in Windows Credential Manager** via `keyring-core` 1.0 with `windows-native-keyring-store` 1.1 (service `Granary`, account
   `<server_id>/<user_id>`), storing the refresh token; the access token is kept in memory only. Server list and
   non-secret account metadata go to `%APPDATA%\Granary\servers.json`.
 - **Refresh**: single-flight refresh on `token_refresh_required` or local expiry; on refresh failure with 401 the
   account is marked signed-out and the UI is told (`auth://revoked` event). Logout calls `POST /api/v2/auth/logout` (VERIFIED,
   silo-api.md) and deletes the credential.
 - **Device identity**: random UUID v4 created on first run, stored in `%APPDATA%\Granary\device.json`; client name
-  `Granary for Windows`, version from `CARGO_PKG_VERSION`, sent as `X-Silo-Device-Id/-Name/-Platform: windows`
-  and `X-Silo-Client: Granary`, `X-Silo-Client-Version`, `X-Silo-Client-Family: desktop` (silo-api.md).
+  `Granary for Windows`, version from the bundle (`tauri.conf.json`), sent as `X-Silo-Device-Id`, `X-Silo-Device-Name`
+  (the computer name), `X-Silo-Device-Platform: windows`
+  and `X-Silo-Client: Granary for Windows`, `X-Silo-Client-Version`, `X-Silo-Client-Family: desktop` (silo-api.md §13).
 - **Redaction**: a `Secret<String>` newtype with a redacting `Debug`; a tracing layer masks `Authorization`,
   `X-Profile-Token`, `st=`, `token=`, `password` patterns in every log line.
 - Endpoints/headers marked UNVERIFIED in silo-api.md are isolated behind the `SiloApi` trait, so a mock
@@ -58,4 +59,13 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 - The IPC surface is a fixed list of commands with typed arguments; capability files allow only those.
 - mpv receives the stream URL (plus headers only when same-origin) directly from Rust; the WebView never handles them.
 - Offline/no-server development uses `MockSiloApi` with sanitized fixtures recorded from upstream docs/tests.
-- `keyring` behaviour is Windows-only here (target is Windows-only); tests use an in-memory credential store.
+- The credential store is Windows-only here (target is Windows-only); tests use an in-memory credential store, and debug
+  builds started with `GRANARY_MOCK_SERVER=1` use the in-process `MockSiloApi` (user `alice`/`pw`, Kids PIN `1234`)
+  with an in-memory store, for UI development and end-to-end tests. Release builds ignore the variable.
+
+## Amendment (Phase 4, 2026-11-06)
+- `keyring` 4.x no longer builds without picking a store through its `v1`/CLI features, so Granary depends on
+  `keyring-core` and `windows-native-keyring-store` directly (same Credential Manager entries, fewer dependencies).
+- `reqwest` 0.13 with `rustls` (aws-lc-rs provider, `rustls-platform-verifier`); TLS failures are classified by walking
+  the error source chain down to `rustls::Error` (expired, not yet valid, untrusted issuer, name mismatch, revoked).
+- Login `401` is reported as `invalid_credentials`; the server uses problem id `invalid_token` for it (silo-api.md §13).

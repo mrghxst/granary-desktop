@@ -656,6 +656,35 @@ Useful for a viewer client:
 | Thresholds | Admin settings, not constants. | `admin_settings.go@6791aac` L458-459 |
 | Rolling deploys | Some events, such as lifecycle events, are absent on older nodes. | `realtime-api.md@6791aac` L250-256 |
 
+## 13. Used by Granary so far (Phase 4)
+
+`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (9 operations, 18 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
+
+| Operation | Rust (`SiloApi`) | Auth |
+| --- | --- | --- |
+| `getSystemInfo` | `system_info` | none |
+| `getServerIdentity` | `server_identity` | none |
+| `login` | `login` | none |
+| `refreshSession` | `refresh` | none |
+| `logout` | `logout` | bearer |
+| `getCurrentUser` | `current_user` | bearer |
+| `listProfiles` | `profiles` | bearer |
+| `verifyProfilePIN` | `verify_pin` | bearer |
+| `listUserLibraries` | `libraries` | bearer + profile headers |
+
+Facts confirmed while implementing (all `@6791aac`):
+
+- **Login failure** is `401` with problem id `invalid_token`, not a dedicated "invalid credentials" id (`internal/api/apiv2/auth.go` L240-247). Granary maps a 401 on `login` to `ApiError::InvalidCredentials`.
+- **Refresh rejection** is `401` with `invalid_token` or `session_expired`; `503 dependency_unavailable` carries `Retry-After` and keeps the tokens. Granary treats a 401 or 403 from `refresh` as "signed out" (credential deleted, `auth://revoked` event) and anything else as transient.
+- **Profile gate**: `403` with problem id `profile_verification_required` (section 3).
+- **Problem `type`** is `https://siloserver.org/docs/api/v2/problems/<id>`; Granary takes the last path segment as the id and never parses `detail`.
+- **`X-Silo-Client-Family`** must be one of `tv|mobile|tablet|desktop|web` (OAS enum); Granary sends `desktop`.
+- **`SystemInfo.request_origin`**: the origin the server believes it was reached at. Granary shows a warning when it differs from the entered origin; it is never used for routing.
+- **`contract_digest`** of this SHA is `6a439ae59ca9e14e1c0edea0af872fc076fde5ddec60a2e978ee2dd74a9fb8b9`, the SHA-256 of the committed `openapi.json` (LF). Granary uses it for diagnostics only; a different digest marks the server "untested" in the UI, it never blocks.
+- `Profile` also carries `subtitle_mode` and `updated_at` (OAS:L46528). Granary deserializes only the fields it needs and ignores unknown ones.
+
+*Granary note:* headers actually sent on every request: `X-Silo-Device-Id` (UUID v4 from `%APPDATA%\Granary\device.json`), `X-Silo-Device-Name` (computer name, ≤120 chars), `X-Silo-Device-Platform: windows`, `X-Silo-Client: Granary for Windows`, `X-Silo-Client-Version`, `X-Silo-Client-Family: desktop`. Bearer and profile headers go only on secured operations, and redirects are never followed (a 3xx is an error), so credentials cannot leak to another origin.
+
 ---
 
 ## Endpoint table

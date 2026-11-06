@@ -2,7 +2,19 @@
 //! `cargo run`, and generate the least-privilege app-command permissions.
 use std::path::{Path, PathBuf};
 
-const COMMANDS: &[&str] = &["app_info"];
+const COMMANDS: &[&str] = &[
+    "app_info",
+    "servers_list",
+    "servers_probe",
+    "servers_add",
+    "servers_remove",
+    "servers_activate",
+    "auth_login",
+    "auth_logout",
+    "profiles_list",
+    "profiles_select",
+    "libraries_list",
+];
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default());

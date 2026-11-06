@@ -1,0 +1,1516 @@
+{
+  "source": "silo-server contracts/api/v2/openapi.json@6791aac867664c41c55ee82909fe063d145911a6 (AGPL-3.0-or-later; subset extracted by scripts/extract-oas-subset.mjs)",
+  "operations": {
+    "getCurrentUser": {
+      "method": "GET",
+      "path": "/api/v2/account/me",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "login": {
+      "method": "POST",
+      "path": "/api/v2/auth/login",
+      "security": null,
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Name",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Platform",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "$ref": "#/components/schemas/LoginInputBody"
+      },
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/TokenPair"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "logout": {
+      "method": "POST",
+      "path": "/api/v2/auth/logout",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [],
+      "requestBody": null,
+      "responses": {
+        "204": null,
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "refreshSession": {
+      "method": "POST",
+      "path": "/api/v2/auth/refresh",
+      "security": null,
+      "params": [],
+      "requestBody": {
+        "$ref": "#/components/schemas/RefreshSessionInputBody"
+      },
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/RefreshedTokens"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "listProfiles": {
+      "method": "GET",
+      "path": "/api/v2/profiles",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileCollection"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "verifyProfilePIN": {
+      "method": "POST",
+      "path": "/api/v2/profiles/{id}/verify-pin",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "id",
+          "required": true
+        }
+      ],
+      "requestBody": {
+        "$ref": "#/components/schemas/ProfilePINCheck"
+      },
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileVerification"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getServerIdentity": {
+      "method": "GET",
+      "path": "/api/v2/system/identity",
+      "security": null,
+      "params": [],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/ServerIdentity"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getSystemInfo": {
+      "method": "GET",
+      "path": "/api/v2/system/info",
+      "security": null,
+      "params": [],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/SystemInfo"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "listUserLibraries": {
+      "method": "GET",
+      "path": "/api/v2/user/libraries",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "include_hidden",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/CollectionUserLibrary"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    }
+  },
+  "schemas": {
+    "Account": {
+      "additionalProperties": false,
+      "properties": {
+        "download_allowed": {
+          "description": "Whether the effective policy permits downloads",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "email": {
+          "description": "Contact email; empty when none is set",
+          "examples": [
+            "alice@example.test"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "Account identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "impersonation": {
+          "$ref": "#/components/schemas/Impersonation",
+          "description": "Present only while an administrator impersonates this account"
+        },
+        "password_change_required": {
+          "description": "Whether the account holds a temporary password. Until changePassword replaces it, the session may only read the account, change the password, and log out; other operations return 403 password_change_required. Refresh the tokens after the change to lift the restriction",
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "permissions": {
+          "description": "Assignable permissions the account holds after its access group's mask; empty for a disabled account. An admin lists only explicitly assigned permissions: its role grants every permission only while it acts as administrator (on the primary profile, or with no profile on a household that does not require one), and clients apply that grant from role and profile",
+          "examples": [
+            [
+              "marker_edit"
+            ]
+          ],
+          "items": {
+            "description": "Assignable permission name",
+            "examples": [
+              "marker_edit"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "role": {
+          "description": "Server-wide role",
+          "enum": [
+            "admin",
+            "user"
+          ],
+          "examples": [
+            "user"
+          ],
+          "type": "string"
+        },
+        "username": {
+          "description": "Login name",
+          "examples": [
+            "alice"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "role",
+        "permissions",
+        "download_allowed",
+        "password_change_required"
+      ],
+      "type": "object"
+    },
+    "CollectionUserLibrary": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "description": "The page's items; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/UserLibrary"
+          },
+          "type": "array"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo",
+          "description": "Cursor state; absent for bounded unpaginated collections"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
+    "Impersonation": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "description": "Always true when the object is present",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "impersonator_user_id": {
+          "description": "The administrator account acting as this account",
+          "examples": [
+            "7"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "impersonator_username": {
+          "description": "The administrator's username; empty when the account no longer exists",
+          "examples": [
+            "alice"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "active",
+        "impersonator_user_id",
+        "impersonator_username"
+      ],
+      "type": "object"
+    },
+    "LoginInputBody": {
+      "additionalProperties": false,
+      "properties": {
+        "password": {
+          "description": "Account password",
+          "examples": [
+            "correct horse battery staple"
+          ],
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider": {
+          "description": "Authentication provider id exactly as listAuthProviders advertises it; unbounded because plugin ids are composite. Empty routes by account: a name that may use its local password signs in locally, any other name goes to the enabled directory (LDAP) provider",
+          "examples": [
+            ""
+          ],
+          "type": "string"
+        },
+        "username": {
+          "description": "Login name or, for providers that accept it, email",
+          "examples": [
+            "alice"
+          ],
+          "maxLength": 254,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ],
+      "type": "object"
+    },
+    "PageInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "has_more": {
+          "description": "Whether a next page exists",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "description": "Opaque cursor for the next page; absent on the last page",
+          "examples": [
+            "eyJvZmZzZXQiOjUwfQ"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "has_more"
+      ],
+      "type": "object"
+    },
+    "Problem": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "description": "Safe occurrence-specific explanation; not for control flow",
+          "examples": [
+            "The request did not pass validation; see errors."
+          ],
+          "type": "string"
+        },
+        "errors": {
+          "description": "Field-level validation details",
+          "items": {
+            "$ref": "#/components/schemas/ProblemError"
+          },
+          "type": "array"
+        },
+        "instance": {
+          "description": "urn:silo:request:<request-id>, matching the X-Request-ID response header",
+          "examples": [
+            "urn:silo:request:000000000000000000000003"
+          ],
+          "format": "uri",
+          "type": "string"
+        },
+        "status": {
+          "description": "HTTP status code, equal to the response status",
+          "examples": [
+            422
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "description": "Short summary fixed for the problem type",
+          "examples": [
+            "Validation failed"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "description": "Stable problem type URI; the final segment is the problem identifier",
+          "examples": [
+            "https://siloserver.org/docs/api/v2/problems/validation_failed"
+          ],
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "title",
+        "status",
+        "detail",
+        "instance"
+      ],
+      "type": "object"
+    },
+    "ProblemError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "description": "Stable machine-readable code for the failure",
+          "examples": [
+            "required"
+          ],
+          "type": "string"
+        },
+        "detail": {
+          "description": "Safe human-readable explanation; never the rejected value",
+          "examples": [
+            "expected required property name to be present"
+          ],
+          "type": "string"
+        },
+        "location": {
+          "description": "Where the error occurred: body.*, query.*, path.* or header.*",
+          "examples": [
+            "body.name"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "location",
+        "code",
+        "detail"
+      ],
+      "type": "object"
+    },
+    "Profile": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_library_ids": {
+          "description": "Libraries the profile may see when restrictions are enabled",
+          "examples": [
+            [
+              "1",
+              "2"
+            ]
+          ],
+          "items": {
+            "description": "Opaque identifier",
+            "examples": [
+              "1"
+            ],
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "auto_play_next_preview": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "auto_skip_credits": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "auto_skip_intro": {
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "auto_skip_recap": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "avatar": {
+          "description": "Avatar reference; empty when none",
+          "examples": [
+            "preset:fox"
+          ],
+          "type": "string"
+        },
+        "avatar_source": {
+          "enum": [
+            "none",
+            "preset",
+            "upload"
+          ],
+          "examples": [
+            "preset"
+          ],
+          "type": "string"
+        },
+        "avatar_url": {
+          "description": "Where to fetch the avatar; absent when there is none to fetch",
+          "examples": [
+            "/avatars/presets/fox.png"
+          ],
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "created_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "examples": [
+            "2026-01-02T03:04:05.000Z"
+          ],
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "has_pin": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "is_child": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "is_primary": {
+          "description": "The household parent (not the server admin role)",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "language": {
+          "description": "Preferred audio language: BCP 47 tag, ISO 639-1 where one exists (en, pt-BR), or x-silo-original for each item's original language; empty inherits",
+          "examples": [
+            "en"
+          ],
+          "pattern": "^(?:[a-z]{2,3}(?:-[0-9A-Za-z]{1,8})*|x(?:-[0-9A-Za-z]{1,8})+)?$",
+          "type": "string"
+        },
+        "library_restrictions_enabled": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "max_advisory_age": {
+          "description": "Advisory-age limit: titles whose advisory age (for example Common Sense Media's 13+) is above it are hidden from the profile. Titles with no advisory age are limited by max_content_rating alone unless require_advisory_age is set; null means no limit",
+          "examples": [
+            12
+          ],
+          "format": "int64",
+          "maximum": 21,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_content_rating": {
+          "description": "Content-rating ceiling; empty means none",
+          "examples": [
+            "PG-13"
+          ],
+          "type": "string"
+        },
+        "max_playback_quality": {
+          "description": "Playback ceiling. Canonical values: 1080p, 2160p; empty means none. Older profiles may carry other stored values",
+          "examples": [
+            "1080p"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "examples": [
+            "Alice"
+          ],
+          "type": "string"
+        },
+        "preferred_metadata_language": {
+          "description": "Metadata language: BCP 47 tag (en, pt-BR), or x-silo-original for each item's original language; empty inherits the library's",
+          "examples": [
+            "en"
+          ],
+          "pattern": "^(?:[a-z]{2,3}(?:-[0-9A-Za-z]{1,8})*|x(?:-[0-9A-Za-z]{1,8})+)?$",
+          "type": "string"
+        },
+        "quality_preference": {
+          "description": "Free-form until the vocabulary is ratified (#135). Canonical values today: auto, 720p, 1080p, 2160p, 4k; original is a deprecated alias of auto; empty when unset",
+          "examples": [
+            "auto"
+          ],
+          "type": "string"
+        },
+        "require_advisory_age": {
+          "description": "Hide titles with no advisory age as well, so the profile sees only titles an advisory service rated at or under max_advisory_age. Advisory ages are looked up over time, so on a large library a profile with this set starts with few titles. No effect without max_advisory_age",
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "show_forced_subtitles": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "subtitle_language": {
+          "description": "Preferred subtitle language: BCP 47 tag, ISO 639-1 where one exists (en, pt-BR); empty inherits",
+          "examples": [
+            "en"
+          ],
+          "pattern": "^(?:[a-z]{2,3}(?:-[0-9A-Za-z]{1,8})*|x(?:-[0-9A-Za-z]{1,8})+)?$",
+          "type": "string"
+        },
+        "subtitle_mode": {
+          "description": "Free-form until the vocabulary is ratified (#135). Canonical values today: auto, always, off, default, forced_only; empty when unset",
+          "examples": [
+            "auto"
+          ],
+          "type": "string"
+        },
+        "updated_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "examples": [
+            "2026-01-02T03:04:05.000Z"
+          ],
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "has_pin",
+        "is_child",
+        "is_primary",
+        "max_content_rating",
+        "max_advisory_age",
+        "require_advisory_age",
+        "quality_preference",
+        "language",
+        "preferred_metadata_language",
+        "subtitle_language",
+        "subtitle_mode",
+        "auto_skip_intro",
+        "auto_skip_credits",
+        "auto_skip_recap",
+        "auto_play_next_preview",
+        "show_forced_subtitles",
+        "library_restrictions_enabled",
+        "allowed_library_ids",
+        "max_playback_quality",
+        "created_at",
+        "updated_at",
+        "avatar",
+        "avatar_source"
+      ],
+      "type": "object"
+    },
+    "ProfileCollection": {
+      "additionalProperties": false,
+      "properties": {
+        "avatar_upload_enabled": {
+          "description": "Whether this server accepts avatar uploads (an avatar store is configured)",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "items": {
+          "description": "The page's items; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "type": "array"
+        },
+        "max_advisory_age_supported": {
+          "description": "Whether profiles accept max_advisory_age and the server enforces it",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo",
+          "description": "Cursor state; absent for bounded unpaginated collections"
+        },
+        "require_advisory_age_supported": {
+          "description": "Whether profiles accept require_advisory_age and the server enforces it",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "avatar_upload_enabled",
+        "max_advisory_age_supported",
+        "require_advisory_age_supported",
+        "items"
+      ],
+      "type": "object"
+    },
+    "ProfilePINCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "pin": {
+          "description": "The PIN to check",
+          "examples": [
+            "1234"
+          ],
+          "maxLength": 72,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "pin"
+      ],
+      "type": "object"
+    },
+    "ProfileVerification": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "description": "When the token stops being accepted; null when no token was issued or it does not expire",
+          "examples": [
+            "2026-01-02T15:04:05.000Z"
+          ],
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile_token": {
+          "description": "Send as X-Profile-Token with X-Profile-Id to act as the unlocked profile; bound to this login session and the profile's current PIN, so it stops being accepted when the session ends or the profile's PIN changes. Absent when the PIN did not match",
+          "examples": [
+            "pvt_5f3a9c1e7b2d4e8fa0c6"
+          ],
+          "type": "string"
+        },
+        "valid": {
+          "description": "Whether the PIN matched",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "valid",
+        "expires_at"
+      ],
+      "type": "object"
+    },
+    "RefreshSessionInputBody": {
+      "additionalProperties": false,
+      "properties": {
+        "refresh_token": {
+          "description": "The refresh token of the session to extend",
+          "examples": [
+            "eyJhbGciOi..."
+          ],
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "refresh_token"
+      ],
+      "type": "object"
+    },
+    "RefreshedTokens": {
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "description": "Bearer access token",
+          "examples": [
+            "eyJhbGciOi..."
+          ],
+          "type": "string"
+        },
+        "expires_in": {
+          "description": "Access token lifetime in seconds",
+          "examples": [
+            3600
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "refresh_token": {
+          "description": "Refresh token for the next refreshSession",
+          "examples": [
+            "eyJhbGciOi..."
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "access_token",
+        "refresh_token",
+        "expires_in"
+      ],
+      "type": "object"
+    },
+    "ServerIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "server_id": {
+          "description": "Stable identity of this deployment, the same at every address and on every API process; minted once and kept across restarts, hostname changes and database restores. Public and self-asserted: never authorize on it alone.",
+          "examples": [
+            "3f2a9d5e-6b1c-4c7e-9a0d-2f4b8c1e7a35"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "server_id"
+      ],
+      "type": "object"
+    },
+    "SystemInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "api_major": {
+          "description": "The native API major this server serves at this path",
+          "examples": [
+            2
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "contract_digest": {
+          "description": "SHA-256 (hex) of the exact committed OpenAPI artifact served at links.openapi. Diagnostic and cache-identity only: never feature-detect on it.",
+          "examples": [
+            "3b8f0c2d9e1a4f6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+          ],
+          "type": "string"
+        },
+        "links": {
+          "$ref": "#/components/schemas/SystemInfoLinks",
+          "description": "Stable links to the contract and to capability documents"
+        },
+        "request_origin": {
+          "description": "The origin this request reached, scheme://host[:port]: scheme and host in lower case, the scheme's default port omitted, IPv6 hosts in brackets, no path or trailing slash. It is the transport scheme and Host header, replaced by X-Forwarded-Proto and X-Forwarded-Host only when the request came from a configured trusted proxy, derived the same way as the OAuth iss. A client compares it with its configured server origin before sending credentials, to detect a redirect or a proxy that delivered the request elsewhere. Always present on servers that serve it; absent on older servers.",
+          "examples": [
+            "https://silo.example.com"
+          ],
+          "type": "string"
+        },
+        "server_version": {
+          "description": "Server build identity (short revision, +dirty when built from a modified tree, or \"unavailable\"). Diagnostic only: never feature-detect on it.",
+          "examples": [
+            "1.0.0-dev"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "server_version",
+        "api_major",
+        "contract_digest",
+        "links"
+      ],
+      "type": "object"
+    },
+    "SystemInfoLinks": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "description": "Path prefix of the per-domain capability documents",
+          "examples": [
+            "/api/v2/capabilities"
+          ],
+          "type": "string"
+        },
+        "identity": {
+          "description": "Path of the public server identity document (getServerIdentity)",
+          "examples": [
+            "/api/v2/system/identity"
+          ],
+          "type": "string"
+        },
+        "openapi": {
+          "description": "Path of the committed OpenAPI artifact",
+          "examples": [
+            "/api/v2/openapi.json"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "openapi",
+        "capabilities",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "TokenPair": {
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "description": "Bearer access token",
+          "examples": [
+            "eyJhbGciOi..."
+          ],
+          "type": "string"
+        },
+        "expires_in": {
+          "description": "Access token lifetime in seconds",
+          "examples": [
+            3600
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "refresh_token": {
+          "description": "Refresh token for POST /auth/refresh",
+          "examples": [
+            "eyJhbGciOi..."
+          ],
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/components/schemas/Account",
+          "description": "The account the tokens authenticate"
+        }
+      },
+      "required": [
+        "access_token",
+        "refresh_token",
+        "expires_in",
+        "user"
+      ],
+      "type": "object"
+    },
+    "UserLibrary": {
+      "additionalProperties": false,
+      "properties": {
+        "box_sets_enabled": {
+          "description": "The library gathers movies of one TMDB collection into a box set, which movie pages and, when box_sets_in_search is true, search show; browsing lists each movie",
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "poster_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "sort_order": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "sort_order",
+        "box_sets_enabled"
+      ],
+      "type": "object"
+    }
+  }
+}

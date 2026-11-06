@@ -1,0 +1,6 @@
+{
+  "items": [
+    { "id": "1", "name": "Movies", "type": "movies", "sort_order": 0, "box_sets_enabled": true, "poster_url": "/api/v2/artwork/library/1?sig=fixture" },
+    { "id": "2", "name": "Shows", "type": "series", "sort_order": 1, "box_sets_enabled": false }
+  ]
+}

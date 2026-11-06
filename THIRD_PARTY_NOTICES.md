@@ -35,7 +35,9 @@ pin bump (ADR-0005) and every change of bundled components.
 Rust crates (see `Cargo.lock` for exact versions; licences MIT and/or Apache-2.0 unless noted):
 Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-window-state`), `windows`
 (Microsoft), `libmpv2-sys` (LGPL-2.1), `serde`, `serde_json`, `thiserror`, `tracing`, `tracing-subscriber`,
-`tracing-appender`, `tokio`.
+`tracing-appender`, `tokio`, `reqwest` (with `rustls`, `rustls-platform-verifier`, `aws-lc-rs`: Apache-2.0 / ISC / MIT;
+`aws-lc-sys` also OpenSSL-style licences), `keyring-core` and `windows-native-keyring-store`, `url`, `uuid`,
+`async-trait`. Test-only (not shipped): `wiremock`, `rcgen`, `tokio-rustls`.
 
 JavaScript packages (see `pnpm-lock.yaml`; MIT unless noted): React, React DOM, React Router, i18next,
 react-i18next, `@tauri-apps/api` (MIT/Apache-2.0), Tailwind CSS.
@@ -46,3 +48,9 @@ time (Phase 9).
 ## Microsoft Edge WebView2
 
 The WebView2 runtime is part of Windows 11 and is not redistributed by Granary.
+
+## Silo API contract excerpt (tests only, not shipped)
+
+`crates/silo-api/tests/fixtures/openapi-subset.json` is an excerpt (9 operations, 18 schemas) of
+`silo-server/contracts/api/v2/openapi.json` at commit 6791aac, Copyright (c) Silo contributors, AGPL-3.0-or-later,
+https://github.com/Silo-Server/silo-server. The other fixtures next to it are hand-written, sanitized examples.
