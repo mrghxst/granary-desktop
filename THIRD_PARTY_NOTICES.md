@@ -40,7 +40,7 @@ Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-w
 `async-trait`. Test-only (not shipped): `wiremock`, `rcgen`, `tokio-rustls`.
 
 JavaScript packages (see `pnpm-lock.yaml`; MIT unless noted): React, React DOM, React Router, i18next,
-react-i18next, `@tauri-apps/api` (MIT/Apache-2.0), Tailwind CSS.
+react-i18next, `@tauri-apps/api` (MIT/Apache-2.0), Tailwind CSS, lucide-react (icons, ISC).
 
 Full licence texts of all bundled Rust and JavaScript dependencies are generated into the installer at packaging
 time (Phase 9).

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Alert, Button, Card } from "../components/ui";
 import { errorMessage } from "../lib/errors";
 import { appInfo, type AppInfo } from "../lib/host";
@@ -8,7 +8,7 @@ import { silo, type ServerView } from "../lib/silo";
 
 function serverPath(s: ServerView): string {
   const base = `/servers/${encodeURIComponent(s.serverId)}`;
-  return s.account ? `${base}/profiles` : `${base}/login`;
+  return s.account ? `${base}/home` : `${base}/login`;
 }
 
 export function Home() {
@@ -102,6 +102,12 @@ export function Home() {
         )}
         {error ? <Alert>{error}</Alert> : null}
       </Card>
+      <Link
+        to="/settings"
+        className="text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {t("shell.settings")}
+      </Link>
       <footer className="text-sm text-muted-foreground" data-testid="status">
         {info === null
           ? t("status.loading")

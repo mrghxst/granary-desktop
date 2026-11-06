@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-series-seasons"
+description = "Enables the series_seasons command without any pre-configured scope."
+commands.allow = ["series_seasons"]
+
+[[permission]]
+identifier = "deny-series-seasons"
+description = "Denies the series_seasons command without any pre-configured scope."
+commands.deny = ["series_seasons"]

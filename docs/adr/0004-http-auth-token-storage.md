@@ -77,3 +77,15 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 - Profile headers (`X-Profile-Id`, `X-Profile-Token`) are sent only on profile-scoped operations; account-level ones
   (profile list, PIN verification, current user, logout) carry only the bearer token.
 - Signing in on a server that already has an account first ends the previous session.
+
+### Amendment 3 (Phase 5, 2026-11-06): artwork
+- The WebView never loads images from a server directly. Artwork references from catalog responses are rendered as
+  `http://granary-img.localhost/<serverId>?u=<reference>` (Tauri asynchronous URI scheme `granary-img`). The host
+  resolves the reference against the saved server origin, accepts only same-origin URLs or `https` URLs without
+  user-info, fetches them **without** bearer, profile or device headers (artwork links are presigned with
+  `exp`/`sig`), requires an `image/*` content type, caps the body at 16 MiB and answers with `nosniff`.
+- The CSP `img-src` is therefore narrowed from `https: http:` to `'self' data: blob: http://granary-img.localhost
+  granary-img:` (phase-3 review L3).
+- Phase 5 E2E: `tauri-driver` on Windows needs a separately downloaded `msedgedriver` matching WebView2, which is
+  outside the downloads approved for this project; Gate 5 uses the vitest UI flow (fake host) plus a host-side Rust
+  integration test (`catalog::tests::login_browse_details_play_handoff`), as prompt.md allows.

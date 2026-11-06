@@ -21,6 +21,14 @@ const OPERATIONS = [
   "listProfiles",
   "verifyProfilePIN",
   "listUserLibraries",
+  // Phase 5: browse, details, play hand-off
+  "listHomeSections",
+  "listCatalogItems",
+  "getCatalogItem",
+  "listSeriesSeasons",
+  "listSeasonEpisodes",
+  "getWatchState",
+  "getArtwork",
 ];
 
 const oas = JSON.parse(readFileSync(src, "utf8"));

@@ -59,6 +59,12 @@ pub enum ApiError {
     UnknownServer(String),
     #[error("profile PIN required")]
     ProfileVerificationRequired,
+    /// A profile-scoped request (catalog, watch state) without a selected profile.
+    #[error("no profile selected")]
+    ProfileRequired,
+    /// An artwork reference that is not an image URL Granary may load.
+    #[error("artwork URL rejected: {0}")]
+    BadArtworkUrl(String),
     #[error("wrong PIN")]
     WrongPin,
     #[error("response could not be decoded: {0}")]
@@ -120,6 +126,8 @@ impl ApiError {
             Self::NotSignedIn => "not_signed_in",
             Self::UnknownServer(_) => "unknown_server",
             Self::ProfileVerificationRequired => "profile_verification_required",
+            Self::ProfileRequired => "profile_required",
+            Self::BadArtworkUrl(_) => "bad_artwork_url",
             Self::WrongPin => "wrong_pin",
             Self::Decode(_) => "decode",
             Self::Credentials(_) => "credentials",

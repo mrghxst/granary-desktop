@@ -5,6 +5,7 @@
 //! - a refresh rejected with 401/403 means the session is revoked: forget the credential, report [`ApiError::SignedOut`];
 //! - a refresh that fails for any other reason (503 + `Retry-After`, network) keeps the tokens.
 use crate::api::{Auth, ProfileAuth, SiloApi};
+use crate::catalog::*;
 use crate::credentials::{CredentialStore, account_key};
 use crate::error::{ApiError, Result};
 use crate::models::{Account, Profile, UserLibrary};
@@ -308,6 +309,52 @@ impl Session {
         self.call(|auth| async move { self.api.list_user_libraries(&self.origin, &auth).await })
             .await
     }
+
+    /// Profile-scoped catalog request: `X-Profile-Id` is required by these operations (OAS @6791aac), so a missing
+    /// profile is reported before any request is sent.
+    async fn call_profile<T, F, Fut>(&self, f: F) -> Result<T>
+    where
+        F: Fn(Auth) -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        if self.profile().is_none() {
+            return Err(ApiError::ProfileRequired);
+        }
+        self.call(f).await
+    }
+
+    pub async fn home_sections(&self) -> Result<Vec<Section>> {
+        self.call_profile(|auth| async move { self.api.home_sections(&self.origin, &auth).await })
+            .await
+            .map(|c| c.sections)
+    }
+
+    pub async fn catalog_browse(&self, query: &CatalogQuery) -> Result<CatalogBrowseCollection> {
+        self.call_profile(|auth| async move { self.api.catalog_browse(&self.origin, &auth, query).await })
+            .await
+    }
+
+    pub async fn catalog_item(&self, id: &str) -> Result<CatalogItemDetail> {
+        self.call_profile(|auth| async move { self.api.catalog_item(&self.origin, &auth, id).await })
+            .await
+    }
+
+    pub async fn series_seasons(&self, series_id: &str) -> Result<Vec<Season>> {
+        self.call_profile(|auth| async move { self.api.series_seasons(&self.origin, &auth, series_id).await })
+            .await
+            .map(|c| c.items)
+    }
+
+    pub async fn season_episodes(&self, series_id: &str, season: i64) -> Result<Vec<Episode>> {
+        self.call_profile(|auth| async move { self.api.season_episodes(&self.origin, &auth, series_id, season).await })
+            .await
+            .map(|c| c.items)
+    }
+
+    pub async fn watch_state(&self, id: &str) -> Result<WatchDetail> {
+        self.call_profile(|auth| async move { self.api.watch_state(&self.origin, &auth, id).await })
+            .await
+    }
 }
 
 #[cfg(test)]
@@ -469,6 +516,48 @@ mod tests {
         assert!(s.profile().is_none(), "stale profile token dropped");
         assert!(s.select_profile("2", Some(&Secret::new("1234"))).await.is_ok());
         assert_eq!(s.libraries().await.map(|l| l.len()).ok(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn catalog_needs_a_profile_and_respects_restrictions() {
+        let (_, _, s) = signed_in().await;
+        assert!(matches!(s.home_sections().await, Err(ApiError::ProfileRequired)));
+        s.set_profile(Some(ProfileAuth {
+            id: "1".into(),
+            token: None,
+        }));
+        let sections = s.home_sections().await.unwrap_or_default();
+        assert!(sections.iter().any(|x| x.featured && !x.items.is_empty()));
+        let all = s.catalog_browse(&CatalogQuery::default()).await.map(|c| c.total).ok();
+        let movies = s
+            .catalog_browse(&CatalogQuery {
+                library_id: Some("1".into()),
+                ..CatalogQuery::default()
+            })
+            .await
+            .map(|c| c.items.len())
+            .ok();
+        assert_eq!((all, movies), (Some(4), Some(3)));
+        let found = s
+            .catalog_browse(&CatalogQuery {
+                q: Some("harbor".into()),
+                ..CatalogQuery::default()
+            })
+            .await
+            .map(|c| c.items.into_iter().map(|i| i.content_id).collect::<Vec<_>>())
+            .unwrap_or_default();
+        assert_eq!(found, ["m2"]);
+        let detail = s.catalog_item("s1").await.ok();
+        assert_eq!(detail.map(|d| d.kind), Some("series".to_owned()));
+        let seasons = s.series_seasons("s1").await.unwrap_or_default();
+        assert_eq!(seasons.len(), 1);
+        assert_eq!(s.season_episodes("s1", 1).await.map(|e| e.len()).ok(), Some(3));
+        let watch = s.watch_state("m1").await.ok();
+        assert_eq!(watch.map(|w| w.versions.len()), Some(2));
+        assert!(matches!(
+            s.catalog_item("nope").await,
+            Err(ApiError::Http { status: 404, .. })
+        ));
     }
 
     #[tokio::test]

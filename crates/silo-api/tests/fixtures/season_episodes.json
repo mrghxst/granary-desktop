@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "content_id": "e1",
+      "season_number": 1,
+      "episode_number": 1,
+      "title": "Episode 1",
+      "runtime": 48,
+      "still_url": "/api/v2/artwork/still-e1?exp=4102444800&sig=fixture"
+    },
+    {
+      "content_id": "e2",
+      "season_number": 1,
+      "episode_number": 2,
+      "title": "Episode 2",
+      "runtime": 48,
+      "still_url": "/api/v2/artwork/still-e2?exp=4102444800&sig=fixture"
+    },
+    {
+      "content_id": "e3",
+      "season_number": 1,
+      "episode_number": 3,
+      "title": "Episode 3",
+      "runtime": 48,
+      "still_url": "/api/v2/artwork/still-e3?exp=4102444800&sig=fixture"
+    }
+  ]
+}

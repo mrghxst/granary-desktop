@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-catalog-browse"
+description = "Enables the catalog_browse command without any pre-configured scope."
+commands.allow = ["catalog_browse"]
+
+[[permission]]
+identifier = "deny-catalog-browse"
+description = "Denies the catalog_browse command without any pre-configured scope."
+commands.deny = ["catalog_browse"]

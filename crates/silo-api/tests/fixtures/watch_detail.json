@@ -1,0 +1,40 @@
+{
+  "content_id": "m1",
+  "type": "movie",
+  "title": "Northern Lights",
+  "versions": [
+    {
+      "file_id": "m1-f1",
+      "resolution": "x",
+      "codec_video": "x",
+      "codec_audio": "x",
+      "hdr": false,
+      "container": "x",
+      "file_size": 0,
+      "duration_seconds": 7080,
+      "bitrate": 0,
+      "added_at": "2026-01-01T00:00:00Z",
+      "marker_segments": [],
+      "trickplay_available": false,
+      "audio_tracks": [
+        {
+          "default": true,
+          "language": "eng",
+          "codec": "eac3"
+        }
+      ],
+      "subtitle_tracks": [
+        {
+          "forced": true,
+          "default": false,
+          "hearing_impaired": false,
+          "external": false,
+          "index": 3,
+          "language": "deu"
+        }
+      ]
+    }
+  ],
+  "subtitles": [],
+  "effective_subtitle_mode": "forced_only"
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-home-sections"
+description = "Enables the home_sections command without any pre-configured scope."
+commands.allow = ["home_sections"]
+
+[[permission]]
+identifier = "deny-home-sections"
+description = "Denies the home_sections command without any pre-configured scope."
+commands.deny = ["home_sections"]

@@ -13,8 +13,69 @@ const host = vi.hoisted(() => {
     calls: [] as { cmd: string; args?: Record<string, unknown> | undefined }[],
     revokedHandler: null as ((e: { payload: { serverId: string } }) => void) | null,
     revokeNext: false,
+    profileSelected: false,
   };
   return state;
+});
+
+/* Catalog data shaped like the OAS schemas (snake_case), mirroring the Rust mock's demo catalog. */
+const catalogData = vi.hoisted(() => {
+  const movie = {
+    content_id: "m1",
+    title: "Northern Lights",
+    type: "movie",
+    year: 2023,
+    runtime: 118,
+    duration_seconds: 7080,
+    genres: ["Drama"],
+    poster_url: "/api/v2/artwork/poster-m1?exp=1&sig=a",
+    backdrop_url: "/api/v2/artwork/backdrop-m1?exp=1&sig=a",
+    position_seconds: 1520,
+  };
+  const version = {
+    file_id: "m1-f1",
+    container: "mkv",
+    codec_video: "hevc",
+    codec_audio: "eac3",
+    resolution: "2160p",
+    hdr: true,
+    duration_seconds: 7080,
+    file_size: 0,
+    audio_tracks: [
+      { codec: "eac3", channels: 6, language: "eng", default: true },
+      { codec: "ac3", channels: 6, language: "deu", default: false },
+    ],
+    subtitle_tracks: [
+      {
+        index: 2,
+        codec: "subrip",
+        language: "eng",
+        forced: false,
+        hearing_impaired: false,
+        default: false,
+        external: false,
+      },
+      {
+        index: 3,
+        codec: "subrip",
+        language: "deu",
+        forced: true,
+        hearing_impaired: false,
+        default: true,
+        external: false,
+      },
+    ],
+  };
+  const userData = {
+    played: false,
+    position_seconds: 1520,
+    duration_seconds: 7080,
+    is_in_progress: true,
+    watched_count: 0,
+    unplayed_count: 0,
+    in_progress_count: 1,
+  };
+  return { movie, version, userData };
 });
 
 const SERVER_ID = "srv-1";
@@ -66,7 +127,54 @@ vi.mock("@tauri-apps/api/core", () => ({
         return host.signedIn ? Promise.resolve(profiles) : Promise.reject(fail("not_signed_in"));
       case "profiles_select":
         if (args?.profileId === "p-kids" && args.pin !== "1234") return Promise.reject(fail("wrong_pin"));
+        host.profileSelected = true;
         return Promise.resolve(null);
+      case "home_sections":
+        if (!host.profileSelected) return Promise.reject(fail("profile_required"));
+        return Promise.resolve([
+          {
+            id: "featured",
+            title: "Featured",
+            section_type: "featured",
+            featured: true,
+            items: [catalogData.movie],
+            total_count: 1,
+          },
+          {
+            id: "recent",
+            title: "Recently added",
+            section_type: "recently_added",
+            featured: false,
+            items: [catalogData.movie],
+            total_count: 1,
+          },
+        ]);
+      case "catalog_browse":
+        return Promise.resolve({ items: [catalogData.movie], page: { has_more: false }, total: 1, total_exact: true });
+      case "catalog_item":
+        return Promise.resolve({
+          ...catalogData.movie,
+          genres: ["Drama"],
+          studios: [],
+          ratings: [],
+          cast: [{ name: "Ada Brook", character: "Lead", order: 0 }],
+          crew: [],
+          versions: [catalogData.version],
+          user_data: catalogData.userData,
+        });
+      case "watch_state":
+        return Promise.resolve({
+          content_id: "m1",
+          title: "Northern Lights",
+          type: "movie",
+          versions: [catalogData.version],
+          user_data: catalogData.userData,
+          effective_subtitle_mode: "default",
+        });
+      case "player_play":
+        return Promise.resolve(null);
+      case "settings_get":
+        return Promise.reject(fail("internal"));
       case "libraries_list":
         if (host.revokeNext) {
           host.signedIn = false;
@@ -106,6 +214,7 @@ beforeEach(async () => {
   host.signedIn = false;
   host.calls = [];
   host.revokeNext = false;
+  host.profileSelected = false;
 });
 
 describe("connect flow", () => {
@@ -143,9 +252,10 @@ describe("connect flow", () => {
     fireEvent.change(screen.getByLabelText("PIN for Kids"), { target: { value: "1234" } });
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
 
-    expect(await screen.findByRole("heading", { name: "Libraries" })).toBeTruthy();
-    expect(await screen.findByText("Movies")).toBeTruthy();
-    expect(screen.getByText("Shows")).toBeTruthy();
+    // Server home inside the shell: featured hero, rows, libraries in the sidebar.
+    expect(await screen.findByRole("heading", { name: "Northern Lights", level: 1 })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Movies" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Shows" })).toBeTruthy();
 
     // The password never travels anywhere but the auth_login command.
     const withPassword = host.calls.filter((c) => JSON.stringify(c.args ?? {}).includes('"pw"'));
@@ -167,7 +277,8 @@ describe("connect flow", () => {
     ];
     host.signedIn = true;
     host.revokeNext = true;
-    renderAt(`/servers/${SERVER_ID}/libraries`);
+    host.profileSelected = true;
+    renderAt(`/servers/${SERVER_ID}/home`);
     await waitFor(() => {
       expect(host.revokedHandler).not.toBeNull();
     });
@@ -192,5 +303,67 @@ describe("connect flow", () => {
     expect(screen.getByText(/Signed in as alice/)).toBeTruthy();
     expect(screen.getByText(/Unencrypted/)).toBeTruthy();
     expect(screen.getByTestId("status").textContent).toContain("libmpv ready");
+  });
+
+  it("browses a library, opens details and hands the chosen file to the native player", async () => {
+    host.servers = [
+      {
+        serverId: SERVER_ID,
+        origin: ORIGIN,
+        serverVersion: "1.4.0",
+        untested: false,
+        insecure: false,
+        active: true,
+        account: { userId: "u1", username: "alice" },
+      },
+    ];
+    host.signedIn = true;
+    host.profileSelected = true;
+    renderAt(`/servers/${SERVER_ID}/library/l1`);
+    expect(await screen.findByText("1 item")).toBeTruthy();
+    const poster = await screen.findByRole("link", { name: "Northern Lights, 2023" });
+    // Artwork only through the host scheme, never a direct server URL.
+    const img = poster.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^http:\/\/granary-img\.localhost\/srv-1\?u=%2Fapi%2Fv2%2Fartwork%2F/);
+    fireEvent.click(poster);
+
+    expect(await screen.findByRole("heading", { name: "Northern Lights", level: 1 })).toBeTruthy();
+    expect(screen.getByText("Ada Brook")).toBeTruthy();
+    // Pick the German audio track, then resume.
+    fireEvent.change(await screen.findByLabelText("Audio"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Resume from 25:20" }));
+    await waitFor(() => {
+      expect(host.calls.find((c) => c.cmd === "player_play")).toBeTruthy();
+    });
+    const play = host.calls.find((c) => c.cmd === "player_play");
+    expect(play?.args).toEqual({
+      request: {
+        serverId: SERVER_ID,
+        itemId: "m1",
+        fileId: "m1-f1",
+        startSeconds: 1520,
+        audioIndex: 1,
+        // effective_subtitle_mode "default": the default-flagged track (index 3).
+        subtitleIndex: 3,
+      },
+    });
+    expect(document.querySelector("video")).toBeNull();
+  });
+
+  it("sends the user to the profile picker when no profile is selected", async () => {
+    host.servers = [
+      {
+        serverId: SERVER_ID,
+        origin: ORIGIN,
+        serverVersion: "1.4.0",
+        untested: false,
+        insecure: false,
+        active: true,
+        account: { userId: "u1", username: "alice" },
+      },
+    ];
+    host.signedIn = true;
+    renderAt(`/servers/${SERVER_ID}/home`);
+    expect(await screen.findByRole("button", { name: /Kids/ })).toBeTruthy();
   });
 });

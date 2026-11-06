@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Least privilege for the main window: only Granary's own commands that the UI uses, plus listening for host events (auth://revoked).",
+  "description": "Least privilege for the main window: only Granary's own commands that the UI uses, plus listening for host events (auth://revoked, player://handoff).",
   "windows": ["main"],
   "permissions": [
     "allow-app-info",
@@ -15,6 +15,15 @@
     "allow-profiles-list",
     "allow-profiles-select",
     "allow-libraries-list",
+    "allow-home-sections",
+    "allow-catalog-browse",
+    "allow-catalog-item",
+    "allow-series-seasons",
+    "allow-season-episodes",
+    "allow-watch-state",
+    "allow-player-play",
+    "allow-settings-get",
+    "allow-settings-set",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

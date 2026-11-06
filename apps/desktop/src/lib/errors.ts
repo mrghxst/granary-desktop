@@ -36,6 +36,9 @@ export const ERROR_CODES = [
   "credentials",
   "internal",
   "storage",
+  "profile_required",
+  "bad_artwork_url",
+  "invalid_request",
   "no_host",
 ] as const;
 

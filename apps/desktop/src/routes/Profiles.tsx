@@ -42,7 +42,7 @@ export function Profiles() {
     try {
       await silo.profilesSelect(serverId, p.id, withPin);
       setPin("");
-      void navigate(`/servers/${encodeURIComponent(serverId)}/libraries`);
+      void navigate(`/servers/${encodeURIComponent(serverId)}/home`);
     } catch (err) {
       setBusy(false);
       if (needsSignIn(err)) {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-watch-state"
+description = "Enables the watch_state command without any pre-configured scope."
+commands.allow = ["watch_state"]
+
+[[permission]]
+identifier = "deny-watch-state"
+description = "Denies the watch_state command without any pre-configured scope."
+commands.deny = ["watch_state"]

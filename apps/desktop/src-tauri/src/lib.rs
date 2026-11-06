@@ -6,10 +6,12 @@
 //! 5. `setup`: display repair from a leftover restore marker, *then* the main window is created (ADR-0006,
 //!    phase-3 review H1). The window is declared with `"create": false` in tauri.conf.json for this reason.
 
+pub mod catalog;
 pub mod commands;
 pub mod logging;
 pub mod paths;
 pub mod redact;
+pub mod settings;
 pub mod silo;
 
 use commands::{AppInfo, LibmpvStatus};
@@ -83,6 +85,7 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     let version = app.package_info().version.to_string();
     tracing::info!(%version, "Granary starting");
     app.manage(silo_state(&version)?);
+    app.manage(settings::SettingsStore::load(paths::config_dir().join("settings.json")));
     app.manage(AppInfo { version, libmpv });
 
     #[cfg(windows)]
@@ -132,6 +135,15 @@ pub fn run() {
                 .with_state_flags(StateFlags::all() - StateFlags::FULLSCREEN - StateFlags::VISIBLE)
                 .build(),
         )
+        // Artwork for the WebView: fetched by the host without credentials (ADR-0004 amendment 3), so the CSP can
+        // forbid every remote image origin.
+        .register_asynchronous_uri_scheme_protocol(catalog::IMAGE_SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let uri = request.uri().to_string();
+            tauri::async_runtime::spawn(async move {
+                responder.respond(catalog::serve_image(&app, &uri).await);
+            });
+        })
         .setup(move |app| setup(app, libmpv))
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -145,6 +157,15 @@ pub fn run() {
             silo::profiles_list,
             silo::profiles_select,
             silo::libraries_list,
+            catalog::home_sections,
+            catalog::catalog_browse,
+            catalog::catalog_item,
+            catalog::series_seasons,
+            catalog::season_episodes,
+            catalog::watch_state,
+            catalog::player_play,
+            settings::settings_get,
+            settings::settings_set,
         ])
         .build(tauri::generate_context!());
     match app {

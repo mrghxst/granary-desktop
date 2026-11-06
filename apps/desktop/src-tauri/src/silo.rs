@@ -1,11 +1,13 @@
 //! Server, account and profile management for the UI (Phase 4, ADR-0004). The WebView only ever sees the views
 //! below: no access, refresh or profile token crosses the IPC boundary. Passwords and PINs arrive as command
 //! arguments and are wrapped in [`Secret`] immediately.
+use granary_silo_api::api::{ImageData, resolve_artwork_url};
 use granary_silo_api::credentials::CredentialStore;
 use granary_silo_api::registry::{Registry, ServerRecord};
 use granary_silo_api::{ApiError, ProfileAuth, Secret, Session, SiloApi, probe};
 use serde::Serialize;
 use std::collections::HashMap;
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -48,6 +50,30 @@ impl From<ApiError> for CommandError {
             retry_after,
             problem: e.problem_id().map(str::to_owned),
         }
+    }
+}
+
+impl CommandError {
+    fn plain(code: &str, message: String) -> Self {
+        Self {
+            code: code.to_owned(),
+            message,
+            status: None,
+            retry_after: None,
+            problem: None,
+        }
+    }
+    /// A request from the UI that cannot be valid (code `invalid_request`).
+    pub fn invalid(message: String) -> Self {
+        Self::plain("invalid_request", message)
+    }
+    /// A local file could not be read or written (code `storage`).
+    pub fn storage(message: String) -> Self {
+        Self::plain("storage", message)
+    }
+    /// A host-side failure that is not the user's or the server's (code `internal`).
+    pub fn internal(message: String) -> Self {
+        Self::plain("internal", message)
     }
 }
 
@@ -374,6 +400,27 @@ impl SiloState {
         self.sessions.lock().await.get(server_id).and_then(|s| s.profile())
     }
 
+    /// Run a request on the server's live session with the usual sign-out handling.
+    pub async fn with_session<T, F, Fut>(&self, server_id: &str, f: F) -> CmdResult<T>
+    where
+        F: FnOnce(Arc<Session>) -> Fut,
+        Fut: Future<Output = Result<T, ApiError>>,
+    {
+        let r = match self.session(server_id).await {
+            Ok(s) => f(s).await,
+            Err(e) => Err(e),
+        };
+        self.settle(server_id, r).await
+    }
+
+    /// Fetch an artwork reference for a saved server. No credential is attached (presigned links), and the reference
+    /// must resolve to the server origin or an `https` URL.
+    pub async fn artwork(&self, server_id: &str, reference: &str) -> CmdResult<ImageData> {
+        let origin = Self::record(&*self.registry.lock().await, server_id)?.origin;
+        let url = resolve_artwork_url(&origin, reference)?;
+        Ok(self.api.fetch_image(&url).await?)
+    }
+
     pub async fn libraries(&self, server_id: &str) -> CmdResult<Vec<LibraryView>> {
         let r = match self.session(server_id).await {
             Ok(s) => s.libraries().await,
@@ -590,6 +637,30 @@ mod tests {
         assert_eq!(err.code, "signed_out");
         assert!(store.is_empty());
         assert!(s.servers().await[0].account.is_none());
+        let _ = std::fs::remove_dir_all(path.parent().unwrap_or(&path));
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn catalog_and_artwork_through_state() -> Result<(), CommandError> {
+        let (_, _, s, path) = state();
+        let id = s.add("https://mock.example").await?.server_id;
+        s.login(&id, "alice", Secret::new("pw")).await?;
+        let err = s
+            .with_session(&id, |x| async move { x.home_sections().await })
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, "profile_required");
+        s.select_profile(&id, "1", None).await?;
+        let sections = s.with_session(&id, |x| async move { x.home_sections().await }).await?;
+        let poster = sections[0].items[0].poster_url.clone().unwrap_or_default();
+        let img = s.artwork(&id, &poster).await?;
+        assert_eq!(img.content_type, "image/svg+xml");
+        assert_eq!(
+            s.artwork(&id, "file:///C:/x.png").await.unwrap_err().code,
+            "bad_artwork_url"
+        );
+        assert_eq!(s.artwork("unknown", &poster).await.unwrap_err().code, "unknown_server");
         let _ = std::fs::remove_dir_all(path.parent().unwrap_or(&path));
         Ok(())
     }

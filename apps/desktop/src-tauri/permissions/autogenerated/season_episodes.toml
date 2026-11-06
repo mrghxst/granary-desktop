@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-season-episodes"
+description = "Enables the season_episodes command without any pre-configured scope."
+commands.allow = ["season_episodes"]
+
+[[permission]]
+identifier = "deny-season-episodes"
+description = "Denies the season_episodes command without any pre-configured scope."
+commands.deny = ["season_episodes"]

@@ -1,0 +1,25 @@
+{
+  "window_cursor": "x",
+  "total": 2,
+  "total_exact": true,
+  "items": [
+    {
+      "content_id": "m1",
+      "type": "movie",
+      "title": "Northern Lights",
+      "genres": [
+        "Drama"
+      ],
+      "keywords": [],
+      "status": "available",
+      "year": 2023,
+      "runtime": 118,
+      "poster_url": "/api/v2/artwork/poster-m1?exp=4102444800&sig=fixture",
+      "backdrop_url": "/api/v2/artwork/backdrop-m1?exp=4102444800&sig=fixture"
+    }
+  ],
+  "page": {
+    "has_more": true,
+    "next_cursor": "cursor-2"
+  }
+}

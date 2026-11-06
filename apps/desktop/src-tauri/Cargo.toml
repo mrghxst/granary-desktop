@@ -35,6 +35,7 @@ granary-player = { path = "../../../crates/player" }
 granary-display = { path = "../../../crates/display" }
 granary-silo-api = { path = "../../../crates/silo-api" }
 tokio.workspace = true
+url = "2.5.8"
 
 [lints]
 workspace = true

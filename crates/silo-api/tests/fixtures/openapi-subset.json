@@ -62,6 +62,60 @@
         }
       }
     },
+    "getArtwork": {
+      "method": "GET",
+      "path": "/api/v2/artwork/{key}",
+      "security": null,
+      "params": [
+        {
+          "in": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "exp",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "sig",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "If-None-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "Range",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "image/*",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "206": {
+          "contentType": "image/*",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "304": null,
+        "404": null,
+        "503": null
+      }
+    },
     "login": {
       "method": "POST",
       "path": "/api/v2/auth/login",
@@ -281,6 +335,757 @@
           }
         },
         "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "listCatalogItems": {
+      "method": "GET",
+      "path": "/api/v2/catalog",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "source",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "section_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "library_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "collection_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "person_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "q",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "name_prefix",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "match",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "type",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "genre",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "year_min",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "year_max",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "content_rating",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "sort",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "group",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "skip_total",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "image_size",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "poster_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "backdrop_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "logo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "still_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "photo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "cursor",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "groups",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "query_limit",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "seek",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/CatalogBrowseCollection"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "501": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getCatalogItem": {
+      "method": "GET",
+      "path": "/api/v2/catalog/items/{id}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "image_size",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "poster_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "backdrop_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "logo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "still_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "photo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "library_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "file_id",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/CatalogItemDetail"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "listSeriesSeasons": {
+      "method": "GET",
+      "path": "/api/v2/catalog/series/{id}/seasons",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "image_size",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "poster_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "backdrop_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "logo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "still_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "photo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "library_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "include_artwork",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/SeasonCollection"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "listSeasonEpisodes": {
+      "method": "GET",
+      "path": "/api/v2/catalog/series/{id}/seasons/{num}/episodes",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "image_size",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "poster_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "backdrop_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "logo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "still_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "photo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "library_id",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "num",
+          "required": true
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/EpisodeCollection"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "listHomeSections": {
+      "method": "GET",
+      "path": "/api/v2/home/sections",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "item_limit",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "image_size",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "poster_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "backdrop_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "logo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "still_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "photo_width",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Family",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/SectionCollection"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
           "contentType": "application/problem+json",
           "schema": {
             "$ref": "#/components/schemas/Problem"
@@ -665,6 +1470,140 @@
           }
         }
       }
+    },
+    "getWatchState": {
+      "method": "GET",
+      "path": "/api/v2/watch/{id}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "file_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "library_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "image_size",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "poster_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "backdrop_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "logo_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "still_width",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "photo_width",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/WatchDetail"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
     }
   },
   "schemas": {
@@ -750,6 +1689,1540 @@
       ],
       "type": "object"
     },
+    "AudioTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "bit_depth": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bitrate": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "codec": {
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "embedded_title": {
+          "type": "string"
+        },
+        "language": {
+          "description": "Track language from the file: BCP 47 tag, ISO 639-1 where one exists (en, pt-BR); und when the file marks it undetermined. Older scans may carry an ISO 639-2 code or the file's raw tag",
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "sample_rate": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "default"
+      ],
+      "type": "object"
+    },
+    "AudiobookDetailExtension": {
+      "additionalProperties": false,
+      "properties": {
+        "authors": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookPerson"
+          },
+          "type": "array"
+        },
+        "narrators": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookPerson"
+          },
+          "type": "array"
+        },
+        "other_narrations": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookNarration"
+          },
+          "type": "array"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "related": {
+          "$ref": "#/components/schemas/AudiobookRelatedContent"
+        },
+        "series": {
+          "$ref": "#/components/schemas/AudiobookSeriesGroup"
+        },
+        "total_duration_seconds": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "authors",
+        "narrators",
+        "total_duration_seconds",
+        "other_narrations",
+        "related"
+      ],
+      "type": "object"
+    },
+    "AudiobookNarration": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "type": "string"
+        },
+        "narrators": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "year": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "content_id",
+        "title",
+        "narrators"
+      ],
+      "type": "object"
+    },
+    "AudiobookPerson": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "person_id": {
+          "type": "string"
+        },
+        "photo_thumbhash": {
+          "type": "string"
+        },
+        "photo_url": {
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "AudiobookRelatedContent": {
+      "additionalProperties": false,
+      "properties": {
+        "also_by_author": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookRelatedItem"
+          },
+          "type": "array"
+        },
+        "similar": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookRelatedItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "also_by_author",
+        "similar"
+      ],
+      "type": "object"
+    },
+    "AudiobookRelatedItem": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "type": "string"
+        },
+        "poster_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "year": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "content_id",
+        "title"
+      ],
+      "type": "object"
+    },
+    "AudiobookSeriesGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookRelatedItem"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "CastCredit": {
+      "additionalProperties": false,
+      "properties": {
+        "character": {
+          "type": "string"
+        },
+        "imdb_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "order": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "person_id": {
+          "type": "string"
+        },
+        "photo_thumbhash": {
+          "type": "string"
+        },
+        "photo_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "plex_guid": {
+          "type": "string"
+        },
+        "tmdb_id": {
+          "type": "string"
+        },
+        "tvdb_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "character",
+        "order"
+      ],
+      "type": "object"
+    },
+    "CatalogBrowseCollection": {
+      "additionalProperties": false,
+      "properties": {
+        "effective_sort": {
+          "$ref": "#/components/schemas/CatalogEffectiveSort",
+          "description": "The saved or default order a collection or personal list resolved to"
+        },
+        "items": {
+          "description": "The page's items; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/CatalogItem"
+          },
+          "type": "array"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo",
+          "description": "Cursor state; absent for bounded unpaginated collections"
+        },
+        "search_diagnostics": {
+          "$ref": "#/components/schemas/CatalogSearchDiagnostics",
+          "description": "Present when a relevance-sorted search ran through a search provider"
+        },
+        "total": {
+          "description": "Items in the whole result; an estimate unless total_exact",
+          "examples": [
+            1240
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "total_exact": {
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "window_cursor": {
+          "description": "Opaque seed for subsequent explicit window jumps; carries query scope and the initial insertion fence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window_cursor",
+        "total",
+        "total_exact",
+        "items"
+      ],
+      "type": "object"
+    },
+    "CatalogEffectiveSort": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "examples": [
+            "title"
+          ],
+          "type": "string"
+        },
+        "order": {
+          "examples": [
+            "asc"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "order"
+      ],
+      "type": "object"
+    },
+    "CatalogItem": {
+      "additionalProperties": false,
+      "properties": {
+        "added_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "advisory_age": {
+          "description": "Recommended minimum viewer age from an advisory service. A profile with max_advisory_age hides titles whose advisory age is above it; the age never changes the content-rating ceiling",
+          "examples": [
+            13
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "advisory_source": {
+          "description": "Who recommended advisory_age",
+          "enum": [
+            "commonsense",
+            "mdblist"
+          ],
+          "examples": [
+            "commonsense"
+          ],
+          "type": "string"
+        },
+        "backdrop_is_episode_still": {
+          "description": "Whether backdrop_url is an episode still. False for series artwork; absent when provenance is unavailable.",
+          "type": "boolean"
+        },
+        "backdrop_thumbhash": {
+          "type": "string"
+        },
+        "backdrop_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "badges": {
+          "description": "Section-specific badges (new, returning, …)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "content_id": {
+          "description": "Deterministic catalog identifier",
+          "examples": [
+            "movie:heat-1995"
+          ],
+          "type": "string"
+        },
+        "content_rating": {
+          "examples": [
+            "R"
+          ],
+          "type": "string"
+        },
+        "duration_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "episode_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "genres": {
+          "description": "Empty, never null",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "item_source": {
+          "description": "On a continue-watching card: in_progress or next_up",
+          "type": "string"
+        },
+        "keywords": {
+          "description": "Empty, never null",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "last_air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "logo_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "machine_translated_fields": {
+          "description": "Localized fields whose text was machine-translated by AI rather than supplied by a metadata provider or a person; absent when none were. Set only on item details, the cards built from them (shuffles, the Watch Together picker), and Home and library section cards. A card shows no tagline, so a card's overview label depends on overview alone.",
+          "items": {
+            "enum": [
+              "overview",
+              "tagline"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "manga_chapter_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "manga_volume_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "networks": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "original_language": {
+          "description": "Original language, normally an ISO 639-1 code (ISO 639-3 when none exists, such as fil); provider codes such as TMDB's xx pass through, and audiobook and ebook items can carry the file's raw tag",
+          "examples": [
+            "en"
+          ],
+          "type": "string"
+        },
+        "overlay_summary": {
+          "$ref": "#/components/schemas/CatalogItemOverlay",
+          "description": "Technical badges of the best file"
+        },
+        "overview": {
+          "type": "string"
+        },
+        "pending_translation_language": {
+          "description": "The language (BCP 47 tag, such as en or pt-BR) this profile reads here when the descriptions this item's page shows are not available in it yet. That is the profile's metadata language after its per-language exceptions, or, when it sets none, the library's for a library's rows or a detail opened in that library. It is pending for the item's own overview, or for a season its overview or any of its episodes' overviews. Echo it to translateCatalogItemDescription to translate on view. Set only on item details, the cards built from them (shuffles, the Watch Together picker), and Home and library section cards; other listings never carry it, so its absence there says nothing about the language.",
+          "type": "string"
+        },
+        "play_content_id": {
+          "description": "The item to play when the card is a series or season; absent when the item plays itself",
+          "type": "string"
+        },
+        "position_seconds": {
+          "description": "Resume position on a continue-watching card",
+          "format": "double",
+          "type": "number"
+        },
+        "poster_is_episode_still": {
+          "description": "Whether poster_url is an episode still. False for series or season artwork; absent when provenance is unavailable.",
+          "type": "boolean"
+        },
+        "poster_thumbhash": {
+          "type": "string"
+        },
+        "poster_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "progress_updated_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "rating_imdb": {
+          "format": "double",
+          "type": "number"
+        },
+        "rating_rt_audience": {
+          "description": "Rotten Tomatoes audience score, 0-100. Absent unless an administrator shows rt_audience (see getRatingsCapability); a viewer who curates the item's metadata gets it on item detail regardless",
+          "format": "int64",
+          "type": "integer"
+        },
+        "rating_rt_critic": {
+          "description": "Rotten Tomatoes critic score, 0-100. Absent unless an administrator shows rt_critic (see getRatingsCapability); a viewer who curates the item's metadata gets it on item detail regardless",
+          "format": "int64",
+          "type": "integer"
+        },
+        "rating_tmdb": {
+          "format": "double",
+          "type": "number"
+        },
+        "release_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "examples": [
+            "1995-12-15"
+          ],
+          "format": "date",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "Minutes",
+          "examples": [
+            170
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "season_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "season_poster_thumbhash": {
+          "description": "On an episode card: the season poster's ThumbHash",
+          "type": "string"
+        },
+        "season_poster_url": {
+          "description": "On an episode card: the season poster, at poster_url's size. Presigned, short-lived; absent when the season has none or the surface does not load it",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_backdrop_thumbhash": {
+          "description": "On an episode card: the series backdrop's ThumbHash",
+          "type": "string"
+        },
+        "series_backdrop_url": {
+          "description": "On an episode card: the series backdrop, at backdrop_url's size. Unlike backdrop_url it is never the episode still. Presigned, short-lived; absent when the series has none or the surface does not load it",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_id": {
+          "description": "Owning series of an episode or season",
+          "type": "string"
+        },
+        "series_poster_thumbhash": {
+          "description": "On an episode card: the series poster's ThumbHash",
+          "type": "string"
+        },
+        "series_poster_url": {
+          "description": "On an episode card: the series poster, at poster_url's size. Presigned, short-lived; absent when the series has none or the surface does not load it",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_title": {
+          "type": "string"
+        },
+        "show_status": {
+          "description": "Airing state of a series",
+          "type": "string"
+        },
+        "sort_metrics": {
+          "$ref": "#/components/schemas/CatalogItemSortMetrics",
+          "description": "The values the listing was sorted by"
+        },
+        "status": {
+          "description": "Metadata match state of the item",
+          "examples": [
+            "matched"
+          ],
+          "type": "string"
+        },
+        "studios": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "examples": [
+            "Heat"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "description": "movie, series, season, episode, audiobook, ebook, podcast, podcast_episode",
+          "examples": [
+            "movie"
+          ],
+          "type": "string"
+        },
+        "upcoming_event": {
+          "$ref": "#/components/schemas/CatalogItemUpcomingEvent"
+        },
+        "user_state": {
+          "$ref": "#/components/schemas/CatalogItemUserState",
+          "description": "The viewer's flags; absent without a profile"
+        },
+        "work_formats": {
+          "description": "Sibling editions of the same work",
+          "items": {
+            "$ref": "#/components/schemas/CatalogWorkFormat"
+          },
+          "type": "array"
+        },
+        "work_id": {
+          "description": "The work (book) an audiobook or ebook edition belongs to",
+          "type": "string"
+        },
+        "work_title": {
+          "type": "string"
+        },
+        "year": {
+          "examples": [
+            1995
+          ],
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "content_id",
+        "type",
+        "title",
+        "genres",
+        "keywords",
+        "status"
+      ],
+      "type": "object"
+    },
+    "CatalogItemDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "added_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "advisory_age": {
+          "description": "Recommended minimum viewer age from an advisory service. A profile with max_advisory_age hides titles whose advisory age is above it; the age never changes the content-rating ceiling",
+          "examples": [
+            13
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "advisory_source": {
+          "description": "Who recommended advisory_age",
+          "enum": [
+            "commonsense",
+            "mdblist"
+          ],
+          "examples": [
+            "commonsense"
+          ],
+          "type": "string"
+        },
+        "air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "air_time": {
+          "type": "string"
+        },
+        "air_timezone": {
+          "type": "string"
+        },
+        "audiobook": {
+          "$ref": "#/components/schemas/AudiobookDetailExtension"
+        },
+        "backdrop_is_episode_still": {
+          "description": "Whether backdrop_url is an episode still. False for series artwork; absent when provenance is unavailable.",
+          "type": "boolean"
+        },
+        "backdrop_thumbhash": {
+          "type": "string"
+        },
+        "backdrop_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "backdrop_urls": {
+          "description": "Presigned, short-lived. Every backdrop in display order, backdrop_url first. Movies and series only; absent when there is none",
+          "items": {
+            "format": "uri-reference",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "badges": {
+          "description": "Section-specific badges (new, returning, …)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "banner_thumbhash": {
+          "type": "string"
+        },
+        "banner_url": {
+          "description": "Presigned, short-lived. A wide banner strip. Movies and series only; see getImageCapabilities extended_item_artwork",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "cast": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/CastCredit"
+          },
+          "type": "array"
+        },
+        "clearart_url": {
+          "description": "Presigned, short-lived. Transparent cut-out art. Movies and series only",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "content_id": {
+          "description": "Deterministic catalog identifier",
+          "examples": [
+            "movie:heat-1995"
+          ],
+          "type": "string"
+        },
+        "content_rating": {
+          "examples": [
+            "R"
+          ],
+          "type": "string"
+        },
+        "countries": {
+          "description": "Production countries, normally ISO 3166-1 alpha-2 codes (US); NFO files and manual edits can store country names",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "credits": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "crew": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/CrewCredit"
+          },
+          "type": "array"
+        },
+        "disc_url": {
+          "description": "Presigned, short-lived. Transparent disc art. Movies only",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "ebook": {
+          "$ref": "#/components/schemas/EbookDetailExtension"
+        },
+        "effective_show_forced_subtitles": {
+          "description": "Whether forced subtitles show for this item under the viewer's preferences",
+          "type": "boolean"
+        },
+        "effective_subtitle_language": {
+          "description": "The subtitle language the viewer's preferences resolve to for this item: BCP 47 tag; empty when the preference is None",
+          "pattern": "^(?:[a-z]{2,3}(?:-[0-9A-Za-z]{1,8})*|x(?:-[0-9A-Za-z]{1,8})+)?$",
+          "type": "string"
+        },
+        "effective_subtitle_mode": {
+          "description": "The subtitle mode the viewer's preferences resolve to for this item",
+          "type": "string"
+        },
+        "effective_subtitle_track_signature": {
+          "$ref": "#/components/schemas/WatchSubtitleSignature"
+        },
+        "effective_version_codec_video": {
+          "type": "string"
+        },
+        "effective_version_edition_key": {
+          "type": "string"
+        },
+        "effective_version_hdr": {
+          "type": "boolean"
+        },
+        "effective_version_resolution": {
+          "type": "string"
+        },
+        "episode_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "episode_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "extras": {
+          "items": {
+            "$ref": "#/components/schemas/ItemExtraInfo"
+          },
+          "type": "array"
+        },
+        "first_air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "folder_paths": {
+          "description": "Absent for viewers without file-path visibility",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "genres": {
+          "description": "Empty, never null",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "imdb_id": {
+          "type": "string"
+        },
+        "intro": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "is_specials": {
+          "type": "boolean"
+        },
+        "item_source": {
+          "description": "On a continue-watching card: in_progress or next_up",
+          "type": "string"
+        },
+        "keywords": {
+          "description": "Empty, never null",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "last_air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "locked_fields": {
+          "description": "Metadata fields an editor pinned",
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "logo_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "machine_translated_fields": {
+          "description": "Localized fields whose text was machine-translated by AI rather than supplied by a metadata provider or a person; absent when none were. Set only on item details, the cards built from them (shuffles, the Watch Together picker), and Home and library section cards. A card shows no tagline, so a card's overview label depends on overview alone.",
+          "items": {
+            "enum": [
+              "overview",
+              "tagline"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "manga": {
+          "$ref": "#/components/schemas/MangaDetailExtension"
+        },
+        "manga_chapter_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "manga_volume_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "networks": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "original_language": {
+          "description": "Original language, normally an ISO 639-1 code (ISO 639-3 when none exists, such as fil); provider codes such as TMDB's xx pass through, and audiobook and ebook items can carry the file's raw tag",
+          "examples": [
+            "en"
+          ],
+          "type": "string"
+        },
+        "original_title": {
+          "type": "string"
+        },
+        "overlay_summary": {
+          "$ref": "#/components/schemas/CatalogItemOverlay",
+          "description": "Technical badges of the best file"
+        },
+        "overview": {
+          "type": "string"
+        },
+        "pending_translation_language": {
+          "description": "The language (BCP 47 tag, such as en or pt-BR) this profile reads here when the descriptions this item's page shows are not available in it yet. That is the profile's metadata language after its per-language exceptions, or, when it sets none, the library's for a library's rows or a detail opened in that library. It is pending for the item's own overview, or for a season its overview or any of its episodes' overviews. Echo it to translateCatalogItemDescription to translate on view. Set only on item details, the cards built from them (shuffles, the Watch Together picker), and Home and library section cards; other listings never carry it, so its absence there says nothing about the language.",
+          "type": "string"
+        },
+        "play_content_id": {
+          "description": "The item to play when the card is a series or season; absent when the item plays itself",
+          "type": "string"
+        },
+        "play_season_number": {
+          "description": "The season of play_content_id when it is an episode, so a client can open that season without fetching the episode; absent otherwise",
+          "format": "int64",
+          "type": "integer"
+        },
+        "playback_variants": {
+          "items": {
+            "$ref": "#/components/schemas/PlaybackVariant"
+          },
+          "type": "array"
+        },
+        "position_seconds": {
+          "description": "Resume position on a continue-watching card",
+          "format": "double",
+          "type": "number"
+        },
+        "poster_is_episode_still": {
+          "description": "Whether poster_url is an episode still. False for series or season artwork; absent when provenance is unavailable.",
+          "type": "boolean"
+        },
+        "poster_thumbhash": {
+          "type": "string"
+        },
+        "poster_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "preview": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "progress_updated_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "rating_imdb": {
+          "format": "double",
+          "type": "number"
+        },
+        "rating_rt_audience": {
+          "description": "Rotten Tomatoes audience score, 0-100. Absent unless an administrator shows rt_audience (see getRatingsCapability); a viewer who curates the item's metadata gets it on item detail regardless",
+          "format": "int64",
+          "type": "integer"
+        },
+        "rating_rt_critic": {
+          "description": "Rotten Tomatoes critic score, 0-100. Absent unless an administrator shows rt_critic (see getRatingsCapability); a viewer who curates the item's metadata gets it on item detail regardless",
+          "format": "int64",
+          "type": "integer"
+        },
+        "rating_sources": {
+          "description": "Per-source ratings on a 0-100 scale for movies and series; absent when there are none. Only the sources clients show, in the same order as ratings, except for a viewer who curates the item's metadata, who gets every stored source. Title pages render ratings, not this list.",
+          "items": {
+            "$ref": "#/components/schemas/CatalogRatingSource"
+          },
+          "type": "array"
+        },
+        "rating_tmdb": {
+          "format": "double",
+          "type": "number"
+        },
+        "ratings": {
+          "description": "The external ratings a title page shows, in display order: IMDb and TMDB, plus the sources an administrator turned on. Render every entry as its name and display text. Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/CatalogRating"
+          },
+          "type": "array"
+        },
+        "recap": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "release_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "examples": [
+            "1995-12-15"
+          ],
+          "format": "date",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "Minutes",
+          "examples": [
+            170
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "season_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "season_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "season_poster_thumbhash": {
+          "description": "On an episode card: the season poster's ThumbHash",
+          "type": "string"
+        },
+        "season_poster_url": {
+          "description": "On an episode card: the season poster, at poster_url's size. Presigned, short-lived; absent when the season has none or the surface does not load it",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_backdrop_thumbhash": {
+          "description": "On an episode card: the series backdrop's ThumbHash",
+          "type": "string"
+        },
+        "series_backdrop_url": {
+          "description": "On an episode card: the series backdrop, at backdrop_url's size. Unlike backdrop_url it is never the episode still. Presigned, short-lived; absent when the series has none or the surface does not load it",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_id": {
+          "description": "Owning series of an episode or season",
+          "type": "string"
+        },
+        "series_poster_thumbhash": {
+          "description": "On an episode card: the series poster's ThumbHash",
+          "type": "string"
+        },
+        "series_poster_url": {
+          "description": "On an episode card: the series poster, at poster_url's size. Presigned, short-lived; absent when the series has none or the surface does not load it",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "series_title": {
+          "type": "string"
+        },
+        "show_status": {
+          "description": "Airing state of a series",
+          "type": "string"
+        },
+        "sort_metrics": {
+          "$ref": "#/components/schemas/CatalogItemSortMetrics",
+          "description": "The values the listing was sorted by"
+        },
+        "sort_title": {
+          "type": "string"
+        },
+        "status": {
+          "description": "Metadata match state of the item",
+          "examples": [
+            "matched"
+          ],
+          "type": "string"
+        },
+        "studios": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "subtitles": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/SubtitleInfo"
+          },
+          "type": "array"
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "themes": {
+          "$ref": "#/components/schemas/ThemeSongSet"
+        },
+        "thumb_thumbhash": {
+          "type": "string"
+        },
+        "thumb_url": {
+          "description": "Presigned, short-lived. A 16:9 landscape thumb, which usually carries the title. Movies and series only",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "title": {
+          "examples": [
+            "Heat"
+          ],
+          "type": "string"
+        },
+        "tmdb_id": {
+          "type": "string"
+        },
+        "tvdb_id": {
+          "type": "string"
+        },
+        "type": {
+          "description": "movie, series, season, episode, audiobook, ebook, podcast, podcast_episode",
+          "examples": [
+            "movie"
+          ],
+          "type": "string"
+        },
+        "upcoming_event": {
+          "$ref": "#/components/schemas/CatalogItemUpcomingEvent"
+        },
+        "user_data": {
+          "$ref": "#/components/schemas/WatchRollup"
+        },
+        "user_rating": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "user_state": {
+          "$ref": "#/components/schemas/CatalogItemUserState",
+          "description": "The viewer's flags; absent without a profile"
+        },
+        "versions": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/FileVersion"
+          },
+          "type": "array"
+        },
+        "videos": {
+          "description": "Trailers and clips",
+          "items": {
+            "$ref": "#/components/schemas/ItemVideoInfo"
+          },
+          "type": "array"
+        },
+        "work_formats": {
+          "description": "Sibling editions of the same work",
+          "items": {
+            "$ref": "#/components/schemas/CatalogWorkFormat"
+          },
+          "type": "array"
+        },
+        "work_id": {
+          "description": "The work (book) an audiobook or ebook edition belongs to",
+          "type": "string"
+        },
+        "work_title": {
+          "type": "string"
+        },
+        "year": {
+          "examples": [
+            1995
+          ],
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cast",
+        "crew",
+        "versions",
+        "ratings",
+        "subtitles",
+        "content_id",
+        "type",
+        "title",
+        "genres",
+        "keywords",
+        "status"
+      ],
+      "type": "object"
+    },
+    "CatalogItemOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect_ratio": {
+          "examples": [
+            "2.39:1"
+          ],
+          "type": "string"
+        },
+        "audio": {
+          "examples": [
+            "TrueHD"
+          ],
+          "type": "string"
+        },
+        "audio_channels": {
+          "examples": [
+            "7.1"
+          ],
+          "type": "string"
+        },
+        "container": {
+          "examples": [
+            "MKV"
+          ],
+          "type": "string"
+        },
+        "edition": {
+          "examples": [
+            "Director's Cut"
+          ],
+          "type": "string"
+        },
+        "hdr": {
+          "examples": [
+            "Dolby Vision"
+          ],
+          "type": "string"
+        },
+        "multi_audio": {
+          "description": "Two or more audio languages",
+          "type": "boolean"
+        },
+        "multi_sub": {
+          "description": "At least one subtitle track",
+          "type": "boolean"
+        },
+        "release_type": {
+          "type": "string"
+        },
+        "resolution": {
+          "examples": [
+            "4K"
+          ],
+          "type": "string"
+        },
+        "video_codec": {
+          "examples": [
+            "H.265"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CatalogItemSortMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "bitrate_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "narrator": {
+          "type": "string"
+        },
+        "play_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "progress_ratio": {
+          "format": "double",
+          "type": "number"
+        },
+        "release_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "runtime_minutes": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "series_name": {
+          "type": "string"
+        },
+        "viewed_at": {
+          "description": "As the progress store recorded it",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CatalogItemUpcomingEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "examples": [
+            "2026-01-09"
+          ],
+          "format": "date",
+          "type": "string"
+        },
+        "air_time": {
+          "description": "Local wall-clock time, HH:MM",
+          "type": "string"
+        },
+        "badges": {
+          "description": "The calendar event's badges: series_premiere, season_premiere, finale; on a movie, digital or physical. Empty, never null",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "episode_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "episode_title": {
+          "type": "string"
+        },
+        "season_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "type": {
+          "description": "premiere, episode, finale, …",
+          "examples": [
+            "episode"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "air_date",
+        "badges"
+      ],
+      "type": "object"
+    },
+    "CatalogItemUserState": {
+      "additionalProperties": false,
+      "properties": {
+        "in_watchlist": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "is_favorite": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "not_interested": {
+          "description": "The profile marked the movie or series Not interested: recommendations leave it out and rank similar titles lower",
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "played": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "unplayed_count": {
+          "description": "Available episodes the profile has not watched; present on a series or season the profile has not finished",
+          "examples": [
+            6
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "watched_count": {
+          "description": "Episodes the profile has watched; present on a series or season the profile has not finished",
+          "examples": [
+            4
+          ],
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "played",
+        "is_favorite",
+        "in_watchlist",
+        "not_interested"
+      ],
+      "type": "object"
+    },
+    "CatalogRating": {
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "description": "The score on the source's own scale, formatted for display",
+          "examples": [
+            "8.5"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "The source's name as a plain-text mark, shown next to the score",
+          "examples": [
+            "IMDb"
+          ],
+          "type": "string"
+        },
+        "score": {
+          "description": "Score on a 0-100 scale",
+          "format": "double",
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        "source": {
+          "description": "Rating source: imdb, tmdb, or a name a metadata plugin declared, such as rt_critic. Clients may use it to pick a source's mark and should fall back to name for one they do not recognize.",
+          "examples": [
+            "imdb"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "name",
+        "score",
+        "display"
+      ],
+      "type": "object"
+    },
+    "CatalogRatingSource": {
+      "additionalProperties": false,
+      "properties": {
+        "score": {
+          "description": "Score on a 0-100 scale",
+          "format": "double",
+          "maximum": 100,
+          "minimum": 0,
+          "type": "number"
+        },
+        "source": {
+          "description": "Rating source: imdb, tmdb, or a name a metadata plugin declared, such as rt_critic. Clients should ignore names they do not recognize.",
+          "type": "string"
+        },
+        "votes": {
+          "description": "Number of votes behind the score, when the source reports it",
+          "format": "int64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "score"
+      ],
+      "type": "object"
+    },
+    "CatalogSearchDiagnostics": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_reason": {
+          "type": "string"
+        },
+        "index_pending_updates": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "mode": {
+          "description": "keyword, semantic, or hybrid after any fallback",
+          "examples": [
+            "keyword"
+          ],
+          "type": "string"
+        },
+        "provider": {
+          "examples": [
+            "postgres"
+          ],
+          "type": "string"
+        },
+        "result_window_limit": {
+          "description": "Candidate limit of the retained ranking window; not an exact global match count",
+          "format": "int64",
+          "type": "integer"
+        },
+        "semantic_used": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "session_expires_at": {
+          "description": "Fixed expiry of the retained search ranking",
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "mode",
+        "semantic_used"
+      ],
+      "type": "object"
+    },
+    "CatalogWorkFormat": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "examples": [
+            "audiobook:dune"
+          ],
+          "type": "string"
+        },
+        "library_id": {
+          "description": "Absent when the edition is not in a library",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "examples": [
+            "audiobook"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "content_id"
+      ],
+      "type": "object"
+    },
     "CollectionUserLibrary": {
       "additionalProperties": false,
       "properties": {
@@ -767,6 +3240,383 @@
       },
       "required": [
         "items"
+      ],
+      "type": "object"
+    },
+    "CrewCredit": {
+      "additionalProperties": false,
+      "properties": {
+        "imdb_id": {
+          "type": "string"
+        },
+        "job": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "person_id": {
+          "type": "string"
+        },
+        "photo_thumbhash": {
+          "type": "string"
+        },
+        "photo_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "plex_guid": {
+          "type": "string"
+        },
+        "tmdb_id": {
+          "type": "string"
+        },
+        "tvdb_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "job"
+      ],
+      "type": "object"
+    },
+    "EbookDetailExtension": {
+      "additionalProperties": false,
+      "properties": {
+        "authors": {
+          "items": {
+            "$ref": "#/components/schemas/AudiobookPerson"
+          },
+          "type": "array"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "related": {
+          "$ref": "#/components/schemas/AudiobookRelatedContent"
+        },
+        "series": {
+          "$ref": "#/components/schemas/AudiobookSeriesGroup"
+        }
+      },
+      "required": [
+        "authors",
+        "related"
+      ],
+      "type": "object"
+    },
+    "Episode": {
+      "additionalProperties": false,
+      "properties": {
+        "air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "content_id": {
+          "examples": [
+            "episode:severance-s01e01"
+          ],
+          "type": "string"
+        },
+        "episode_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/components/schemas/EpisodeFile"
+          },
+          "type": "array"
+        },
+        "imdb_id": {
+          "type": "string"
+        },
+        "machine_translated_fields": {
+          "description": "Localized fields whose text was machine-translated by AI; absent when none were",
+          "items": {
+            "enum": [
+              "overview"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "overlay_summary": {
+          "$ref": "#/components/schemas/CatalogItemOverlay"
+        },
+        "overview": {
+          "type": "string"
+        },
+        "pending_translation_language": {
+          "description": "The language (BCP 47 tag, such as en or pt-BR) this profile reads here (its metadata language, or the library's when it sets none) when the episode's description is not available in it yet; translating the episode's season fills it",
+          "type": "string"
+        },
+        "ratings": {
+          "description": "The episode's IMDb and TMDB ratings, in the shape a title page's ratings use. Absent when the episode has no rating.",
+          "items": {
+            "$ref": "#/components/schemas/CatalogRating"
+          },
+          "type": "array"
+        },
+        "runtime": {
+          "description": "Minutes",
+          "format": "int64",
+          "type": "integer"
+        },
+        "season_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "still_is_episode_still": {
+          "description": "Whether still_url is an episode still. False when series artwork is used as a fallback; absent when provenance is unavailable.",
+          "type": "boolean"
+        },
+        "still_thumbhash": {
+          "type": "string"
+        },
+        "still_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "tmdb_id": {
+          "type": "string"
+        },
+        "tvdb_id": {
+          "type": "string"
+        },
+        "user_data": {
+          "$ref": "#/components/schemas/WatchRollup"
+        }
+      },
+      "required": [
+        "content_id",
+        "season_number",
+        "episode_number",
+        "title",
+        "runtime"
+      ],
+      "type": "object"
+    },
+    "EpisodeCollection": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "description": "The page's items; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/Episode"
+          },
+          "type": "array"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo",
+          "description": "Cursor state; absent for bounded unpaginated collections"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
+    "EpisodeFile": {
+      "additionalProperties": false,
+      "properties": {
+        "audio_channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "codec_video": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        },
+        "file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "file_size": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "hdr": {
+          "type": "boolean"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "unreadable": {
+          "description": "Present and true when the server could not read the file (empty, corrupt, or truncated). Playback of it falls back to another version of the episode the viewer may play; if no such version is available, playback returns the terminal reason source_unreadable until the file is replaced and a scan reads it successfully.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "file_id",
+        "hdr",
+        "file_size"
+      ],
+      "type": "object"
+    },
+    "FileVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "added_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "audio_tracks": {
+          "items": {
+            "$ref": "#/components/schemas/AudioTrack"
+          },
+          "type": "array"
+        },
+        "bitrate": {
+          "description": "Kilobits per second",
+          "format": "int64",
+          "type": "integer"
+        },
+        "chapters": {
+          "items": {
+            "$ref": "#/components/schemas/VersionChapter"
+          },
+          "type": "array"
+        },
+        "codec_audio": {
+          "examples": [
+            "truehd"
+          ],
+          "type": "string"
+        },
+        "codec_video": {
+          "examples": [
+            "hevc"
+          ],
+          "type": "string"
+        },
+        "container": {
+          "examples": [
+            "mkv"
+          ],
+          "type": "string"
+        },
+        "credits": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "duration": {
+          "description": "Seconds",
+          "format": "int64",
+          "type": "integer"
+        },
+        "edition_key": {
+          "type": "string"
+        },
+        "edition_raw": {
+          "type": "string"
+        },
+        "effective_audio_language": {
+          "description": "Language of the audio track playback will pick (BCP 47, from the file), or the item's original language (normally ISO 639-1) when the preference is original; absent when unknown",
+          "type": "string"
+        },
+        "effective_audio_track_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "120"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "file_path": {
+          "description": "Absent for viewers without file-path visibility",
+          "type": "string"
+        },
+        "file_size": {
+          "description": "Bytes",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hdr": {
+          "type": "boolean"
+        },
+        "intro": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "multi_episode_end": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "multi_episode_start": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "presentation_group_key": {
+          "type": "string"
+        },
+        "presentation_kind": {
+          "type": "string"
+        },
+        "presentation_part_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "presentation_part_total": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "preview": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "recap": {
+          "$ref": "#/components/schemas/Marker"
+        },
+        "resolution": {
+          "examples": [
+            "2160p"
+          ],
+          "type": "string"
+        },
+        "subtitle_tracks": {
+          "items": {
+            "$ref": "#/components/schemas/VersionSubtitleTrack"
+          },
+          "type": "array"
+        },
+        "video_tracks": {
+          "items": {
+            "$ref": "#/components/schemas/VideoTrack"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "file_id",
+        "resolution",
+        "codec_video",
+        "codec_audio",
+        "hdr",
+        "container",
+        "file_size",
+        "duration",
+        "bitrate",
+        "added_at"
       ],
       "type": "object"
     },
@@ -800,6 +3650,72 @@
         "active",
         "impersonator_user_id",
         "impersonator_username"
+      ],
+      "type": "object"
+    },
+    "ItemExtraInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "type": "string"
+        },
+        "duration_seconds": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "file_id": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "still_thumbhash": {
+          "type": "string"
+        },
+        "still_url": {
+          "description": "Presigned, short-lived. 16:9 image of the extra; absent when it has none",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content_id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ItemVideoInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "is_official": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "language": {
+          "description": "Language of the video as the provider reports it, usually ISO 639-1",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "site": {
+          "type": "string"
+        },
+        "site_key": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "site",
+        "site_key",
+        "is_official"
       ],
       "type": "object"
     },
@@ -838,6 +3754,117 @@
       ],
       "type": "object"
     },
+    "MangaChapter": {
+      "additionalProperties": false,
+      "properties": {
+        "chapter_index": {
+          "format": "double",
+          "type": "number"
+        },
+        "content_id": {
+          "type": "string"
+        },
+        "poster_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "progress": {
+          "format": "double",
+          "type": "number"
+        },
+        "read": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        },
+        "volume": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content_id",
+        "title",
+        "read"
+      ],
+      "type": "object"
+    },
+    "MangaDetailExtension": {
+      "additionalProperties": false,
+      "properties": {
+        "chapters": {
+          "items": {
+            "$ref": "#/components/schemas/MangaChapter"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "chapters"
+      ],
+      "type": "object"
+    },
+    "Marker": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "format": "double",
+          "type": "number"
+        },
+        "start": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "MarkerOccurrence": {
+      "additionalProperties": false,
+      "properties": {
+        "end_seconds": {
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "kind": {
+          "enum": [
+            "intro",
+            "credits",
+            "recap",
+            "preview"
+          ],
+          "type": "string"
+        },
+        "start_seconds": {
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "thumbnail_capture_seconds": {
+          "description": "Captured source timestamp; marker previews sample the marker start",
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "thumbnail_thumbhash": {
+          "type": "string"
+        },
+        "thumbnail_url": {
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "start_seconds",
+        "end_seconds"
+      ],
+      "type": "object"
+    },
     "PageInfo": {
       "additionalProperties": false,
       "properties": {
@@ -858,6 +3885,89 @@
       },
       "required": [
         "has_more"
+      ],
+      "type": "object"
+    },
+    "PlaybackVariant": {
+      "additionalProperties": false,
+      "properties": {
+        "default_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "edition_key": {
+          "type": "string"
+        },
+        "edition_raw": {
+          "type": "string"
+        },
+        "part_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "parts": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/PlaybackVariantPart"
+          },
+          "type": "array"
+        },
+        "presentation_group_key": {
+          "type": "string"
+        },
+        "presentation_kind": {
+          "type": "string"
+        },
+        "total_duration": {
+          "description": "Seconds",
+          "format": "int64",
+          "type": "integer"
+        },
+        "variant_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "variant_id",
+        "part_count",
+        "parts"
+      ],
+      "type": "object"
+    },
+    "PlaybackVariantPart": {
+      "additionalProperties": false,
+      "properties": {
+        "default_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "part_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "total_duration": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "versions": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/FileVersion"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "part_index",
+        "versions"
       ],
       "type": "object"
     },
@@ -1339,6 +4449,192 @@
       ],
       "type": "object"
     },
+    "Season": {
+      "additionalProperties": false,
+      "properties": {
+        "air_date": {
+          "description": "Calendar date, YYYY-MM-DD",
+          "format": "date",
+          "type": "string"
+        },
+        "content_id": {
+          "examples": [
+            "series:severance-S01"
+          ],
+          "type": "string"
+        },
+        "episode_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "is_specials": {
+          "type": "boolean"
+        },
+        "machine_translated_fields": {
+          "description": "Localized fields whose text was machine-translated by AI; absent when none were",
+          "items": {
+            "enum": [
+              "overview"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "overview": {
+          "type": "string"
+        },
+        "play_content_id": {
+          "description": "The episode to play next",
+          "type": "string"
+        },
+        "poster_thumbhash": {
+          "type": "string"
+        },
+        "poster_url": {
+          "description": "Presigned, short-lived",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "season_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "examples": [
+            "Season 1"
+          ],
+          "type": "string"
+        },
+        "user_data": {
+          "$ref": "#/components/schemas/WatchRollup"
+        }
+      },
+      "required": [
+        "content_id",
+        "season_number",
+        "title",
+        "episode_count"
+      ],
+      "type": "object"
+    },
+    "SeasonCollection": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "description": "The page's items; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/Season"
+          },
+          "type": "array"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo",
+          "description": "Cursor state; absent for bounded unpaginated collections"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "customized": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "featured": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "has_more": {
+          "description": "The section holds more cards than items: reading it again without item_limit answers more. Sent only by getHomeSectionItems and getHomeLayout's included_sections when the request carried item_limit, and absent when false",
+          "examples": [
+            true
+          ],
+          "type": "boolean"
+        },
+        "id": {
+          "examples": [
+            "recently_added"
+          ],
+          "type": "string"
+        },
+        "is_custom": {
+          "examples": [
+            false
+          ],
+          "type": "boolean"
+        },
+        "item_limit": {
+          "examples": [
+            20
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "items": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/CatalogItem"
+          },
+          "type": "array"
+        },
+        "section_type": {
+          "examples": [
+            "recently_added"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "examples": [
+            "Recently Added"
+          ],
+          "type": "string"
+        },
+        "total_count": {
+          "description": "Items the section has in total, at least the number returned",
+          "examples": [
+            120
+          ],
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "section_type",
+        "title",
+        "featured",
+        "item_limit",
+        "total_count",
+        "is_custom",
+        "customized",
+        "items"
+      ],
+      "type": "object"
+    },
+    "SectionCollection": {
+      "additionalProperties": false,
+      "properties": {
+        "sections": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/Section"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sections"
+      ],
+      "type": "object"
+    },
     "ServerIdentity": {
       "additionalProperties": false,
       "properties": {
@@ -1352,6 +4648,37 @@
       },
       "required": [
         "server_id"
+      ],
+      "type": "object"
+    },
+    "SubtitleInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "forced": {
+          "type": "boolean"
+        },
+        "hearing_impaired": {
+          "type": "boolean"
+        },
+        "language": {
+          "description": "Subtitle language: BCP 47 tag (en, pt-BR), empty when unknown; older rows may carry a legacy value",
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "language",
+        "forced",
+        "hearing_impaired"
       ],
       "type": "object"
     },
@@ -1432,6 +4759,50 @@
       ],
       "type": "object"
     },
+    "ThemeSong": {
+      "additionalProperties": false,
+      "properties": {
+        "container": {
+          "type": "string"
+        },
+        "duration_seconds": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "duration_seconds",
+        "container"
+      ],
+      "type": "object"
+    },
+    "ThemeSongSet": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/components/schemas/ThemeSong"
+          },
+          "type": "array"
+        },
+        "owner_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner_id",
+        "items"
+      ],
+      "type": "object"
+    },
     "TokenPair": {
       "additionalProperties": false,
       "properties": {
@@ -1509,6 +4880,1085 @@
         "type",
         "sort_order",
         "box_sets_enabled"
+      ],
+      "type": "object"
+    },
+    "VersionChapter": {
+      "additionalProperties": false,
+      "properties": {
+        "end_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "start_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "thumbnail_thumbhash": {
+          "type": "string"
+        },
+        "thumbnail_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "title",
+        "start_seconds",
+        "end_seconds",
+        "source"
+      ],
+      "type": "object"
+    },
+    "VersionSubtitleTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "embedded_title": {
+          "type": "string"
+        },
+        "external": {
+          "type": "boolean"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "forced": {
+          "type": "boolean"
+        },
+        "hearing_impaired": {
+          "type": "boolean"
+        },
+        "index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "language": {
+          "description": "Track language from the file: BCP 47 tag, ISO 639-1 where one exists (en, pt-BR); und when the file marks it undetermined. Older scans may carry an ISO 639-2 code or the file's raw tag; an external track's comes from its file name",
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "forced",
+        "default",
+        "hearing_impaired",
+        "external"
+      ],
+      "type": "object"
+    },
+    "VideoTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect_ratio": {
+          "type": "string"
+        },
+        "bit_depth": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bitrate": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "codec": {
+          "type": "string"
+        },
+        "color_primaries": {
+          "type": "string"
+        },
+        "color_range": {
+          "type": "string"
+        },
+        "color_space": {
+          "type": "string"
+        },
+        "color_transfer": {
+          "type": "string"
+        },
+        "dolby_vision": {
+          "type": "string"
+        },
+        "dv_bl_compat_id": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_bl_compat_id_present": {
+          "type": "boolean"
+        },
+        "dv_bl_present": {
+          "type": "boolean"
+        },
+        "dv_config_present": {
+          "type": "boolean"
+        },
+        "dv_el_present": {
+          "type": "boolean"
+        },
+        "dv_enhancement_layer": {
+          "type": "string"
+        },
+        "dv_level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_profile": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_rpu_present": {
+          "type": "boolean"
+        },
+        "frame_rate": {
+          "type": "string"
+        },
+        "hdr10_plus": {
+          "type": "boolean"
+        },
+        "height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "interlaced": {
+          "type": "boolean"
+        },
+        "level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "pixel_format": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "reference_frames": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "video_range": {
+          "type": "string"
+        },
+        "video_range_type": {
+          "type": "string"
+        },
+        "width": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dv_config_present",
+        "dv_bl_compat_id_present",
+        "interlaced"
+      ],
+      "type": "object"
+    },
+    "WatchAudioTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "bit_depth": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bitrate": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "codec": {
+          "examples": [
+            "eac3"
+          ],
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "embedded_title": {
+          "type": "string"
+        },
+        "language": {
+          "description": "Track language from the file: BCP 47 tag, ISO 639-1 where one exists (en, pt-BR); und when the file marks it undetermined. Older scans may carry an ISO 639-2 code or the file's raw tag",
+          "examples": [
+            "en"
+          ],
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "sample_rate": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "default"
+      ],
+      "type": "object"
+    },
+    "WatchChapter": {
+      "additionalProperties": false,
+      "properties": {
+        "end_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "source": {
+          "description": "Where the chapter came from",
+          "type": "string"
+        },
+        "start_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "thumbnail_thumbhash": {
+          "type": "string"
+        },
+        "thumbnail_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "title",
+        "start_seconds",
+        "end_seconds",
+        "source"
+      ],
+      "type": "object"
+    },
+    "WatchDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "backdrop_thumbhash": {
+          "type": "string"
+        },
+        "backdrop_url": {
+          "description": "The item's backdrop, an episode's series backdrop, or an extra's parent backdrop, sized by image_size",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "content_id": {
+          "examples": [
+            "movie:heat-1995"
+          ],
+          "type": "string"
+        },
+        "credits": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "effective_show_forced_subtitles": {
+          "type": "boolean"
+        },
+        "effective_subtitle_language": {
+          "description": "The subtitle language the profile's preferences resolve to: BCP 47 tag; empty when the preference is None",
+          "pattern": "^(?:[a-z]{2,3}(?:-[0-9A-Za-z]{1,8})*|x(?:-[0-9A-Za-z]{1,8})+)?$",
+          "type": "string"
+        },
+        "effective_subtitle_mode": {
+          "type": "string"
+        },
+        "effective_subtitle_track_signature": {
+          "$ref": "#/components/schemas/WatchSubtitleSignature",
+          "description": "The subtitle track the profile last chose on this item"
+        },
+        "effective_version_codec_video": {
+          "type": "string"
+        },
+        "effective_version_edition_key": {
+          "type": "string"
+        },
+        "effective_version_hdr": {
+          "type": "boolean"
+        },
+        "effective_version_resolution": {
+          "description": "The version resolution the profile last played",
+          "type": "string"
+        },
+        "episode_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "intro": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "overview": {
+          "type": "string"
+        },
+        "playback_variants": {
+          "description": "Logical watch choices, each spanning one or more ordered parts",
+          "items": {
+            "$ref": "#/components/schemas/WatchPlaybackVariant"
+          },
+          "type": "array"
+        },
+        "poster_thumbhash": {
+          "type": "string"
+        },
+        "poster_url": {
+          "description": "The item's poster, an episode's still, or a local extra's still (its parent's poster when it has none), sized by image_size; for system media controls",
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "preview": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "recap": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "season_number": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "series_id": {
+          "description": "Owning series of an episode",
+          "type": "string"
+        },
+        "series_title": {
+          "type": "string"
+        },
+        "subtitles": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/WatchSubtitle"
+          },
+          "type": "array"
+        },
+        "title": {
+          "examples": [
+            "Heat"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "description": "movie, episode, audiobook, ebook",
+          "examples": [
+            "movie"
+          ],
+          "type": "string"
+        },
+        "user_data": {
+          "$ref": "#/components/schemas/WatchUserData",
+          "description": "The acting profile's progress; absent without a profile or progress"
+        },
+        "versions": {
+          "description": "Every playable file of the item; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/WatchFileVersion"
+          },
+          "type": "array"
+        },
+        "year": {
+          "examples": [
+            1995
+          ],
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "content_id",
+        "type",
+        "title",
+        "versions",
+        "subtitles"
+      ],
+      "type": "object"
+    },
+    "WatchFileVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "added_at": {
+          "description": "RFC 3339 instant in UTC with millisecond precision",
+          "examples": [
+            "2026-01-02T03:04:05.000Z"
+          ],
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "audio_tracks": {
+          "items": {
+            "$ref": "#/components/schemas/WatchAudioTrack"
+          },
+          "type": "array"
+        },
+        "bitrate": {
+          "description": "Bits per second",
+          "format": "int64",
+          "type": "integer"
+        },
+        "chapters": {
+          "items": {
+            "$ref": "#/components/schemas/WatchChapter"
+          },
+          "type": "array"
+        },
+        "codec_audio": {
+          "examples": [
+            "eac3"
+          ],
+          "type": "string"
+        },
+        "codec_video": {
+          "examples": [
+            "h264"
+          ],
+          "type": "string"
+        },
+        "container": {
+          "examples": [
+            "mkv"
+          ],
+          "type": "string"
+        },
+        "credits": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "duration_seconds": {
+          "examples": [
+            10200
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "edition_key": {
+          "type": "string"
+        },
+        "edition_raw": {
+          "type": "string"
+        },
+        "effective_audio_language": {
+          "description": "Language of the audio track playback will pick (BCP 47, from the file), or the item's original language (normally ISO 639-1) when the preference is original; absent when unknown",
+          "type": "string"
+        },
+        "effective_audio_track_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "42"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "file_path": {
+          "description": "Only for accounts allowed to see paths",
+          "type": "string"
+        },
+        "file_size": {
+          "description": "Bytes",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hdr": {
+          "type": "boolean"
+        },
+        "intro": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "marker_segments": {
+          "description": "All effective marker occurrences for this file in source-time order; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/MarkerOccurrence"
+          },
+          "type": "array"
+        },
+        "multi_episode_end": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "multi_episode_start": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "presentation_group_key": {
+          "type": "string"
+        },
+        "presentation_kind": {
+          "type": "string"
+        },
+        "presentation_part_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "presentation_part_total": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "preview": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "recap": {
+          "$ref": "#/components/schemas/WatchMarker"
+        },
+        "resolution": {
+          "examples": [
+            "1080p"
+          ],
+          "type": "string"
+        },
+        "subtitle_tracks": {
+          "items": {
+            "$ref": "#/components/schemas/WatchSubtitleTrack"
+          },
+          "type": "array"
+        },
+        "trickplay_available": {
+          "description": "Whether seek-bar previews are published for this file; read them with getWatchTrickplay",
+          "type": "boolean"
+        },
+        "video_tracks": {
+          "items": {
+            "$ref": "#/components/schemas/WatchVideoTrack"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "file_id",
+        "resolution",
+        "codec_video",
+        "codec_audio",
+        "hdr",
+        "container",
+        "file_size",
+        "duration_seconds",
+        "bitrate",
+        "added_at",
+        "marker_segments",
+        "trickplay_available"
+      ],
+      "type": "object"
+    },
+    "WatchMarker": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "confidence": {
+          "format": "double",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "end_seconds": {
+          "examples": [
+            90
+          ],
+          "format": "double",
+          "type": "number"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "scanner",
+            "online",
+            "plugin",
+            "s3",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "start_seconds": {
+          "examples": [
+            0
+          ],
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_seconds",
+        "end_seconds"
+      ],
+      "type": "object"
+    },
+    "WatchPlaybackVariant": {
+      "additionalProperties": false,
+      "properties": {
+        "default_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "edition_key": {
+          "type": "string"
+        },
+        "edition_raw": {
+          "type": "string"
+        },
+        "part_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "parts": {
+          "description": "Ordered; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/WatchPlaybackVariantPart"
+          },
+          "type": "array"
+        },
+        "presentation_group_key": {
+          "type": "string"
+        },
+        "presentation_kind": {
+          "type": "string"
+        },
+        "total_duration_seconds": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "variant_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "variant_id",
+        "part_count",
+        "parts"
+      ],
+      "type": "object"
+    },
+    "WatchPlaybackVariantPart": {
+      "additionalProperties": false,
+      "properties": {
+        "default_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "part_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "total_duration_seconds": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "versions": {
+          "description": "Empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/WatchFileVersion"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "part_index",
+        "versions"
+      ],
+      "type": "object"
+    },
+    "WatchRollup": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "in_progress_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "is_in_progress": {
+          "type": "boolean"
+        },
+        "last_codec_video": {
+          "type": "string"
+        },
+        "last_edition_key": {
+          "type": "string"
+        },
+        "last_file_id": {
+          "description": "The version last played",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "last_hdr": {
+          "type": "boolean"
+        },
+        "last_resolution": {
+          "type": "string"
+        },
+        "played": {
+          "type": "boolean"
+        },
+        "position_seconds": {
+          "description": "Resume position of the leaf or of the next episode",
+          "format": "double",
+          "type": "number"
+        },
+        "unplayed_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "watched_count": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "watched_count",
+        "unplayed_count",
+        "in_progress_count",
+        "played"
+      ],
+      "type": "object"
+    },
+    "WatchSubtitle": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "forced": {
+          "type": "boolean"
+        },
+        "hearing_impaired": {
+          "type": "boolean"
+        },
+        "language": {
+          "description": "Subtitle language: BCP 47 tag (en, pt-BR), empty when unknown; older rows may carry a legacy value",
+          "examples": [
+            "en"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "description": "embedded or external",
+          "examples": [
+            "embedded"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "language",
+        "forced",
+        "hearing_impaired"
+      ],
+      "type": "object"
+    },
+    "WatchSubtitleSignature": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "forced": {
+          "type": "boolean"
+        },
+        "hearing_impaired": {
+          "type": "boolean"
+        },
+        "label": {
+          "type": "string"
+        },
+        "language": {
+          "description": "Track language as the client recorded it, normally the track's language (BCP 47); stored as sent",
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "forced",
+        "hearing_impaired"
+      ],
+      "type": "object"
+    },
+    "WatchSubtitleTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "embedded_title": {
+          "type": "string"
+        },
+        "external": {
+          "type": "boolean"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "forced": {
+          "type": "boolean"
+        },
+        "hearing_impaired": {
+          "type": "boolean"
+        },
+        "index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "language": {
+          "description": "Track language from the file: BCP 47 tag, ISO 639-1 where one exists (en, pt-BR); und when the file marks it undetermined. Older scans may carry an ISO 639-2 code or the file's raw tag; an external track's comes from its file name",
+          "examples": [
+            "en"
+          ],
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "forced",
+        "default",
+        "hearing_impaired",
+        "external"
+      ],
+      "type": "object"
+    },
+    "WatchUserData": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "examples": [
+            10200
+          ],
+          "format": "double",
+          "type": "number"
+        },
+        "in_progress_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "is_in_progress": {
+          "type": "boolean"
+        },
+        "last_codec_video": {
+          "type": "string"
+        },
+        "last_edition_key": {
+          "type": "string"
+        },
+        "last_file_id": {
+          "description": "The version last played",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "last_hdr": {
+          "type": "boolean"
+        },
+        "last_resolution": {
+          "type": "string"
+        },
+        "played": {
+          "type": "boolean"
+        },
+        "position_seconds": {
+          "examples": [
+            1325.5
+          ],
+          "format": "double",
+          "type": "number"
+        },
+        "unplayed_count": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "watched_count": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "watched_count",
+        "unplayed_count",
+        "in_progress_count",
+        "played"
+      ],
+      "type": "object"
+    },
+    "WatchVideoTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect_ratio": {
+          "type": "string"
+        },
+        "bit_depth": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bitrate": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "codec": {
+          "examples": [
+            "hevc"
+          ],
+          "type": "string"
+        },
+        "color_primaries": {
+          "type": "string"
+        },
+        "color_range": {
+          "type": "string"
+        },
+        "color_space": {
+          "type": "string"
+        },
+        "color_transfer": {
+          "type": "string"
+        },
+        "dolby_vision": {
+          "type": "string"
+        },
+        "dv_bl_compat_id": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_bl_compat_id_present": {
+          "type": "boolean"
+        },
+        "dv_bl_present": {
+          "type": "boolean"
+        },
+        "dv_config_present": {
+          "type": "boolean"
+        },
+        "dv_el_present": {
+          "type": "boolean"
+        },
+        "dv_enhancement_layer": {
+          "description": "none, mel, fel, unknown",
+          "type": "string"
+        },
+        "dv_level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_profile": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_rpu_present": {
+          "type": "boolean"
+        },
+        "frame_rate": {
+          "type": "string"
+        },
+        "hdr10_plus": {
+          "type": "boolean"
+        },
+        "height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "interlaced": {
+          "type": "boolean"
+        },
+        "level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "pixel_format": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "reference_frames": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "video_range": {
+          "type": "string"
+        },
+        "video_range_type": {
+          "type": "string"
+        },
+        "width": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dv_config_present",
+        "dv_bl_compat_id_present",
+        "interlaced"
       ],
       "type": "object"
     }

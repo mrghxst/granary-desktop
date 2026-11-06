@@ -656,9 +656,9 @@ Useful for a viewer client:
 | Thresholds | Admin settings, not constants. | `admin_settings.go@6791aac` L458-459 |
 | Rolling deploys | Some events, such as lifecycle events, are absent on older nodes. | `realtime-api.md@6791aac` L250-256 |
 
-## 13. Used by Granary so far (Phase 4)
+## 13. Used by Granary so far (Phases 4–5)
 
-`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (9 operations, 18 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
+`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (16 operations, 75 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
 
 | Operation | Rust (`SiloApi`) | Auth |
 | --- | --- | --- |
@@ -671,6 +671,16 @@ Useful for a viewer client:
 | `listProfiles` | `profiles` | bearer |
 | `verifyProfilePIN` | `verify_pin` | bearer |
 | `listUserLibraries` | `libraries` | bearer + profile headers |
+| `listHomeSections` (OAS:L179770) | `home_sections` | bearer + profile headers |
+| `listCatalogItems` (OAS:L150065) | `catalog_browse` (`library_id`, `q`, `type`, `sort`, `cursor`, `limit`) | bearer + profile headers |
+| `getCatalogItem` (OAS:L152009) | `catalog_item` | bearer + profile headers |
+| `listSeriesSeasons` (OAS:L155969) | `series_seasons` | bearer + profile headers |
+| `listSeasonEpisodes` (OAS:L156533) | `season_episodes` | bearer + profile headers |
+| `getWatchState` (OAS:L234067) | `watch_state` | bearer + profile headers |
+| `getArtwork` (OAS:L142607) | `fetch_image` (presigned URL as returned) | none (`exp`/`sig` in the URL) |
+
+Account-level operations (`listProfiles`, `verifyProfilePIN`, `getCurrentUser`, `logout`) are sent with the bearer
+token only, never with profile headers (Gate 4 review M1).
 
 Facts confirmed while implementing (all `@6791aac`):
 
@@ -681,6 +691,7 @@ Facts confirmed while implementing (all `@6791aac`):
 - **`X-Silo-Client-Family`** must be one of `tv|mobile|tablet|desktop|web` (OAS enum); Granary sends `desktop`.
 - **`SystemInfo.request_origin`**: the origin the server believes it was reached at. Granary shows a warning when it differs from the entered origin; it is never used for routing.
 - **`contract_digest`** of this SHA is `6a439ae59ca9e14e1c0edea0af872fc076fde5ddec60a2e978ee2dd74a9fb8b9`, the SHA-256 of the committed `openapi.json` (LF). Granary uses it for diagnostics only; a different digest marks the server "untested" in the UI, it never blocks.
+- **Phase 5 facts** (OAS @6791aac): `X-Profile-Id` is *required* on `listHomeSections`, `listCatalogItems`, `getCatalogItem`, `listSeriesSeasons` and `listSeasonEpisodes` (optional on `getWatchState`); Granary refuses these calls locally (`profile_required`) until a profile is selected. `FileVersion.duration` and `WatchFileVersion.duration_seconds` are integer seconds. `WatchDetail.user_data` is `WatchUserData` (same progress fields as `WatchRollup`). Audio tracks carry no index (Granary passes the position in `audio_tracks`); `VersionSubtitleTrack`/`WatchSubtitleTrack` carry `index`. `effective_subtitle_mode` uses the `Profile.subtitle_mode` vocabulary `auto|always|off|default|forced_only` (empty = unset). Artwork URLs are presigned `uri-reference`s; Granary resolves relative ones against the server origin and loads them only through its `granary-img` scheme, without credentials.
 - `Profile` also carries `subtitle_mode` and `updated_at` (OAS:L46528). Granary deserializes only the fields it needs and ignores unknown ones.
 
 *Granary note:* headers actually sent on every request: `X-Silo-Device-Id` (UUID v4 from `%APPDATA%\Granary\device.json`), `X-Silo-Device-Name` (computer name, ≤120 chars), `X-Silo-Device-Platform: windows`, `X-Silo-Client: Granary for Windows`, `X-Silo-Client-Version`, `X-Silo-Client-Family: desktop`. Bearer and profile headers go only on secured operations, and redirects are never followed (a 3xx is an error), so credentials cannot leak to another origin.

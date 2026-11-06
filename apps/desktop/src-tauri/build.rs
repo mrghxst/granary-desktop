@@ -14,6 +14,15 @@ const COMMANDS: &[&str] = &[
     "profiles_list",
     "profiles_select",
     "libraries_list",
+    "home_sections",
+    "catalog_browse",
+    "catalog_item",
+    "series_seasons",
+    "season_episodes",
+    "watch_state",
+    "player_play",
+    "settings_get",
+    "settings_set",
 ];
 
 fn main() {

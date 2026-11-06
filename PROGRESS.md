@@ -15,8 +15,10 @@ Last updated: 2026-11-06T23:10:00+01:00 | Current phase: 5 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 5: UI web-app parity in progress (catalog models, shell, home rows, library grid, search, item details,
-settings, play hand-off stub). Next: wire routes + Rust catalog commands + granary-img scheme, tests, reviewer pass.
+Phase 5: implementation complete (shell + sidebar, home rows/hero, library grid with sort + cursor paging, search,
+item/series details with version/audio/subtitle pickers, settings screen, settings.json store, granary-img artwork
+scheme with narrowed CSP, player_play hand-off stub, 6 new OAS operations with contract fixtures). Next: reviewer pass
+docs/reviews/phase-5.md, Gate 5.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -59,10 +61,10 @@ settings, play hand-off stub). Next: wire routes + Rust catalog commands + grana
   scheme, L8 unused getCurrentUser / servers_activate surface, L9 Profiles back button / aria-pressed / live region /
   Remove confirmation (Phase 5 shell + Phase 8 polish), L10 Rust-side auth://revoked emit test, L11 request_origin
   mismatch as warning tone + ADR note.
-- Phase 4/5: narrow CSP `img-src` (now `https: http:`) to the `granary-img` scheme (ADR-0004, phase-3 review L3).
 - Phase 6: re-verify Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2).
 
 ## Log (newest first, one line per completed step)
+- 2026-11-06 Phase 5: UI web-app parity screens, catalog commands + mock catalog, granary-img scheme, settings store, contract tests for 6 new operations, vitest browse → details → play flow + host-side E2E test; verify.ps1 exit 0.
 - 2026-11-06 Gate 4: review fixes (H1 credential never follows a server id to a new origin, M1 account-level calls without profile headers, M2 re-login ends previous session, L2, L3); verify.ps1 exit 0.
 - 2026-11-06 Phase 4: silo-api crate (9 OAS ops, contract tests vs OAS subset, TLS + wiremock tests, live test `#[ignore]`), Tauri commands, connect UI + vitest flow; verify.ps1 exit 0.
 - 2026-11-06 Phase 3 DONE: scaffold, verify.ps1, CI (libmpv cache job + verify job), release workflow (drafts only), skills, ADR-0007; review H1–H4/M1–M6/L1–L8 resolved.

@@ -1,0 +1,77 @@
+{
+  "cast": [
+    {
+      "name": "Ada Brook",
+      "character": "Lead",
+      "order": 0
+    }
+  ],
+  "crew": [],
+  "versions": [
+    {
+      "file_id": "m1-f1",
+      "resolution": "2160p",
+      "codec_video": "hevc",
+      "codec_audio": "eac3",
+      "hdr": true,
+      "container": "mkv",
+      "file_size": 1,
+      "duration": 7080,
+      "bitrate": 0,
+      "added_at": "2026-01-01T00:00:00Z",
+      "audio_tracks": [
+        {
+          "default": true,
+          "language": "eng",
+          "codec": "eac3",
+          "channels": 6
+        },
+        {
+          "default": false,
+          "language": "deu",
+          "codec": "ac3",
+          "channels": 6
+        }
+      ],
+      "subtitle_tracks": [
+        {
+          "forced": false,
+          "default": false,
+          "hearing_impaired": false,
+          "external": false,
+          "index": 2,
+          "language": "eng",
+          "codec": "subrip"
+        },
+        {
+          "forced": true,
+          "default": false,
+          "hearing_impaired": false,
+          "external": false,
+          "index": 3,
+          "language": "deu",
+          "codec": "subrip"
+        }
+      ]
+    }
+  ],
+  "ratings": [],
+  "subtitles": [],
+  "content_id": "m1",
+  "type": "movie",
+  "title": "Northern Lights",
+  "genres": [
+    "Drama"
+  ],
+  "keywords": [],
+  "status": "available",
+  "overview": "A night-shift radio host follows a signal across the tundra.",
+  "user_data": {
+    "watched_count": 0,
+    "unplayed_count": 0,
+    "in_progress_count": 0,
+    "played": false,
+    "position_seconds": 1520,
+    "duration_seconds": 7080
+  }
+}
