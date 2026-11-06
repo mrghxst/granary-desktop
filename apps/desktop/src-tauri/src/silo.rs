@@ -186,6 +186,13 @@ impl SiloState {
 
     pub async fn add(&self, url: &str) -> CmdResult<ServerView> {
         let p = probe(self.api.as_ref(), url).await?;
+        let previous = self.registry.lock().await.get(&p.server_id).cloned();
+        if let Some(prev) = previous.filter(|r| r.origin != p.origin && r.account.is_some()) {
+            // Same server id at a new address: the id comes from a public endpoint, so the stored refresh token must
+            // not follow it. Revoke it at the old origin and forget it; the user signs in again (review phase-4 H1).
+            tracing::info!(server_id = %p.server_id, "server address changed; signing out of the old address");
+            self.sign_out(&prev.server_id).await?;
+        }
         let record = ServerRecord {
             server_id: p.server_id.clone(),
             origin: p.origin,
@@ -194,8 +201,6 @@ impl SiloState {
             account: None,
             last_profile_id: None,
         };
-        // A known server reached at a new address: its live session still points at the old origin.
-        self.sessions.lock().await.remove(&p.server_id);
         tracing::info!(server_id = %p.server_id, untested = p.untested, "server saved");
         self.update_registry(|reg| {
             let saved = reg.upsert(record).clone();
@@ -237,6 +242,10 @@ impl SiloState {
 
     pub async fn login(&self, server_id: &str, username: &str, password: Secret) -> CmdResult<LoginView> {
         let record = Self::record(&*self.registry.lock().await, server_id)?;
+        if record.account.is_some() {
+            // One account per server: end the previous session first so its credential does not linger (M2).
+            self.sign_out(server_id).await?;
+        }
         let (session, user) = Session::login(
             self.api.clone(),
             self.store.clone(),
@@ -270,8 +279,24 @@ impl SiloState {
     }
 
     pub async fn logout(&self, server_id: &str) -> CmdResult<()> {
+        self.sign_out(server_id).await
+    }
+
+    /// Revoke the server session (best effort, at the origin it was issued for), delete the stored credential and
+    /// clear the account.
+    async fn sign_out(&self, server_id: &str) -> CmdResult<()> {
         if let Ok(session) = self.session(server_id).await {
             session.logout().await;
+        }
+        let account = self
+            .registry
+            .lock()
+            .await
+            .get(server_id)
+            .and_then(|r| r.account.clone());
+        if let Some(acc) = account {
+            self.store
+                .delete(&granary_silo_api::credentials::account_key(server_id, &acc.user_id))?;
         }
         self.forget_account(server_id).await
     }
@@ -519,6 +544,38 @@ mod tests {
         assert_eq!(s2.libraries(&id).await.unwrap_err().code, "not_signed_in");
         s2.remove(&id).await?;
         assert!(s2.servers().await.is_empty());
+        let _ = std::fs::remove_dir_all(path.parent().unwrap_or(&path));
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn new_address_signs_out_and_forgets_credential() -> Result<(), CommandError> {
+        let (api, store, s, path) = state();
+        let id = s.add("https://mock.example").await?.server_id;
+        s.login(&id, "alice", Secret::new("pw")).await?;
+        assert_eq!(store.len(), 1);
+        // Same server id reported at another address (look-alike server or plain-http LAN address).
+        let moved = s.add("http://192.0.2.10:8096").await?;
+        assert_eq!(moved.server_id, id);
+        assert!(moved.account.is_none(), "account must not follow the server id");
+        assert!(store.is_empty(), "refresh token deleted");
+        assert_eq!(api.live_sessions(), 0, "old session revoked");
+        assert_eq!(s.libraries(&id).await.unwrap_err().code, "not_signed_in");
+        // Re-adding at the same address keeps the account.
+        s.login(&id, "alice", Secret::new("pw")).await?;
+        assert!(s.add("http://192.0.2.10:8096/").await?.account.is_some());
+        let _ = std::fs::remove_dir_all(path.parent().unwrap_or(&path));
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn signing_in_again_ends_previous_session() -> Result<(), CommandError> {
+        let (api, store, s, path) = state();
+        let id = s.add("https://mock.example").await?.server_id;
+        s.login(&id, "alice", Secret::new("pw")).await?;
+        s.login(&id, "alice", Secret::new("pw")).await?;
+        assert_eq!(store.len(), 1);
+        assert_eq!(api.live_sessions(), 1, "previous session revoked");
         let _ = std::fs::remove_dir_all(path.parent().unwrap_or(&path));
         Ok(())
     }

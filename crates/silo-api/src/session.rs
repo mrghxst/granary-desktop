@@ -133,7 +133,10 @@ impl Session {
         }
     }
 
-    async fn current(&self) -> Result<(Auth, u64)> {
+    /// Tokens for the next request. Account-level calls (`with_profile == false`) never carry the profile headers:
+    /// upstream validates a supplied profile token on every route, so a stale one would lock the user out of the
+    /// profile list and PIN unlock (review phase-4 M1).
+    async fn current(&self, with_profile: bool) -> Result<(Auth, u64)> {
         if self.is_signed_out() {
             return Err(ApiError::SignedOut);
         }
@@ -152,7 +155,7 @@ impl Session {
         Ok((
             Auth {
                 access,
-                profile: self.profile(),
+                profile: if with_profile { self.profile() } else { None },
             },
             t.generation,
         ))
@@ -211,24 +214,43 @@ impl Session {
         }
     }
 
-    /// Run an authenticated request with the refresh rules above.
+    /// Run a profile-scoped request (selected profile's headers attached) with the refresh rules above.
     pub async fn call<T, F, Fut>(&self, f: F) -> Result<T>
     where
         F: Fn(Auth) -> Fut,
         Fut: Future<Output = Result<T>>,
     {
-        let (auth, generation) = self.current().await?;
+        self.call_scoped(true, f).await
+    }
+
+    /// Run an account-level request: bearer token only, no profile headers.
+    pub async fn call_account<T, F, Fut>(&self, f: F) -> Result<T>
+    where
+        F: Fn(Auth) -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        self.call_scoped(false, f).await
+    }
+
+    async fn call_scoped<T, F, Fut>(&self, with_profile: bool, f: F) -> Result<T>
+    where
+        F: Fn(Auth) -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        let (auth, generation) = self.current(with_profile).await?;
         let first = f(auth).await;
         let result = match first {
             Err(ApiError::Http { status: 401, .. }) => {
                 self.refresh(generation).await?;
-                let (auth, _) = self.current().await?;
+                let (auth, _) = self.current(with_profile).await?;
                 f(auth).await
             }
             other => other,
         };
         match result {
             Err(e) if e.problem_id() == Some("profile_verification_required") => {
+                // The profile token expired or the PIN changed: drop it so the UI asks for the profile again.
+                self.set_profile(None);
                 Err(ApiError::ProfileVerificationRequired)
             }
             other => other,
@@ -237,7 +259,7 @@ impl Session {
 
     /// Revoke the server session (best effort) and forget the credential.
     pub async fn logout(&self) {
-        if let Ok((auth, _)) = self.current().await
+        if let Ok((auth, _)) = self.current(false).await
             && let Err(e) = self.api.logout(&self.origin, &auth).await
         {
             tracing::warn!(
@@ -249,12 +271,12 @@ impl Session {
     }
 
     pub async fn current_user(&self) -> Result<Account> {
-        self.call(|auth| async move { self.api.current_user(&self.origin, &auth).await })
+        self.call_account(|auth| async move { self.api.current_user(&self.origin, &auth).await })
             .await
     }
 
     pub async fn profiles(&self) -> Result<Vec<Profile>> {
-        self.call(|auth| async move { self.api.list_profiles(&self.origin, &auth).await })
+        self.call_account(|auth| async move { self.api.list_profiles(&self.origin, &auth).await })
             .await
             .map(|c| c.items)
     }
@@ -265,7 +287,9 @@ impl Session {
             None => None,
             Some(pin) => {
                 let v = self
-                    .call(|auth| async move { self.api.verify_profile_pin(&self.origin, &auth, profile_id, pin).await })
+                    .call_account(|auth| async move {
+                        self.api.verify_profile_pin(&self.origin, &auth, profile_id, pin).await
+                    })
                     .await?;
                 if !v.valid {
                     return Err(ApiError::WrongPin);
@@ -429,6 +453,22 @@ mod tests {
             Some(1),
             "restricted profile sees one library"
         );
+    }
+
+    #[tokio::test]
+    async fn stale_profile_token_does_not_block_account_calls() {
+        let (api, _, s) = signed_in().await;
+        assert!(s.select_profile("2", Some(&Secret::new("1234"))).await.is_ok());
+        api.revoke_profile_tokens();
+        // Account-level calls carry no profile headers, so the stale token cannot lock the profile picker.
+        assert_eq!(s.profiles().await.map(|p| p.len()).ok(), Some(2));
+        assert!(matches!(
+            s.libraries().await,
+            Err(ApiError::ProfileVerificationRequired)
+        ));
+        assert!(s.profile().is_none(), "stale profile token dropped");
+        assert!(s.select_profile("2", Some(&Secret::new("1234"))).await.is_ok());
+        assert_eq!(s.libraries().await.map(|l| l.len()).ok(), Some(1));
     }
 
     #[tokio::test]

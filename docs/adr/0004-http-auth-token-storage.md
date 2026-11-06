@@ -69,3 +69,11 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 - `reqwest` 0.13 with `rustls` (aws-lc-rs provider, `rustls-platform-verifier`); TLS failures are classified by walking
   the error source chain down to `rustls::Error` (expired, not yet valid, untrusted issuer, name mismatch, revoked).
 - Login `401` is reported as `invalid_credentials`; the server uses problem id `invalid_token` for it (silo-api.md §13).
+
+### Amendment 2 (Gate 4 review, 2026-11-06)
+- A stored account is bound to the origin it signed in at. When a saved `server_id` is reached at a different origin,
+  Granary revokes the session at the old origin, deletes the credential and asks the user to sign in again. The
+  `server_id` comes from a public endpoint and cannot prove identity.
+- Profile headers (`X-Profile-Id`, `X-Profile-Token`) are sent only on profile-scoped operations; account-level ones
+  (profile list, PIN verification, current user, logout) carry only the bearer token.
+- Signing in on a server that already has an account first ends the previous session.

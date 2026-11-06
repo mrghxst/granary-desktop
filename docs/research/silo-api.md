@@ -87,7 +87,7 @@ Error codes for `login`: 400, 401, 403, 406, 408, 409, 413, 415, 422, 429, 500, 
   - the family is `tv`, `tablet` or `mobile` (`silo-android/android-shared/src/androidMain/kotlin/org/siloserver/silo/common/network/AndroidDeviceMetadataProvider.kt@ee178d8`).
 - A successful playback start records `X-Silo-Device-Id` (first 128 chars) in the profile's device registry (OAS `replanPlayback` / `startPlayback` header descriptions; `silo-server/docs/playback-api.md@6791aac` L163-280).
 
-*Granary note:* generate a UUID on first run and persist it. Send `X-Silo-Client: Granary`, `X-Silo-Client-Family: desktop` and `X-Silo-Device-Platform: windows`. Whether the server treats an unknown `X-Silo-Client` value specially is **UNVERIFIED**; the OAS describes these values as opaque.
+*Granary note:* generate a UUID on first run and persist it. Send `X-Silo-Client: Granary for Windows`, `X-Silo-Client-Family: desktop` and `X-Silo-Device-Platform: windows`. Whether the server treats an unknown `X-Silo-Client` value specially is **UNVERIFIED**; the OAS describes these values as opaque.
 
 ## 2. Server info, health and version semantics (pre-login)
 
@@ -674,7 +674,7 @@ Useful for a viewer client:
 
 Facts confirmed while implementing (all `@6791aac`):
 
-- **Login failure** is `401` with problem id `invalid_token`, not a dedicated "invalid credentials" id (`internal/api/apiv2/auth.go` L240-247). Granary maps a 401 on `login` to `ApiError::InvalidCredentials`.
+- **Login failure** is `401` with problem id `invalid_token`, not a dedicated "invalid credentials" id (`internal/apiv2/auth.go` L240-247). Granary maps a 401 on `login` to `ApiError::InvalidCredentials`.
 - **Refresh rejection** is `401` with `invalid_token` or `session_expired`; `503 dependency_unavailable` carries `Retry-After` and keeps the tokens. Granary treats a 401 or 403 from `refresh` as "signed out" (credential deleted, `auth://revoked` event) and anything else as transient.
 - **Profile gate**: `403` with problem id `profile_verification_required` (section 3).
 - **Problem `type`** is `https://siloserver.org/docs/api/v2/problems/<id>`; Granary takes the last path segment as the id and never parses `detail`.

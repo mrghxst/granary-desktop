@@ -46,14 +46,28 @@ impl Default for Registry {
 }
 
 impl Registry {
-    /// Load, or start empty when the file is missing. A corrupt file is kept as `servers.json.bad` and replaced by an
-    /// empty registry, so the app still starts.
+    /// Load, or start empty when the file is missing. An unreadable, corrupt or newer-version file is kept as
+    /// `servers.json.bad` and replaced by an empty registry, so the app still starts and nothing is silently lost.
     pub fn load(path: &Path) -> Self {
-        let Ok(text) = std::fs::read_to_string(path) else {
-            return Self::default();
+        let text = match std::fs::read_to_string(path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Self::default(),
+            Err(e) => {
+                tracing::warn!(error = %e, "servers.json unreadable; starting with no servers");
+                let _ = std::fs::rename(path, path.with_extension("json.bad"));
+                return Self::default();
+            }
         };
-        match serde_json::from_str(&text) {
-            Ok(r) => r,
+        match serde_json::from_str::<Self>(&text) {
+            Ok(r) if r.version <= Self::default().version => r,
+            Ok(r) => {
+                tracing::warn!(
+                    version = r.version,
+                    "servers.json written by a newer version; starting with no servers"
+                );
+                let _ = std::fs::rename(path, path.with_extension("json.bad"));
+                Self::default()
+            }
             Err(e) => {
                 tracing::warn!(error = %e, "servers.json unreadable; starting with no servers");
                 let _ = std::fs::rename(path, path.with_extension("json.bad"));
@@ -75,10 +89,16 @@ impl Registry {
         self.servers.iter_mut().find(|s| s.server_id == server_id)
     }
 
-    /// Insert or update by `server_id`, keeping the account of an existing record. Makes it the active server.
+    /// Insert or update by `server_id`. The account of an existing record is kept only while the origin is unchanged:
+    /// a refresh token is bound to the address it was issued for and must never be sent to a new one (review
+    /// phase-4 H1). Makes it the active server.
     pub fn upsert(&mut self, record: ServerRecord) -> &ServerRecord {
         let id = record.server_id.clone();
         if let Some(existing) = self.get_mut(&id) {
+            if existing.origin != record.origin {
+                existing.account = None;
+                existing.last_profile_id = None;
+            }
             existing.origin = record.origin;
             existing.server_version = record.server_version;
             existing.contract_digest = record.contract_digest;
@@ -126,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn upsert_dedupes_by_server_id_and_keeps_account() {
+    fn upsert_dedupes_by_server_id_and_drops_account_on_new_origin() {
         let mut r = Registry::default();
         r.upsert(rec("s1", "https://a"));
         if let Some(s) = r.get_mut("s1") {
@@ -136,10 +156,18 @@ mod tests {
             });
         }
         r.upsert(rec("s2", "https://b"));
+        r.upsert(rec("s1", "https://a"));
+        assert!(
+            r.get("s1").is_some_and(|s| s.account.is_some()),
+            "same origin keeps the account"
+        );
         r.upsert(rec("s1", "https://a2"));
         assert_eq!(r.servers.len(), 2);
         assert_eq!(r.get("s1").map(|s| s.origin.as_str()), Some("https://a2"));
-        assert!(r.get("s1").is_some_and(|s| s.account.is_some()));
+        assert!(
+            r.get("s1").is_some_and(|s| s.account.is_none()),
+            "new origin drops the account"
+        );
         assert_eq!(r.active.as_deref(), Some("s1"));
         r.remove("s1");
         assert_eq!(r.active.as_deref(), Some("s2"));

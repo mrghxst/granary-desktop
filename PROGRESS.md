@@ -1,12 +1,12 @@
 # PROGRESS
-Last updated: 2026-11-06T20:50:00+01:00 | Current phase: 4 | Last commit: (see git log)
+Last updated: 2026-11-06T23:10:00+01:00 | Current phase: 5 | Last commit: (see git log)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
 - [x] 1 Research & ADRs — DONE — gate: 5 research docs with Sources, ADR-0001..0006, reviewer docs/reviews/phase-1.md PASS WITH FINDINGS, all 6 medium + 15 low resolved
 - [x] 2 Risk spike: mpv + overlay + HDR — DONE (commit 9a1a87e) — gate: self-test 16/16 (SDR, video-sync=audio), HDR round-trip exit 0, restore-safety scenarios pass, reviewer docs/reviews/phase-2.md PASS WITH FINDINGS, 2 high + 5 medium + 8 low resolved
 - [x] 3 Scaffold, CI, project skills — DONE (commit 508e26c) — gate: verify.ps1 exit 0 (11 steps), tauri dev launches (libmpv api 2.6, single-instance, owner-checked restore), CI green, reviewer docs/reviews/phase-3.md FAIL → 4 high + 6 medium + 8 low resolved
-- [ ] 4 Silo connectivity & auth
+- [x] 4 Silo connectivity & auth — DONE (commit 6573af4 + review fixes) — gate: verify.ps1 exit 0, CI green, contract tests vs OAS subset @6791aac, mocked add → login → PIN → libraries flow (live test blocked: no .env.local), reviewer docs/reviews/phase-4.md FAIL → 1 high + 2 medium + 2 low resolved
 - [ ] 5 UI (web-app parity)
 - [ ] 6 Native playback & progress sync
 - [ ] 7 Display & audio (auto-HDR, refresh match, passthrough)
@@ -15,8 +15,8 @@ Last updated: 2026-11-06T20:50:00+01:00 | Current phase: 4 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 4: implementation complete (crates/silo-api client + session + Credential Manager store, 10 Tauri commands,
-connect UI: add server → sign in → profile/PIN → libraries). Next: reviewer pass docs/reviews/phase-4.md, Gate 4.
+Phase 5: UI web-app parity in progress (catalog models, shell, home rows, library grid, search, item details,
+settings, play hand-off stub). Next: wire routes + Rust catalog commands + granary-img scheme, tests, reviewer pass.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -54,10 +54,16 @@ connect UI: add server → sign in → profile/PIN → libraries). Next: reviewe
 - Unattended GUI tests can hit the Windows lock screen; input checks then skip by design (seen in 3 runs).
 - TypeScript 7 migration deferred until typescript-eslint supports it (ADR-0007).
 - pnpm minimumReleaseAgeExclude: i18next@26.7.2 (current at time of use; ADR-0007).
+- Phase 4 review lows deferred: L1 double resume after restart (single-flight per Session only), L4 specific login
+  403 codes, L5 show Retry-After, L6 show redirect target origin, L7 "enter http://" hint on TLS failure without
+  scheme, L8 unused getCurrentUser / servers_activate surface, L9 Profiles back button / aria-pressed / live region /
+  Remove confirmation (Phase 5 shell + Phase 8 polish), L10 Rust-side auth://revoked emit test, L11 request_origin
+  mismatch as warning tone + ADR note.
 - Phase 4/5: narrow CSP `img-src` (now `https: http:`) to the `granary-img` scheme (ADR-0004, phase-3 review L3).
 - Phase 6: re-verify Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2).
 
 ## Log (newest first, one line per completed step)
+- 2026-11-06 Gate 4: review fixes (H1 credential never follows a server id to a new origin, M1 account-level calls without profile headers, M2 re-login ends previous session, L2, L3); verify.ps1 exit 0.
 - 2026-11-06 Phase 4: silo-api crate (9 OAS ops, contract tests vs OAS subset, TLS + wiremock tests, live test `#[ignore]`), Tauri commands, connect UI + vitest flow; verify.ps1 exit 0.
 - 2026-11-06 Phase 3 DONE: scaffold, verify.ps1, CI (libmpv cache job + verify job), release workflow (drafts only), skills, ADR-0007; review H1–H4/M1–M6/L1–L8 resolved.
 - 2026-11-06 Phase 2 DONE: spike (Design A works), review H1/H2/M1–M5/L1–L8 resolved, evidence in docs/spikes/evidence/.

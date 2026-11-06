@@ -177,6 +177,11 @@ impl MockSiloApi {
     }
 
     /// Profile gate: a PIN profile needs a valid profile token.
+    /// Invalidate every issued profile token (PIN changed / token expired).
+    pub fn revoke_profile_tokens(&self) {
+        self.with_state(|s| s.profile_tokens.clear());
+    }
+
     fn check_profile(&self, auth: &Auth) -> Result<Option<String>> {
         let Some(p) = &auth.profile else { return Ok(None) };
         if !self.profiles.iter().any(|x| x.id == p.id) {
@@ -262,6 +267,7 @@ impl SiloApi for MockSiloApi {
 
     async fn current_user(&self, _origin: &str, auth: &Auth) -> Result<Account> {
         self.check(auth)?;
+        self.check_profile(auth)?;
         self.users
             .first()
             .map(|(_, _, a)| a.clone())
@@ -270,6 +276,8 @@ impl SiloApi for MockSiloApi {
 
     async fn list_profiles(&self, _origin: &str, auth: &Auth) -> Result<ProfileCollection> {
         self.check(auth)?;
+        // Upstream validates a supplied profile token on every authenticated route.
+        self.check_profile(auth)?;
         Ok(ProfileCollection {
             items: self.profiles.clone(),
         })
@@ -283,6 +291,7 @@ impl SiloApi for MockSiloApi {
         pin: &Secret,
     ) -> Result<ProfileVerification> {
         self.check(auth)?;
+        self.check_profile(auth)?;
         let Some(expected) = self.pins.get(profile_id) else {
             return Err(problem(404, "not_found"));
         };
