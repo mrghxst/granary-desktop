@@ -29,23 +29,41 @@
   `%LOCALAPPDATA%\Granary\logs`, every line passed through `redact()` (bearer/refresh/profile tokens, passwords, PINs,
   API keys, bare JWTs). Config root `%APPDATA%\Granary`.
 - **Least privilege**: `tauri_build::AppManifest` lists the app's own commands; `capabilities/main.json` grants only
-  `core:event:default` and `allow-app-info` to window `main`. Plugins used Rust-side only (single-instance,
-  window-state) get no WebView permissions. CSP: `default-src 'self'`, `script-src 'self'`, no remote scripts,
-  `object-src 'none'`, `frame-ancestors 'none'`; `img-src` allows http/https for server artwork (Phase 5);
-  `freezePrototype` on.
+  the commands the UI actually calls (`allow-app-info` today; `core:event:default` is added when the first event
+  listener lands). Plugins used Rust-side only (single-instance, window-state) get no WebView permissions.
+  CSP: `default-src 'self'`, `script-src 'self'`, no remote scripts, `object-src 'none'`, `frame-ancestors 'none'`,
+  `freezePrototype` on. `img-src` temporarily allows `http:`/`https:`; Phase 4/5 narrows it to the `granary-img`
+  scheme of ADR-0004 (artwork from S3 with `delivery: direct` is then proxied by Rust too). `style-src
+  'unsafe-inline'` only works while `index.html` has no inline `<style>` (Tauri would add a nonce and browsers then
+  ignore `'unsafe-inline'`); keep styles in CSS files.
+- **Startup order** (phase-3 review H1): plugins first (single-instance exits a second launch during plugin setup),
+  then `setup` runs the display repair and only then creates the main window (`"create": false` in
+  tauri.conf.json). The restore marker records its owner (pid + process creation time); a marker whose owner is
+  still running is never repaired.
+- **Version**: the single user-visible version is `apps/desktop/package.json` (read by tauri.conf.json and exposed
+  via `package_info()`); `verify.ps1` fails if the Cargo workspace version differs.
+- **Install vs data folder** (review M3): Tauri's per-user NSIS installs to `%LOCALAPPDATA%\Granary`, the same
+  folder the prompt mandates for logs and the restore marker. Accepted and documented: the uninstaller removes only
+  the files it installed and `RMDir`s the folder non-recursively, so `logs\` and a pending `display-restore.json`
+  survive an uninstall/upgrade by design; the Phase 9 uninstall test treats them as user data. A future installer
+  change that clears `$INSTDIR` recursively is not allowed.
 - **libmpv linking**: `/DELAYLOAD:libmpv-2.dll` only on the `granary` bin (its test harness is disabled; lib tests
   dead-strip mpv imports); `build.rs` copies the pinned DLL next to the dev exe; the bundle ships it as a resource in
   the install directory.
-- **CI**: `ci.yml` on every push: pinned toolchain, `Swatinem/rust-cache@v2`, `pnpm/action-setup@v6`,
-  `actions/setup-node@v7` (pnpm cache), `actions/cache@v6` for `vendor-bin/libmpv` keyed on the pin file, then
-  `scripts/verify.ps1 -Install -SkipFetch` (same script as local). `permissions: contents: read`; a read-only token
-  cannot list draft releases, so CI downloads from the upstream URL (SHA-256 verified) and caches it.
-  `release.yml` on `v*` tags: `scripts/release-build.ps1` → NSIS → attached to a **draft** release
-  (`contents: write`, which also lets it read the private libmpv mirror).
+- **CI**: `ci.yml` on every push, two jobs (phase-3 review M5):
+  - `libmpv` (`permissions: contents: write`, runs only checkout + `fetch-libmpv.ps1`, no third-party code): restores
+    `vendor-bin/libmpv` from `actions/cache@v6` keyed on the pin file; on a miss it fetches through the private
+    draft-release mirror (which a write token can list), falling back to the upstream URL; SHA-256 always verified.
+  - `verify` (`contents: read`, `needs: libmpv`): pinned toolchain, `Swatinem/rust-cache@v2`, `pnpm/action-setup@v6`,
+    `actions/setup-node@v7` (pnpm cache), `actions/cache/restore@v6` of the libmpv job's cache
+    (`fail-on-cache-miss`), then `scripts/verify.ps1 -Install -SkipFetch` (same script as local).
+  `release.yml` on `v*` tags: `scripts/release-build.ps1` → NSIS → attached to a **draft** release created at the
+  built commit (`--target`); it refuses to touch a release that is already published (`contents: write`, which also
+  lets it read the private libmpv mirror).
 - Actions are referenced by major tag (checkout v7, setup-node v7, pnpm/action-setup v6, cache v6, rust-cache v2).
 
 ## Consequences
 - One verify script for local and CI; a gate is green only if both are.
-- When shinchiro prunes the pinned release, CI keeps working from its cache; a cold cache then needs the mirror
-  (release workflow) or a pin bump.
+- When shinchiro prunes the pinned release, CI and release builds keep working from the private mirror; the cache
+  only saves the download.
 - TS 6 → 7 migration is deferred, tracked in PROGRESS.md Known issues.

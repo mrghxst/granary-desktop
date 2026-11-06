@@ -26,9 +26,15 @@ function Step([string]$Name, [string]$Exe, [string[]]$CmdArgs) {
   Write-Host ""
   Write-Host "==> $Name : $line" -ForegroundColor Cyan
   $sw = [Diagnostics.Stopwatch]::StartNew()
-  & $Exe @CmdArgs
-  $code = $LASTEXITCODE
-  if ($null -eq $code) { $code = 0 }
+  # A missing tool must fail the step, never inherit an earlier exit code (review M1).
+  $global:LASTEXITCODE = $null
+  if (-not (Get-Command $Exe -ErrorAction SilentlyContinue)) {
+    Write-Host "command not found: $Exe" -ForegroundColor Red
+    $code = 127
+  } else {
+    try { & $Exe @CmdArgs; $code = $LASTEXITCODE } catch { Write-Host $_ -ForegroundColor Red; $code = 1 }
+    if ($null -eq $code) { $code = 1 }
+  }
   $sw.Stop()
   $color = if ($code -eq 0) { 'Green' } else { 'Red' }
   Write-Host ("<== {0} -> exit {1} ({2:N1}s)" -f $line, $code, $sw.Elapsed.TotalSeconds) -ForegroundColor $color
@@ -38,6 +44,15 @@ function Step([string]$Name, [string]$Exe, [string[]]$CmdArgs) {
 $ps = (Get-Process -Id $PID).Path
 if (-not $SkipFetch) { Step 'libmpv' $ps @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/fetch-libmpv.ps1') }
 if ($Install) { Step 'pnpm install' 'pnpm' @('install', '--frozen-lockfile') }
+
+# Version sync (review M6): the bundler/UI version (apps/desktop/package.json, read by tauri.conf.json) must equal
+# the Cargo workspace version.
+$pkgVersion = (Get-Content 'apps/desktop/package.json' -Raw | ConvertFrom-Json).version
+$cargoVersion = ([regex]::Match((Get-Content 'Cargo.toml' -Raw), '(?ms)^\[workspace\.package\].*?^version\s*=\s*"([^"]+)"')).Groups[1].Value
+$vcode = if ($pkgVersion -and $pkgVersion -eq $cargoVersion) { 0 } else { 1 }
+Write-Host ""
+Write-Host "==> version sync : package.json $pkgVersion / Cargo.toml $cargoVersion -> exit $vcode" -ForegroundColor $(if ($vcode -eq 0) { 'Green' } else { 'Red' })
+$results.Add([pscustomobject]@{ Step = 'version sync'; Command = "package.json=$pkgVersion Cargo.toml=$cargoVersion"; Exit = $vcode })
 
 Step 'rustfmt' 'cargo' @('fmt', '--all', '--', '--check')
 Step 'clippy' 'cargo' @('clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings')

@@ -1,11 +1,11 @@
 # PROGRESS
-Last updated: 2026-11-06T17:30:00+01:00 | Current phase: 3 | Last commit: (see git log)
+Last updated: 2026-11-06T20:20:00+01:00 | Current phase: 4 | Last commit: (see git log)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
 - [x] 1 Research & ADRs — DONE — gate: 5 research docs with Sources, ADR-0001..0006, reviewer docs/reviews/phase-1.md PASS WITH FINDINGS, all 6 medium + 15 low resolved
 - [x] 2 Risk spike: mpv + overlay + HDR — DONE (commit 9a1a87e) — gate: self-test 16/16 (SDR, video-sync=audio), HDR round-trip exit 0, restore-safety scenarios pass, reviewer docs/reviews/phase-2.md PASS WITH FINDINGS, 2 high + 5 medium + 8 low resolved
-- [ ] 3 Scaffold, CI, project skills
+- [x] 3 Scaffold, CI, project skills — DONE — gate: verify.ps1 exit 0 (11 steps), tauri dev launches (libmpv api 2.6, single-instance, owner-checked restore), CI green, reviewer docs/reviews/phase-3.md FAIL → 4 high + 6 medium + 8 low resolved
 - [ ] 4 Silo connectivity & auth
 - [ ] 5 UI (web-app parity)
 - [ ] 6 Native playback & progress sync
@@ -15,7 +15,7 @@ Last updated: 2026-11-06T17:30:00+01:00 | Current phase: 3 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 3: scaffold written (workspaces, crates, apps/desktop host + UI shell, verify.ps1, release-build.ps1, CI/release workflows, skills, ADR-0007); Gate 3 pending (CI run + review).
+Phase 4: Silo connectivity & auth (silo-api HTTP client, auth, credential store, Tauri commands, connect UI).
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -50,8 +50,11 @@ Phase 3: scaffold written (workspaces, crates, apps/desktop host + UI shell, ver
 - Unattended GUI tests can hit the Windows lock screen; input checks then skip by design (seen in 3 runs).
 - TypeScript 7 migration deferred until typescript-eslint supports it (ADR-0007).
 - pnpm minimumReleaseAgeExclude: i18next@26.7.2 (current at time of use; ADR-0007).
+- Phase 4/5: narrow CSP `img-src` (now `https: http:`) to the `granary-img` scheme (ADR-0004, phase-3 review L3).
+- Phase 6: re-verify Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2).
 
 ## Log (newest first, one line per completed step)
+- 2026-11-06 Phase 3 DONE: scaffold, verify.ps1, CI (libmpv cache job + verify job), release workflow (drafts only), skills, ADR-0007; review H1–H4/M1–M6/L1–L8 resolved.
 - 2026-11-06 Phase 2 DONE: spike (Design A works), review H1/H2/M1–M5/L1–L8 resolved, evidence in docs/spikes/evidence/.
 - 2026-11-06 Phase 1 DONE: R1–R5 research (subagents), ADR-0001..0006, reviewer pass + fixes, libmpv pinned/fetched (sha256 verified), fixtures generated.
 - 2026-11-06 Phase 0 DONE: tools installed (winget rustup/gh/VS Build Tools), repo PRIVATE, skeleton pushed (a0e7d04), obsolete branch claude/blissful-planck-27cqsw deleted at owner's request.

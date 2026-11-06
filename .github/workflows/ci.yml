@@ -13,8 +13,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  libmpv:
+    # Small job whose only work is fetching the pinned libmpv: `contents: write` lets GITHUB_TOKEN list the private
+    # draft-release mirror (ADR-0005), so CI never depends on shinchiro still hosting the pin. No third-party code
+    # (pnpm/cargo deps) runs with this token. The verified archive is handed over through the actions cache.
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: libmpv cache
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: vendor-bin/libmpv
+          key: libmpv-${{ hashFiles('scripts/libmpv.pin.json') }}
+      - name: Fetch libmpv (mirror first, SHA-256 verified)
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/fetch-libmpv.ps1
+
   verify:
     # No installer here (private-repo minutes); release.yml builds it on tags.
+    needs: libmpv
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -41,17 +65,15 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: libmpv cache
-        id: libmpv-cache
-        uses: actions/cache@v6
+      - name: libmpv (from the libmpv job's cache)
+        uses: actions/cache/restore@v6
         with:
           path: vendor-bin/libmpv
           key: libmpv-${{ hashFiles('scripts/libmpv.pin.json') }}
+          fail-on-cache-miss: true
 
-      - name: Fetch libmpv (pinned, SHA-256 verified)
+      - name: Check libmpv (idempotent, SHA-256 marker)
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: ./scripts/fetch-libmpv.ps1
 
       - name: Verify (fmt, clippy, tests, typecheck, lint, prettier, vitest, build, secret scan)

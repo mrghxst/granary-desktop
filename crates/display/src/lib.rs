@@ -6,6 +6,7 @@
 
 pub mod marker;
 pub mod mock;
+pub mod process;
 pub mod types;
 #[cfg(windows)]
 pub mod win;

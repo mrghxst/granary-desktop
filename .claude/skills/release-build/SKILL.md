@@ -23,5 +23,6 @@ Test-Path "$env:LOCALAPPDATA\Granary\granary.exe"          # install dir is set 
 
 Releases: push a `v<version>` tag → `.github/workflows/release.yml` builds and attaches the installer to a **draft**
 release in the private repo. Never publish a release; the owner reviews and publishes manually.
-Before tagging: bump `apps/desktop/package.json` version (tauri.conf.json reads it), update CHANGELOG and
+Before tagging: bump the version in both `apps/desktop/package.json` (tauri.conf.json and the UI read it) and the
+root `Cargo.toml` `[workspace.package]` (verify.ps1 fails if they differ), update CHANGELOG and
 `THIRD_PARTY_NOTICES.md`.

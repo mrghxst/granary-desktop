@@ -18,7 +18,7 @@ pub fn normalize_origin(input: &str) -> Result<String, ApiError> {
     if scheme != "http" && scheme != "https" {
         return Err(ApiError::InvalidUrl(input.into()));
     }
-    let host = rest.split('/').next().unwrap_or_default();
+    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
     if host.is_empty() || host.contains(char::is_whitespace) || host.contains('@') {
         return Err(ApiError::InvalidUrl(input.into()));
     }
@@ -43,5 +43,9 @@ mod tests {
         assert!(normalize_origin("media.example.com").is_err());
         assert!(normalize_origin("https://user:pw@host").is_err());
         assert!(normalize_origin("https://").is_err());
+        assert_eq!(
+            normalize_origin("https://h:1?x=1#f").ok().as_deref(),
+            Some("https://h:1")
+        );
     }
 }

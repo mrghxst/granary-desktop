@@ -35,7 +35,9 @@ $installer = Get-ChildItem $out -Filter '*-setup.exe' | Sort-Object LastWriteTim
 if (-not $installer) { throw "no installer found in $out" }
 $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
 $shaFile = "$($installer.FullName).sha256"
-Set-Content -Encoding ascii -NoNewline $shaFile "$hash  $($installer.Name)"
+# .NET write: Set-Content was observed to silently skip this *.exe.sha256 path in the agent shell.
+[IO.File]::WriteAllText($shaFile, "$hash  $($installer.Name)")
+if (-not (Test-Path $shaFile)) { throw "could not write $shaFile" }
 Write-Host ""
 Write-Host "installer : $($installer.FullName) ($([math]::Round($installer.Length / 1MB, 1)) MB)" -ForegroundColor Green
 Write-Host "sha256    : $hash"

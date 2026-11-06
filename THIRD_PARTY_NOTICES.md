@@ -16,7 +16,8 @@ pin bump (ADR-0005) and every change of bundled components.
 - FFmpeg `N-128504-g9f690c6a4` — source: https://github.com/FFmpeg/FFmpeg/commit/9f690c6a4 (GPL in this build).
   This software uses code of FFmpeg (https://ffmpeg.org) licensed under the GPLv3 and its source can be obtained
   from the link above.
-- libplacebo `v7.387.0-13-g9fabf6d` — source: https://code.videolan.org/videolan/libplacebo (LGPL-2.1-or-later).
+- libplacebo `v7.387.0-13-g9fabf6d-dirty` (commit 9fabf6d plus the build recipe's patches) — source:
+  https://code.videolan.org/videolan/libplacebo/-/commit/9fabf6d (LGPL-2.1-or-later); patches in the recipe commit below.
 - Build recipe: https://github.com/shinchiro/mpv-winbuild-cmake/commit/bda10a2816ce9908d419b3f4b564227330457e76,
   workflow run 42133553972 (`mpv_clang.yml`). Other statically linked libraries (e.g. libass, freetype, harfbuzz,
   dav1d, zlib) are listed in that run's logs; see ADR-0005 for the known gap on the complete source set.

@@ -1,8 +1,9 @@
 //! Persisted restore marker (ADR-0006): written atomically *before* any display change, applied on stop/exit/panic
 //! and at the next startup after a crash, deleted only after the restore was verified.
+use crate::process::MarkerOwner;
 use crate::{DisplayController, DisplayError, DisplayId, Rational};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 const MARKER_VERSION: u32 = 1;
@@ -24,6 +25,9 @@ pub struct MarkerEntry {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RestoreMarker {
     pub version: u32,
+    /// Process that made the changes; startup repair skips the marker while that process still runs (review H1).
+    #[serde(default)]
+    pub owner: Option<MarkerOwner>,
     pub entries: Vec<MarkerEntry>,
 }
 
@@ -31,17 +35,24 @@ impl Default for RestoreMarker {
     fn default() -> Self {
         Self {
             version: MARKER_VERSION,
+            owner: None,
             entries: Vec::new(),
         }
     }
 }
 
-/// `%LOCALAPPDATA%\Granary\display-restore.json`.
-pub fn default_path() -> Option<PathBuf> {
-    std::env::var_os("LOCALAPPDATA").map(|d| PathBuf::from(d).join("Granary").join("display-restore.json"))
-}
+/// File name of the marker inside the app's local data directory (`%LOCALAPPDATA%\Granary`).
+pub const FILE_NAME: &str = "display-restore.json";
 
 impl RestoreMarker {
+    /// Empty marker owned by the current process (what the player writes before changing a display).
+    pub fn for_current_process() -> Self {
+        Self {
+            owner: crate::process::current(),
+            ..Self::default()
+        }
+    }
+
     /// Load the marker; `Ok(None)` if there is none.
     pub fn load(path: &Path) -> Result<Option<Self>, DisplayError> {
         match std::fs::read_to_string(path) {
@@ -199,15 +210,32 @@ pub fn restore(ctrl: &dyn DisplayController, marker: &RestoreMarker, timeout: Du
 }
 
 /// Startup repair: if a marker exists (crash, power loss), restore it before any UI and delete it when verified.
-/// Returns the report if a marker was found.
+/// Returns the report if a marker was found and repaired; `Ok(None)` if there is no marker or its owner still runs.
 pub fn repair_at_startup(
     ctrl: &dyn DisplayController,
     path: &Path,
     timeout: Duration,
 ) -> Result<Option<RestoreReport>, DisplayError> {
+    repair_at_startup_with(ctrl, path, timeout, &crate::process::is_alive)
+}
+
+/// [`repair_at_startup`] with an injectable liveness check (tests).
+pub fn repair_at_startup_with(
+    ctrl: &dyn DisplayController,
+    path: &Path,
+    timeout: Duration,
+    owner_alive: &dyn Fn(&MarkerOwner) -> bool,
+) -> Result<Option<RestoreReport>, DisplayError> {
     let Some(marker) = RestoreMarker::load(path)? else {
         return Ok(None);
     };
+    if let Some(owner) = marker.owner.filter(|o| owner_alive(o)) {
+        tracing::info!(
+            pid = owner.pid,
+            "display restore marker belongs to a running instance; left alone"
+        );
+        return Ok(None);
+    }
     let report = restore(ctrl, &marker, timeout);
     if report.all_ok() {
         RestoreMarker::remove(path)?;
@@ -222,6 +250,7 @@ pub fn repair_at_startup(
 mod tests {
     use super::*;
     use crate::mock::MockDisplayController;
+    use std::path::PathBuf;
 
     fn tmp_path(name: &str) -> PathBuf {
         std::env::temp_dir()
@@ -291,6 +320,39 @@ mod tests {
         let report = repair_at_startup(&mock, &p, Duration::from_millis(10))?;
         assert!(report.is_some_and(|r| r.all_ok()));
         assert!(RestoreMarker::load(&p)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn marker_of_running_owner_is_left_alone() -> Result<(), DisplayError> {
+        let p = tmp_path("live-owner");
+        let mock = MockDisplayController::single(false, Rational::new(60, 1));
+        let mut m = RestoreMarker {
+            owner: Some(MarkerOwner { pid: 4242, started: 7 }),
+            ..RestoreMarker::default()
+        };
+        m.record(mock.entry(true, false));
+        mock.set_hdr(&mock.id(), true)?;
+        m.save(&p)?;
+        let alive = |o: &MarkerOwner| o.pid == 4242;
+        assert!(repair_at_startup_with(&mock, &p, Duration::from_millis(10), &alive)?.is_none());
+        assert!(
+            mock.displays()?[0].hdr_enabled,
+            "a running instance's HDR change must not be reverted"
+        );
+        assert!(RestoreMarker::load(&p)?.is_some(), "marker stays with its owner");
+        // Owner gone (crash): the next start repairs.
+        let report = repair_at_startup_with(&mock, &p, Duration::from_millis(10), &|_| false)?;
+        assert!(report.is_some_and(|r| r.all_ok()));
+        assert!(!mock.displays()?[0].hdr_enabled);
+        assert!(RestoreMarker::load(&p)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn old_marker_without_owner_still_loads() -> Result<(), DisplayError> {
+        let m: RestoreMarker = serde_json::from_str(r#"{"version":1,"entries":[]}"#)?;
+        assert_eq!(m.owner, None);
         Ok(())
     }
 

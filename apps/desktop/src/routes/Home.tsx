@@ -23,7 +23,6 @@ export function Home() {
   return (
     <main className="flex h-full flex-col items-center justify-center gap-6 p-8">
       <h1 className="text-4xl font-semibold tracking-tight">{t("home.title")}</h1>
-      <p className="text-muted-foreground">{t("app.tagline")}</p>
       <section className="w-full max-w-md rounded-lg border border-border bg-card p-6">
         <p className="mb-4 text-muted-foreground">{t("home.notConnected")}</p>
         <button

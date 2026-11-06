@@ -7,9 +7,13 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   { ignores: ["dist", "src-tauri"] },
   {
-    extends: [js.configs.recommended, ...tseslint.configs.strict],
+    extends: [js.configs.recommended, ...tseslint.configs.strictTypeChecked],
     files: ["**/*.{ts,tsx}"],
-    languageOptions: { ecmaVersion: 2022, globals: globals.browser },
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.browser,
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
     plugins: { "react-hooks": reactHooks, "react-refresh": reactRefresh },
     rules: {
       ...reactHooks.configs.recommended.rules,
