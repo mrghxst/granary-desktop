@@ -17,6 +17,8 @@ static LOG: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
 static START: OnceLock<Instant> = OnceLock::new();
 static PLAYER: Mutex<Option<Arc<mpv::Mpv>>> = Mutex::new(None);
 static APP: OnceLock<AppHandle> = OnceLock::new();
+/// Set when the overlay UI reports it has loaded (selftest waits for it instead of a fixed delay).
+static UI_READY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn log(msg: impl AsRef<str>) {
     let t = START
@@ -199,6 +201,9 @@ fn spike_overlay(visible: bool) {
 
 #[tauri::command]
 fn spike_log(msg: String) {
+    if msg.starts_with("overlay loaded") {
+        UI_READY.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
     log(format!("ui: {msg}"));
 }
 
@@ -290,7 +295,14 @@ fn selftest(app: AppHandle) {
         "selftest[{label}] displays: {}",
         serde_json::to_string(&display::displays()).unwrap_or_default()
     ));
-    wait(2500);
+    // Wait for the overlay UI (a cold Vite start can take several seconds), then let it settle.
+    for _ in 0..120 {
+        if UI_READY.load(std::sync::atomic::Ordering::SeqCst) {
+            break;
+        }
+        wait(250);
+    }
+    wait(1500);
 
     // 1. HDR clip through the overlay's Play button.
     let _ = app.emit("selftest-set-file", &hdr);
@@ -432,6 +444,23 @@ fn selftest(app: AppHandle) {
         hidden,
         geometry(),
     );
+    // Review H1: the overlay must *stay* hidden without input (no self-triggered wake-ups) for >= 10 s.
+    let mut reshown = 0;
+    let mut was_hidden = hidden;
+    for _ in 0..40 {
+        wait(250);
+        let h = !video::is_visible(video::webview_hwnd());
+        if was_hidden && !h {
+            reshown += 1;
+        }
+        was_hidden = h;
+    }
+    check(
+        &mut r,
+        "overlay stays hidden 10s without input",
+        hidden && reshown == 0 && was_hidden,
+        json!({"reshown": reshown, "hidden_at_end": was_hidden}),
+    );
     for l in video::dump_tree() {
         log(format!("tree: {l}"));
     }
@@ -493,6 +522,7 @@ fn selftest(app: AppHandle) {
 
     // 7. Frame pacing over 30 s (HDR clip looping, overlay hidden).
     click_ui(&app, "hide");
+    wait(600);
     // Counters reset when the 10 s clip loops, so sample every 250 ms and sum increments (a drop in value = reset).
     let keys = [
         "frame-drop-count",
@@ -519,8 +549,12 @@ fn selftest(app: AppHandle) {
     let mut at_loop = [0i64; 3];
     let mut loops = 0;
     let mut last_pos = pos();
+    let mut overlay_visible_samples = 0;
     for _ in 0..120 {
         wait(250);
+        if video::is_visible(video::webview_hwnd()) {
+            overlay_visible_samples += 1;
+        }
         let cur = read();
         let p = pos();
         let restarted = p < last_pos || cur.iter().zip(prev.iter()).any(|(c, q)| c < q);
@@ -553,8 +587,8 @@ fn selftest(app: AppHandle) {
     check(
         &mut r,
         "30s steady-state drops/delayed near 0",
-        drops <= 2 && delayed <= 2,
-        json!({"drops": drops, "vo_delayed": delayed, "mistimed": mistimed, "loops": loops,
+        drops <= 2 && delayed <= 2 && overlay_visible_samples == 0,
+        json!({"drops": drops, "vo_delayed": delayed, "mistimed": mistimed, "loops": loops, "overlay_visible_samples": overlay_visible_samples,
                "at_loop_restart": {"drops": at_loop[0], "vo_delayed": at_loop[1], "mistimed": at_loop[2]}, "ctx": ctx}),
     );
     let _ = win.set_always_on_top(false);

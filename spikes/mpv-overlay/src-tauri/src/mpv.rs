@@ -11,6 +11,7 @@ pub struct Mpv {
 // SAFETY: the libmpv client API is documented as thread-safe for all functions on one handle
 // (except mpv_wait_event, which only the event thread calls).
 unsafe impl Send for Mpv {}
+// SAFETY: see above.
 unsafe impl Sync for Mpv {}
 
 fn cs(s: &str) -> CString {
@@ -52,15 +53,18 @@ impl Mpv {
         }
         let m = Self { h };
         for (k, v) in opts {
+            // SAFETY: valid handle before initialisation; both C strings outlive the call.
             let r = unsafe { mpv_set_option_string(m.h, cs(k).as_ptr(), cs(v).as_ptr()) };
             if r < 0 {
                 return Err(format!("option {k}={v} failed: {r}"));
             }
         }
+        // SAFETY: valid, not yet initialised handle.
         let r = unsafe { mpv_initialize(m.h) };
         if r < 0 {
             return Err(format!("mpv_initialize failed: {r}"));
         }
+        // SAFETY: initialised handle; the level string outlives the call.
         unsafe { mpv_request_log_messages(m.h, cs("v").as_ptr()) };
         Ok(Arc::new(m))
     }
@@ -74,6 +78,7 @@ impl Mpv {
     }
 
     pub fn set(&self, name: &str, value: &str) -> i32 {
+        // SAFETY: thread-safe client API call on a live handle; C strings outlive the call.
         unsafe { mpv_set_property_string(self.h, cs(name).as_ptr(), cs(value).as_ptr()) }
     }
 
@@ -91,6 +96,7 @@ impl Mpv {
     }
 
     pub fn observe(&self, name: &str) {
+        // SAFETY: live handle; mpv copies the property name.
         unsafe { mpv_observe_property(self.h, 0, cs(name).as_ptr(), mpv_format_MPV_FORMAT_STRING) };
     }
 
@@ -111,6 +117,7 @@ impl Mpv {
                         f(Event::Shutdown);
                         break;
                     }
+                    // SAFETY: for LOG_MESSAGE, data points to an mpv_event_log_message valid until the next wait.
                     x if x == mpv_event_id_MPV_EVENT_LOG_MESSAGE => unsafe {
                         let m = &*(ev.data as *const mpv_event_log_message);
                         Event::Log {
@@ -123,6 +130,7 @@ impl Mpv {
                     x if x == mpv_event_id_MPV_EVENT_END_FILE => Event::EndFile,
                     x if x == mpv_event_id_MPV_EVENT_PLAYBACK_RESTART => Event::PlaybackRestart,
                     x if x == mpv_event_id_MPV_EVENT_VIDEO_RECONFIG => Event::VideoReconfig,
+                    // SAFETY: for PROPERTY_CHANGE, data points to an mpv_event_property; with FORMAT_STRING its data is a char**.
                     x if x == mpv_event_id_MPV_EVENT_PROPERTY_CHANGE => unsafe {
                         let p = &*(ev.data as *const mpv_event_property);
                         let value = if p.format == mpv_format_MPV_FORMAT_STRING && !p.data.is_null()

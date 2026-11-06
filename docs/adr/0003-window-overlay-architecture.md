@@ -1,6 +1,6 @@
 # ADR-0003: Window and overlay architecture
 
-- Status: Accepted — confirmed by the Phase 2 spike ([docs/spikes/mpv-overlay.md](../spikes/mpv-overlay.md))
+- Status: Accepted — provisionally confirmed by the Phase 2 spike ([docs/spikes/mpv-overlay.md](../spikes/mpv-overlay.md)); the fallback trigger (independent flip) is still unmeasured
 - Date: 2026-11-06
 - Inputs: [shell-and-player.md](../research/shell-and-player.md) (R3), [windows-display-audio.md](../research/windows-display-audio.md) (R4), ADR-0002
 
@@ -76,10 +76,16 @@ window (B), with mpv-owned top-level video window (B′) if child swapchains can
   therefore auto-hide after 2.5 s and avoid `backdrop-filter` over video.
 
 ## Spike result (2026-11-06)
-Design A worked unchanged on WebView2 157 / Tauri 2.12.5 (16/16 self-test checks on the SDR desktop; HDR swapchain
+Design A worked functionally on WebView2 157 / Tauri 2.12.5 (16/16 self-test checks on the SDR desktop **with `video-sync=audio`** — 15/16 with display-resample; HDR swapchain
 windowed and fullscreen with Windows HDR on). Details and logs: [mpv-overlay.md](../spikes/mpv-overlay.md).
 - mpv creates and **disables** its own `mpv` child inside `wid`, so mouse input reaches `GranaryVideo` without hooks.
 - The `GranaryVideo` child must be created on the UI (main) thread; Tauri sync commands run there.
 - The first key pressed while the overlay is hidden wakes it and must be forwarded as `player://key` (as decided above).
-- The fallback B′/B was not needed. Independent flip, DPI changes and multi-monitor moves remain manual checks
-  (no PresentMon or second monitor on the build machine).
+- The fallback B′/B has **not been triggered, but its trigger was not tested**: independent flip with the overlay hidden
+  was not measured (no PresentMon), and the review found the overlay re-showing itself (fixed, H1). The window is
+  created with `transparent: true`, which may itself affect the presentation mode. Phase 7 measures independent flip
+  (PresentMon if obtainable, else the manual checklist); if it never engages in fullscreen with the overlay hidden,
+  B′ is re-evaluated. DPI changes and multi-monitor moves remain manual checks.
+- Review fix H1 (docs/reviews/phase-2.md): Windows re-sends `WM_MOUSEMOVE` for a stationary cursor when the window
+  above it is hidden; the video window procedure must ignore moves at an unchanged position, or the overlay wakes
+  itself every auto-hide cycle.

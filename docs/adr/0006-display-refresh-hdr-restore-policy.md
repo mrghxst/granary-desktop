@@ -49,7 +49,9 @@ k = 1: 23.976/24/25/29.97/50/59.94), `video-sync=audio`. `Never switch`: steps 1
 
 **HDR mode** (setting: `Off` | `HDR content only` default | `Always`):
 - If Windows HDR is already **on** for the monitor: never toggle; HDR content is output as HDR10
-  (`target-colorspace-hint=auto`, `target-colorspace-hint-mode=target`), SDR content uses `hdr-reference-white=auto`.
+  (`target-colorspace-hint=auto`, `target-colorspace-hint-mode=target`). SDR content: the host sets
+  `hdr-reference-white=<SDR white nits>` **explicitly** from packet 11 of the monitor the video is on (amended after the
+  Phase 2 review, M5: `auto` could not be verified), and updates it on monitor change.
 - If **off** and the setting is `HDR content only` and the content is PQ/HLG/DV, or the setting is `Always`: enable HDR
   on that monitor **before the first frame** (load with `pause=yes`, switch, wait for the DXGI colour space to report
   HDR, then unpause) and restore afterwards. Packets 16/15 are tried first and fall back to 10/9.
@@ -77,6 +79,10 @@ k = 1: 23.976/24/25/29.97/50/59.94), `video-sync=audio`. `Never switch`: steps 1
   refresh switching; multi-monitor and VRR behaviour go to `MANUAL_TEST_CHECKLIST.md`.
 
 ## Spike amendments (2026-11-06, [mpv-overlay.md](../spikes/mpv-overlay.md))
+- **Scope of what the spike exercised (review M3):** only the legacy packet 10 (set) / 9 (get) and whole-Hz
+  `ChangeDisplaySettingsExW(CDS_FULLSCREEN)` refresh changes. Packets 15/16 (tried first by this ADR) and the
+  rational `SetDisplayConfig` path are **not yet verified**; Phase 7 implements and verifies them, and keeps 10/9 and
+  whole-Hz CDS as tested fallbacks.
 - HDR toggle via packet 10 verified on Windows 11 26200 (on in 7–82 ms, restored in 14–61 ms, verified through
   DisplayConfig and the DXGI colour space). The refresh switch to 120 Hz and its restore were also verified.
 - DXGI `MaxLuminance` changed across toggles (500 → 200 → 400 → 1000). Luminance is therefore read with a **fresh
@@ -86,3 +92,8 @@ k = 1: 23.976/24/25/29.97/50/59.94), `video-sync=audio`. `Never switch`: steps 1
   `video-sync=audio` showed 0; standalone mpv behaves the same, so this is GPU load, not the overlay. The order
   above stays. `video-sync` is additionally a per-monitor advanced setting, and drop/delayed counters are logged
   every 30 s during playback for later tuning on the primary target.
+- **HDR detection rule (review M4):** "HDR on" = `advancedColorEnabled && !wideColorEnforced`; a display with
+  `wideColorEnforced` (ACM on an SDR panel) is treated as SDR and never toggled.
+- **Restore marker identity (review H2):** entries also store the monitor device interface path, which survives
+  reboots (the adapter LUID does not); a marker that cannot be parsed is kept, never deleted; refresh restore is
+  verified by re-query.

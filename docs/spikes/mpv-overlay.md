@@ -10,6 +10,44 @@ Machine: Intel Arc 140V laptop with one internal 2880×1800 HDR-capable panel at
 (120 Hz mode available), Windows HDR **off** by default. No second monitor, no VRR, no PresentMon. libmpv:
 `mpv v0.42.0-3-g902818753`, FFmpeg `N-128504-g9f690c6a4`, libplacebo `v7.387.0`.
 
+> **Corrections after the gate review** (`docs/reviews/phase-2.md`, 2026-11-06). These supersede the original text
+> below where the two conflict:
+> - **H1 fixed.** The overlay re-showed itself every ~3 s: hiding the WebView makes Windows send a `WM_MOUSEMOVE` to
+>   `GranaryVideo` for the stationary cursor. `video_proc` now ignores mouse moves at an unchanged position. A new
+>   check, "overlay stays hidden 10s without input", passes: `reshown=0`, and `overlay_visible_samples=0` across all
+>   120 pacing samples (`evidence/selftest-sdr-h1fix-sync-audio.txt`). That run was taken with the **session locked**,
+>   so the mouse-wake and keyboard checks were skipped by the safety guard, and its pacing numbers (41 drops) are not
+>   representative. Both the input path and overlay-hidden pacing are re-verified with the real app in Phase 6, and
+>   are listed in `MANUAL_TEST_CHECKLIST.md`.
+> - **Pacing claims (M1).** Every pacing run in the table under finding 7 was taken *before* the H1 fix, so the
+>   overlay was cycling between visible and hidden. Only the overlay `display-resample` run and the overlay
+>   `video-sync=audio` runs survive in saved files (`evidence/selftest-*.json`). The standalone `tools/pace.rs` numbers
+>   came from console output that was not saved. "The overlay adds no measurable cost" is **withdrawn** and is not
+>   established. `tools/pace.rs` also does not use exactly the spike's options (it has no `wid` and no
+>   input-related options).
+> - **Restore tool (H2) hardened.** The marker is keyed by adapter LUID + target id **and** the reboot-stable monitor
+>   device path. An unreadable marker is kept. Refresh restore is verified by re-query. Ctrl+C or closing the console
+>   repairs first. The `--with` child has a timeout. Evidence: `evidence/restore-safety.txt` (corrupt marker kept;
+>   stale LUID matched by path; unknown display keeps the marker; child timeout → restored; Ctrl+C → repaired, rc 130)
+>   and `evidence/hdr-roundtrip.txt`.
+> - **HDR detection (M4).** "HDR on" now means `advancedColorEnabled && !wideColorEnforced`, and "HDR capable" means
+>   `advancedColorSupported && !wideColorEnforced` (R4 rule). An SDR panel running ACM is no longer toggled. The
+>   round-trip prints `ROUNDTRIP OK` only when rc is 0.
+> - **APIs actually exercised (M3).** HDR was toggled only with legacy packet 10 (`SET_ADVANCED_COLOR_STATE`) and read
+>   with packet 9; refresh was changed only through whole-Hz `ChangeDisplaySettingsExW(CDS_FULLSCREEN)`. Packets 15/16
+>   and the rational `SetDisplayConfig` path from ADR-0006 are **untested**; they are verified in Phase 7.
+> - **Independent flip (M2)** is still unmeasured, and so is the ADR-0003 fallback trigger. The window is created with
+>   `transparent: true`. ADR-0003 is now "provisionally confirmed".
+> - **SDR white (M5).** ADR-0006 now sets `hdr-reference-white` explicitly from the display's SDR white level
+>   (packet 11) whenever Windows HDR is on, instead of relying on `auto`.
+> - **Smaller corrections.** The HDR-on self-test run exited with code 2: the child exited 1, and `--with` maps a
+>   failing child to 2. Its log also showed audio underrun and A/V desync warnings, which are expected while the
+>   session is locked. "`WM_DPICHANGED` handler is wired" means only that the message triggers a `displays()` re-read;
+>   no DPI-specific resizing exists yet (Phase 6). The ADR-0003 16/16 result needed `video-sync=audio`.
+>   `tools/*.rs` are standalone files built by hand:
+>   `rustc -O --edition 2024 tools/pace.rs -L ../../vendor-bin/libmpv -l mpv -o target/pace.exe`, with
+>   `libmpv-2.dll` copied next to the executable.
+
 ## How it was run
 | Run | Command | Result |
 |---|---|---|
@@ -19,6 +57,8 @@ Machine: Intel Arc 140V laptop with one internal 2880×1800 HDR-capable panel at
 | Overlay self-test with Windows HDR on (release build) | `hdr-roundtrip.exe --with hdr=on -- granary-spike.exe` (`SPIKE_LABEL=hdr-on-sync-audio`) | 14/16; the 2 input checks were **skipped by the safety guard** because Windows locked the session mid-run (`LockScreenBackstopFrame` under the cursor). HDR restored and verified → `RESTORED` |
 | Standalone mpv pacing baseline (no WebView) | `tools/pace.rs` (raw FFI, same options), 30 s steady state | see Pacing |
 | `/DELAYLOAD:libmpv-2.dll` | `granary-spike.exe --probe-mpv` with and without the DLL | exit 0 (`client api 0x20006`) / exit 3 (clean error) |
+| After review: self-test with the H1 fix, `video-sync=audio` | `SPIKE_SELFTEST=1 SPIKE_LABEL=sdr-h1fix-sync-audio SPIKE_MPV_OPTS=video-sync=audio pnpm tauri dev` | 14/17. **"overlay stays hidden 10s" PASS**. The session was locked, so the 2 input checks were skipped and pacing is invalid |
+| After review: restore safety | `hdr-roundtrip.exe` scenarios 1–5 | see `evidence/restore-safety.txt`; all behave as specified |
 
 The self-test (`selftest()` in `src-tauri/src/main.rs`) clicks the overlay's real buttons by emitting
 `selftest-click` to the WebView, which calls the Tauri commands over IPC. It sends real `SendInput` mouse and keyboard
@@ -33,7 +73,7 @@ reaches another application.
 | Overlay follows move / resize / fullscreen / minimize | ✅ | `video child fills client` after each step; video rect == webview rect == client rect |
 | Overlay follows DPI changes | ⚠️ partial | Correct at 175% (DPI 168), and the `WM_DPICHANGED` handler is wired. Changing scaling or moving to another-DPI monitor needs a second monitor or a system-setting change → MANUAL_TEST_CHECKLIST |
 | Keyboard focus works | ✅ (SDR run) | real `VK_SPACE` (with scan code) → WebView `keydown Space` → IPC → `pause` flipped `no→yes` |
-| Overlay truly hidden and woken by input | ✅ (SDR run) | `WRY_WEBVIEW` `IsWindowVisible=false`; a real mouse move over the video wakes it |
+| Overlay truly hidden and woken by input | ✅ after the H1 fix (hidden ≥ 10 s, locked session); wake by input verified only before the fix | `WRY_WEBVIEW` `IsWindowVisible=false`; a real mouse move over the video wakes it (pre-fix run). Re-verify unlocked in Phase 6 |
 | `current-vo` / `hwdec-current` / HDR clip `gamma=pq`, `primaries=bt.2020` | ✅ | all runs, `max-cll=1000` |
 | drops / delayed near 0 over 30 s | ✅ with `video-sync=audio`, ⚠️ with display-resample at 60 Hz on this iGPU | see Pacing |
 | HDR state, DXGI luminance, SDR white of every display | ✅ | `displays()` JSON logged at start and on monitor change |
@@ -42,7 +82,7 @@ reaches another application.
 | HDR off → on → original, verified | ✅ | round-trip below; also used by every `--with hdr=on` run (4 runs today, all `RESTORED`) |
 | Independent flip with overlay hidden in fullscreen | ⚠️ not measurable here | No PresentMon. Checked: mpv `Using flip-model presentation`, `R10G10B10A2` flip swapchain, and the overlay HWND hidden (`SW_HIDE`), which are the preconditions → MANUAL_TEST_CHECKLIST (PresentMon `PresentMode`) |
 | Two or more monitors: move during playback | ⏭ skipped | one monitor; the `on_moved` hook logs the monitor and re-reads `displays()` (logged once at start) → MANUAL_TEST_CHECKLIST |
-| Fallback (ADR-0003 B′/B) | not needed | Design A works |
+| Fallback (ADR-0003 B′/B) | not triggered so far | Design A works functionally. The fallback trigger (no independent flip with the overlay hidden) has not been measured yet; Phase 7 / manual check |
 
 ## Findings
 1. **Design A works on WebView2 157 + Tauri 2.12.5.** Window tree (from the self-test):
@@ -78,7 +118,8 @@ reaches another application.
    | standalone mpv, SDR 1080p 23.976, display-resample, 60 Hz | 2 | 22 | 41 |
 
    Conclusions:
-   - The overlay adds no measurable cost: the spike matches standalone mpv in every configuration.
+   - ~~The overlay adds no measurable cost~~ (withdrawn, see the corrections at the top: these runs had the overlay
+     cycling, and the standalone numbers were not saved).
    - The variance comes from this **iGPU laptop**. At a non-integer ratio (60/23.976 ≈ 2.5) display-resample
      misses vsync deadlines occasionally. At 120 Hz the iGPU cannot sustain gpu-next at 2880×1800 per vsync.
    - mpv does not count `vo-delayed`/`mistimed` the same way in `audio` mode, so the comparable figure across modes is
@@ -184,7 +225,8 @@ SELFTEST[hdr-on-sync-audio] SUMMARY 14/16 passed
 ```
 
 ## Decisions carried forward
-- ADR-0003: Design A **confirmed**. B′/B stay documented as fallbacks only.
+- ADR-0003: Design A **provisionally confirmed** (functional checks pass; independent flip still to be measured).
+  B′/B stay documented as fallbacks.
 - ADR-0005: `/DELAYLOAD:libmpv-2.dll` + `delayimp.lib` adopted, with a `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS` probe at startup.
 - ADR-0006: luminance is re-queried with a fresh DXGI factory after a settle delay; `video-sync` becomes configurable
   per monitor; drop counters are logged during playback.

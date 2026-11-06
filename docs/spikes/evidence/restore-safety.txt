@@ -1,0 +1,56 @@
+### 1. corrupt marker must be kept (rc=1)
+marker does not parse (key must be a string at line 1 column 2); kept for manual inspection at C:\Users\mr\AppData\Local\Granary\spike-display-restore.json
+rc=1
+marker still present: yes
+
+### 2. (invalid test input: shell mangled JSON escapes; superseded by 2c)
+marker does not parse (invalid escape at line 1 column 87); kept for manual inspection at C:\Users\mr\AppData\Local\Granary\spike-display-restore.json
+rc=1
+marker still present: yes
+
+### 3. unknown display keeps marker
+repair target 1 (nope): display not present; marker kept
+repair incomplete; marker kept
+rc=1
+marker still present: yes
+
+### 4. --with hdr=on hz=60 and a child that exceeds --timeout-secs 3
+WITH target 8388688 (\\.\DISPLAY1): before hdr=false refresh=60.000 Hz
+set refresh 60 Hz -> Ok(()); now Some(60.0000845508658)
+set hdr=true -> Ok(()); verified=true after 30.1049ms
+running: ["ping", "-n", "30", "127.0.0.1"] (timeout 3s)
+
+Pinging 127.0.0.1 with 32 bytes of data:
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+command timed out after 3s; killing
+repair target 8388688: set hdr=false -> Ok(()), verified=true after 27.3022ms
+repair refresh \\.\DISPLAY1: Ok(()); now Some(60.0000845508658) Hz, want 60.000 -> verified=true
+display state repaired; marker deleted
+WITH after: hdr=Some(false) refresh=Some(60.0000845508658) -> RESTORED
+rc=2
+marker present: no
+
+### 2b. (same shell escaping problem; superseded by 2c)
+marker does not parse (invalid escape at line 1 column 87); kept for manual inspection at C:\Users\mr\AppData\Local\Granary\spike-display-restore.json
+rc=1
+marker still present: yes
+
+### 2c. stale adapter LUID (luid_low=1, target_id=1) matched by monitor path; refresh verified
+repair target 8388688: already hdr=false
+repair refresh \\.\DISPLAY1: Ok(()); now Some(60.0000845508658) Hz, want 60.000 -> verified=true
+display state repaired; marker deleted
+rc=0
+marker deleted: yes
+
+﻿### 5. Ctrl+C during --with hdr=on (console handler must repair)
+WITH target 8388688 (\\.\DISPLAY1): before hdr=false refresh=60.000 Hz
+set hdr=true -> Ok(()); verified=true after 5.6536ms
+running: ["ping", "-n", "60", "127.0.0.1"] (timeout 120s)
+Control-C
+console event: repairing display state before exit
+repair target 8388688: set hdr=false -> Ok(()), verified=true after 6.8854ms
+display state repaired; marker deleted
+rc=130
+marker present: False

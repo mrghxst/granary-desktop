@@ -1,0 +1,346 @@
+{
+  "label": "sdr-h1fix-sync-audio",
+  "results": [
+    {
+      "check": "current-vo=gpu-next",
+      "detail": "gpu-next",
+      "ok": true
+    },
+    {
+      "check": "hwdec-current!=no",
+      "detail": "d3d11va",
+      "ok": true
+    },
+    {
+      "check": "hdr gamma=pq primaries=bt.2020",
+      "detail": {
+        "gamma": "pq",
+        "max-cll": 1000.0,
+        "primaries": "bt.2020"
+      },
+      "ok": true
+    },
+    {
+      "check": "video child below webview",
+      "detail": {
+        "client": [
+          2240,
+          1260
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          88,
+          88,
+          2264,
+          1324
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          100,
+          140,
+          2240,
+          1260
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          100,
+          140,
+          2240,
+          1260
+        ],
+        "webview_visible": true
+      },
+      "ok": true
+    },
+    {
+      "check": "video child fills client",
+      "detail": {
+        "client": [
+          2240,
+          1260
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          88,
+          88,
+          2264,
+          1324
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          100,
+          140,
+          2240,
+          1260
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          100,
+          140,
+          2240,
+          1260
+        ],
+        "webview_visible": true
+      },
+      "ok": true
+    },
+    {
+      "check": "overlay pause -> pause=yes",
+      "detail": "yes",
+      "ok": true
+    },
+    {
+      "check": "overlay seek +3s",
+      "detail": {
+        "delta_mod10": 4.029391,
+        "t0": 3.837,
+        "t1": 7.866391
+      },
+      "ok": true
+    },
+    {
+      "check": "overlay fullscreen on + video fills",
+      "detail": {
+        "client": [
+          2880,
+          1800
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          0,
+          0,
+          2880,
+          1800
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          0,
+          0,
+          2880,
+          1800
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          0,
+          0,
+          2880,
+          1800
+        ],
+        "webview_visible": true
+      },
+      "ok": true
+    },
+    {
+      "check": "fullscreen off",
+      "detail": {
+        "client": [
+          2240,
+          1260
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          88,
+          88,
+          2264,
+          1324
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          100,
+          140,
+          2240,
+          1260
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          100,
+          140,
+          2240,
+          1260
+        ],
+        "webview_visible": true
+      },
+      "ok": true
+    },
+    {
+      "check": "resize 1100x640 -> video follows",
+      "detail": {
+        "client": [
+          1100,
+          640
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          120,
+          90,
+          1124,
+          704
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          132,
+          142,
+          1100,
+          640
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          132,
+          142,
+          1100,
+          640
+        ],
+        "webview_visible": true
+      },
+      "ok": true
+    },
+    {
+      "check": "minimize/restore -> video follows",
+      "detail": {
+        "client": [
+          1100,
+          640
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          120,
+          90,
+          1124,
+          704
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          132,
+          142,
+          1100,
+          640
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          132,
+          142,
+          1100,
+          640
+        ],
+        "webview_visible": true
+      },
+      "ok": true
+    },
+    {
+      "check": "overlay hidden (WRY_WEBVIEW SW_HIDE)",
+      "detail": {
+        "client": [
+          1100,
+          640
+        ],
+        "dpi": 168,
+        "hmonitor": 65537,
+        "main_rect": [
+          120,
+          90,
+          1124,
+          704
+        ],
+        "monitor": "\\\\.\\DISPLAY1",
+        "video_below_webview": true,
+        "video_rect": [
+          132,
+          142,
+          1100,
+          640
+        ],
+        "video_visible": true,
+        "webview_rect": [
+          132,
+          142,
+          1100,
+          640
+        ],
+        "webview_visible": false
+      },
+      "ok": true
+    },
+    {
+      "check": "overlay stays hidden 10s without input",
+      "detail": {
+        "hidden_at_end": true,
+        "reshown": 0
+      },
+      "ok": true
+    },
+    {
+      "check": "mouse move wakes overlay",
+      "detail": "skipped: another window covers the video centre",
+      "ok": false
+    },
+    {
+      "check": "keyboard space via WebView toggles pause",
+      "detail": "skipped: spike window is not foreground",
+      "ok": false
+    },
+    {
+      "check": "30s steady-state drops/delayed near 0",
+      "detail": {
+        "at_loop_restart": {
+          "drops": 0,
+          "mistimed": 0,
+          "vo_delayed": 0
+        },
+        "ctx": {
+          "current-vo": "gpu-next",
+          "display-fps": "60.000085",
+          "estimated-vf-fps": "23.976024",
+          "video-sync": "audio"
+        },
+        "drops": 41,
+        "loops": 3,
+        "mistimed": 0,
+        "overlay_visible_samples": 0,
+        "vo_delayed": 0
+      },
+      "ok": false
+    },
+    {
+      "check": "sdr clip target params available",
+      "detail": {
+        "alpha": "premul",
+        "aspect": 1.779935,
+        "aspect-name": "16:9",
+        "chroma-location": "unknown",
+        "colorlevels": "full",
+        "colormatrix": "rgb",
+        "dh": 618,
+        "dw": 1100,
+        "gamma": "bt.1886",
+        "h": 618,
+        "light": "auto",
+        "max-cll": 0.0,
+        "max-fall": 0.0,
+        "max-luma": 80.0,
+        "min-luma": 0.0004,
+        "par": "-nan(ind)",
+        "pixelformat": "rgb10a2",
+        "primaries": "bt.709",
+        "rotate": 0,
+        "sar": 1.779935,
+        "sar-name": "16:9",
+        "sig-peak": 0.394089,
+        "stereo-in": "mono",
+        "w": 1100
+      },
+      "ok": true
+    }
+  ]
+}

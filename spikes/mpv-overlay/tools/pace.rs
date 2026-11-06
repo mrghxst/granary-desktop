@@ -1,4 +1,7 @@
-// Baseline: standalone mpv window (no WebView), same options as the spike, 30 s steady-state pacing.
+// Baseline: standalone mpv window (no WebView), the spike's video options without wid/input options, 30 s pacing.
+// SAFETY (all unsafe blocks in this throwaway measurement tool): raw libmpv FFI on one handle created here, with
+// NUL-terminated C strings that outlive each call; events are read only on this thread until the next mpv_wait_event.
+// Build: see docs/spikes/mpv-overlay.md (corrections, L8).
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 #[repr(C)] struct MpvEvent { event_id: c_int, error: c_int, reply_userdata: u64, data: *mut c_void }
 unsafe extern "C" {

@@ -1,0 +1,71 @@
+BEFORE: [
+  {
+    "gdi_name": "\\\\.\\DISPLAY1",
+    "friendly_name": "",
+    "adapter_luid": [
+      67926,
+      0
+    ],
+    "target_id": 8388688,
+    "monitor_path": "\\\\?\\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}",
+    "refresh_hz": 60.0000845508658,
+    "refresh_rational": [
+      70963300,
+      1182720
+    ],
+    "hdr_supported": true,
+    "hdr_enabled": false,
+    "wide_color_enforced": false,
+    "bits_per_color": 10,
+    "sdr_white_nits": 80.0,
+    "dxgi_max_luminance": 500.0,
+    "dxgi_max_full_frame_luminance": 500.0,
+    "dxgi_min_luminance": 0.0004,
+    "dxgi_color_space": 0,
+    "dxgi_bits_per_color": 10,
+    "desktop_rect": [
+      0,
+      0,
+      1646,
+      1029
+    ]
+  }
+]
+marker written: C:\Users\mr\AppData\Local\Granary\spike-display-restore.json
+---  (\\.\DISPLAY1) target 8388688: original hdr=false
+flip to hdr=true -> Ok(()); verified=true after 11.9703ms; colorspace=Some(12) sdr_white=Some(200.0) max_lum=Some(200.0)
+restore to hdr=false -> Ok(()); verified=true after 12.9103ms; colorspace=Some(0) sdr_white=Some(80.0)
+AFTER: [
+  {
+    "gdi_name": "\\\\.\\DISPLAY1",
+    "friendly_name": "",
+    "adapter_luid": [
+      67926,
+      0
+    ],
+    "target_id": 8388688,
+    "monitor_path": "\\\\?\\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}",
+    "refresh_hz": 60.0000845508658,
+    "refresh_rational": [
+      70963300,
+      1182720
+    ],
+    "hdr_supported": true,
+    "hdr_enabled": false,
+    "wide_color_enforced": false,
+    "bits_per_color": 10,
+    "sdr_white_nits": 80.0,
+    "dxgi_max_luminance": 1000.0,
+    "dxgi_max_full_frame_luminance": 500.0,
+    "dxgi_min_luminance": 0.0004,
+    "dxgi_color_space": 0,
+    "dxgi_bits_per_color": 10,
+    "desktop_rect": [
+      0,
+      0,
+      1646,
+      1029
+    ]
+  }
+]
+ROUNDTRIP OK: all displays toggled and restored, marker deleted

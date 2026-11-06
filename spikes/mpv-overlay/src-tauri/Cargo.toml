@@ -27,6 +27,7 @@ features = [
   "Win32_Graphics_Dxgi_Common",
   "Win32_Devices_Display",
   "Win32_System_LibraryLoader",
+  "Win32_System_Console",
 ]
 
 [[bin]]
@@ -36,3 +37,6 @@ path = "src/main.rs"
 [[bin]]
 name = "hdr-roundtrip"
 path = "src/bin/hdr_roundtrip.rs"
+
+# Standalone: not part of the root Cargo workspace (own lockfile).
+[workspace]

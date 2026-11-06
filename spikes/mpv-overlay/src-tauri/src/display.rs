@@ -15,6 +15,8 @@ pub struct DisplayInfo {
     pub friendly_name: String,
     pub adapter_luid: (u32, i32),
     pub target_id: u32,
+    /// Monitor device interface path: stable across reboots, unlike the adapter LUID (review H2).
+    pub monitor_path: String,
     pub refresh_hz: f64,
     pub refresh_rational: (u32, u32),
     pub hdr_supported: bool,
@@ -159,10 +161,12 @@ pub fn displays() -> Vec<DisplayInfo> {
                     p.targetInfo.adapterId.HighPart,
                 ),
                 target_id: p.targetInfo.id,
+                monitor_path: wstr(&tn.monitorDevicePath),
                 refresh_hz: rr.Numerator as f64 / rr.Denominator.max(1) as f64,
                 refresh_rational: (rr.Numerator, rr.Denominator),
-                hdr_supported: bits & 1 != 0,
-                hdr_enabled: bits & 2 != 0,
+                // R4 rule (review M4): advanced colour with wideColorEnforced is ACM on an SDR panel, not HDR.
+                hdr_supported: bits & 1 != 0 && bits & 4 == 0,
+                hdr_enabled: bits & 2 != 0 && bits & 4 == 0,
                 wide_color_enforced: bits & 4 != 0,
                 bits_per_color: ac.bitsPerColorChannel as i32,
                 sdr_white_nits: sw.SDRWhiteLevel as f64 / 1000.0 * 80.0,

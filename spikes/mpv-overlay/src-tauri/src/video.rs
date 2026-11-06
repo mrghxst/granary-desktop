@@ -40,7 +40,14 @@ pub fn on_moved(f: impl Fn() + Send + Sync + 'static) {
     let _ = MOVED.set(Box::new(f));
 }
 
+/// Last WM_MOUSEMOVE position (packed lParam). Windows re-sends WM_MOUSEMOVE for a stationary cursor when the window
+/// under it changes (e.g. the WebView above is hidden), which must not count as user activity (review H1).
+static LAST_MOVE: AtomicIsize = AtomicIsize::new(-1);
+
 unsafe extern "system" fn video_proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+    if msg == WM_MOUSEMOVE && LAST_MOVE.swap(lp.0 & 0xffff_ffff, Ordering::SeqCst) == lp.0 & 0xffff_ffff {
+        return LRESULT(0);
+    }
     let kind = match msg {
         WM_MOUSEMOVE => Some("mousemove"),
         WM_LBUTTONDOWN => Some("click"),

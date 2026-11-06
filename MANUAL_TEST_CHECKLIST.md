@@ -18,5 +18,11 @@ laptop panel, 60/120 Hz, no VRR, no second monitor, no AV receiver, no PresentMo
       overlay must stay aligned. Move the window to a monitor with different scaling; same check. (Phase 2)
 - [ ] Multi-monitor move during playback: drag the player to the other monitor; the log must show the new monitor's
       HDR state, peak luminance, SDR white and refresh decision; the old monitor's state must be restored. (Phase 2)
+- [ ] Overlay auto-hide with an idle cursor (review H1): start playback, leave the mouse resting over the video, wait
+      15 s; the controls must hide once and stay hidden. Move the mouse; they must reappear. Press a key while hidden;
+      the key must act (e.g. Space pauses) and wake the controls. (Phase 2 review)
+- [ ] Pacing with the overlay hidden (review M1): unlocked session, fullscreen and windowed, 60 s each with the controls
+      hidden; record `frame-drop-count` / `vo-delayed-frame-count` from the log for display-resample and
+      `video-sync=audio`. (Phase 2 review)
 
 (Extended in Phase 7.)
