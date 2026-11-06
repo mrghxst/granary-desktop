@@ -4,7 +4,7 @@ Last updated: 2026-11-06T17:30:00+01:00 | Current phase: 3 | Last commit: (see g
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
 - [x] 1 Research & ADRs — DONE — gate: 5 research docs with Sources, ADR-0001..0006, reviewer docs/reviews/phase-1.md PASS WITH FINDINGS, all 6 medium + 15 low resolved
-- [x] 2 Risk spike: mpv + overlay + HDR — DONE (commit GATE2SHA) — gate: self-test 16/16 (SDR, video-sync=audio), HDR round-trip exit 0, restore-safety scenarios pass, reviewer docs/reviews/phase-2.md PASS WITH FINDINGS, 2 high + 5 medium + 8 low resolved
+- [x] 2 Risk spike: mpv + overlay + HDR — DONE (commit 9a1a87e) — gate: self-test 16/16 (SDR, video-sync=audio), HDR round-trip exit 0, restore-safety scenarios pass, reviewer docs/reviews/phase-2.md PASS WITH FINDINGS, 2 high + 5 medium + 8 low resolved
 - [ ] 3 Scaffold, CI, project skills
 - [ ] 4 Silo connectivity & auth
 - [ ] 5 UI (web-app parity)
