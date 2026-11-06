@@ -1,5 +1,5 @@
 # PROGRESS
-Last updated: 2026-11-06T23:10:00+01:00 | Current phase: 5 | Last commit: (see git log)
+Last updated: 2026-11-07T01:10:00+01:00 | Current phase: 6 | Last commit: (see git log)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
@@ -7,7 +7,7 @@ Last updated: 2026-11-06T23:10:00+01:00 | Current phase: 5 | Last commit: (see g
 - [x] 2 Risk spike: mpv + overlay + HDR — DONE (commit 9a1a87e) — gate: self-test 16/16 (SDR, video-sync=audio), HDR round-trip exit 0, restore-safety scenarios pass, reviewer docs/reviews/phase-2.md PASS WITH FINDINGS, 2 high + 5 medium + 8 low resolved
 - [x] 3 Scaffold, CI, project skills — DONE (commit 508e26c) — gate: verify.ps1 exit 0 (11 steps), tauri dev launches (libmpv api 2.6, single-instance, owner-checked restore), CI green, reviewer docs/reviews/phase-3.md FAIL → 4 high + 6 medium + 8 low resolved
 - [x] 4 Silo connectivity & auth — DONE (commit 6573af4 + review fixes) — gate: verify.ps1 exit 0, CI green, contract tests vs OAS subset @6791aac, mocked add → login → PIN → libraries flow (live test blocked: no .env.local), reviewer docs/reviews/phase-4.md FAIL → 1 high + 2 medium + 2 low resolved
-- [ ] 5 UI (web-app parity)
+- [x] 5 UI (web-app parity) — DONE (commit bd2369b + review fixes) — gate: verify.ps1 exit 0, CI green, vitest flow + host E2E test, ui-evidence.mjs 13/13 checks with 14 screenshots (docs/evidence/phase-5), reviewer docs/reviews/phase-5.md PASS WITH FINDINGS → 5 medium + 3 low resolved
 - [ ] 6 Native playback & progress sync
 - [ ] 7 Display & audio (auto-HDR, refresh match, passthrough)
 - [ ] 8 Polish
@@ -15,10 +15,9 @@ Last updated: 2026-11-06T23:10:00+01:00 | Current phase: 5 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 5: implementation complete (shell + sidebar, home rows/hero, library grid with sort + cursor paging, search,
-item/series details with version/audio/subtitle pickers, settings screen, settings.json store, granary-img artwork
-scheme with narrowed CSP, player_play hand-off stub, 6 new OAS operations with contract fixtures). Next: reviewer pass
-docs/reviews/phase-5.md, Gate 5.
+Phase 6: native playback & progress sync. Next: silo-api playback protocol v3 module (capabilities, start,
+progress, stop, replan, trickplay, events ticket) + mock + contract fixtures, then the host playback controller,
+media relay, video window and player overlay.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -61,9 +60,15 @@ docs/reviews/phase-5.md, Gate 5.
   scheme, L8 unused getCurrentUser / servers_activate surface, L9 Profiles back button / aria-pressed / live region /
   Remove confirmation (Phase 5 shell + Phase 8 polish), L10 Rust-side auth://revoked emit test, L11 request_origin
   mismatch as warning tone + ADR note.
+- Phase 5 review lows deferred: L1 ItemGrid key omits serverId / unkeyed load-more state, L2 sub-loader errors skip
+  needsReauth, L4 video_with_episodes without getCatalogSearchCapabilities, L6 unserialised settings saves / seekStep
+  options / preferSdh unused / settings read errors treated as missing, L7 Profiles back button (also phase-4 L9),
+  L8 IPC/capability-level test (tauri::test get_ipc_response), L11 ContextMenu refocus on re-render, L12 artwork host
+  allow-list — Phase 8 polish; L3 player_play validation → Phase 6 controller.
 - Phase 6: re-verify Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2).
 
 ## Log (newest first, one line per completed step)
+- 2026-11-07 Gate 5: review fixes M1–M5 (web-app subtitle/resume/version rules, raster-only sandboxed artwork scheme + navigation guard, streamed 16 MiB cap, UI evidence via WebView2 DevTools), L5/L9/L10; verify.ps1 exit 0.
 - 2026-11-06 Phase 5: UI web-app parity screens, catalog commands + mock catalog, granary-img scheme, settings store, contract tests for 6 new operations, vitest browse → details → play flow + host-side E2E test; verify.ps1 exit 0.
 - 2026-11-06 Gate 4: review fixes (H1 credential never follows a server id to a new origin, M1 account-level calls without profile headers, M2 re-login ends previous session, L2, L3); verify.ps1 exit 0.
 - 2026-11-06 Phase 4: silo-api crate (9 OAS ops, contract tests vs OAS subset, TLS + wiremock tests, live test `#[ignore]`), Tauri commands, connect UI + vitest flow; verify.ps1 exit 0.

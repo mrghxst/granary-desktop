@@ -655,7 +655,7 @@ mod tests {
         let sections = s.with_session(&id, |x| async move { x.home_sections().await }).await?;
         let poster = sections[0].items[0].poster_url.clone().unwrap_or_default();
         let img = s.artwork(&id, &poster).await?;
-        assert_eq!(img.content_type, "image/svg+xml");
+        assert_eq!(img.content_type, "image/png");
         assert_eq!(
             s.artwork(&id, "file:///C:/x.png").await.unwrap_err().code,
             "bad_artwork_url"

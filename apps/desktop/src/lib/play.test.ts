@@ -53,28 +53,103 @@ describe("play hand-off defaults", () => {
     expect(defaultAudio(version({ audio_tracks: [] }))).toBeNull();
   });
 
-  it("follows the profile subtitle mode and language", () => {
+  it("follows the web app's subtitle auto-selection", () => {
     const v = version();
-    const w = (mode: string, language = "de") =>
-      watch({ effective_subtitle_mode: mode, effective_subtitle_language: language });
-    expect(defaultSubtitle(w("off"), v)).toBeNull();
-    expect(defaultSubtitle(w(""), v)).toBe(5); // unset → the file's default track
-    expect(defaultSubtitle(w("default"), v)).toBe(5);
-    expect(defaultSubtitle(w("always", "de-CH"), v)).toBe(4);
-    expect(defaultSubtitle(w("forced_only"), v)).toBe(3);
-    expect(defaultSubtitle(w("forced_only", "en"), v)).toBeNull();
-    expect(defaultSubtitle(w("auto"), v, 1)).toBe(3); // German audio → only forced German subtitles
-    expect(defaultSubtitle(w("auto"), v, 0)).toBe(4); // English audio → full German subtitles
-    expect(defaultSubtitle(w("always", "fr"), v)).toBeNull();
-    expect(defaultSubtitle(w("always"), version({ subtitle_tracks: [] }))).toBeNull();
+    const w = (over: Partial<WatchDetail>) => watch(over);
+    // auto: German subtitle language, English audio -> best full German track; German audio -> forced German only.
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "auto", effective_subtitle_language: "de" }), v, 0)).toBe(4);
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "auto", effective_subtitle_language: "de" }), v, 1)).toBe(3);
+    // Unset mode is auto; with no subtitle language only the forced track for the audio language shows.
+    expect(defaultSubtitle(w({}), v, 1)).toBe(3);
+    expect(defaultSubtitle(w({}), v, 0)).toBeNull();
+    expect(defaultSubtitle(w({ effective_show_forced_subtitles: false }), v, 1)).toBeNull();
+    // Explicit empty language means no subtitles.
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "auto", effective_subtitle_language: "" }), v, 0)).toBeNull();
+    // off still shows forced subtitles for the audio language, unless they are turned off.
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "off" }), v, 1)).toBe(3);
+    expect(
+      defaultSubtitle(w({ effective_subtitle_mode: "off", effective_show_forced_subtitles: false }), v, 1),
+    ).toBeNull();
+    // always: the language's best track, preferring full over forced, region variants match.
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "always", effective_subtitle_language: "de-CH" }), v)).toBe(4);
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "always", effective_subtitle_language: "fr" }), v)).toBeNull();
+    // always: the track last chosen on this item wins (exact signature).
+    expect(
+      defaultSubtitle(
+        w({
+          effective_subtitle_mode: "always",
+          effective_subtitle_language: "de",
+          effective_subtitle_track_signature: {
+            language: "de",
+            forced: true,
+            hearing_impaired: false,
+            source: "embedded",
+          },
+        }),
+        v,
+      ),
+    ).toBe(3);
+    // Unknown or unratified modes select nothing.
+    expect(
+      defaultSubtitle(w({ effective_subtitle_mode: "default", effective_subtitle_language: "en" }), v, 1),
+    ).toBeNull();
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "forced_only" }), v, 1)).toBeNull();
+    expect(defaultSubtitle(w({ effective_subtitle_mode: "always" }), version({ subtitle_tracks: [] }))).toBeNull();
   });
 
-  it("resumes only meaningful, unfinished positions", () => {
+  it("matches ISO 639-2 and 639-1 language tags and ranks plain text above SDH and bitmap", () => {
+    const v = version({
+      audio_tracks: [{ language: "eng", default: true }],
+      subtitle_tracks: [
+        {
+          index: 7,
+          language: "ger",
+          codec: "hdmv_pgs_subtitle",
+          forced: false,
+          hearing_impaired: false,
+          default: false,
+          external: false,
+        },
+        {
+          index: 8,
+          language: "deu",
+          codec: "subrip",
+          forced: false,
+          hearing_impaired: true,
+          default: false,
+          external: false,
+        },
+        {
+          index: 9,
+          language: "deu",
+          codec: "subrip",
+          forced: false,
+          hearing_impaired: false,
+          default: false,
+          external: true,
+        },
+      ],
+    });
+    const w = watch({ effective_subtitle_mode: "auto", effective_subtitle_language: "de" });
+    expect(defaultSubtitle(w, v, 0)).toBe(9);
+    // English audio tagged eng counts as the English subtitle language -> no full subtitles.
+    expect(
+      defaultSubtitle(watch({ effective_subtitle_mode: "auto", effective_subtitle_language: "en" }), v, 0),
+    ).toBeNull();
+  });
+
+  it("resumes any nonzero position, including a rewatch in progress", () => {
     const u = { played: false, watched_count: 0, unplayed_count: 1, in_progress_count: 1 };
     expect(resumePosition(watch({ user_data: { ...u, position_seconds: 754.6 } }))).toBe(754);
-    expect(resumePosition(watch({ user_data: { ...u, position_seconds: 10 } }))).toBe(0);
-    expect(resumePosition(watch({ user_data: { ...u, played: true, position_seconds: 754 } }))).toBe(0);
-    const w = watch({ user_data: { ...u, position_seconds: 754 } });
+    expect(resumePosition(watch({ user_data: { ...u, position_seconds: 10 } }))).toBe(10);
+    expect(resumePosition(watch({ user_data: { ...u, played: true, position_seconds: 754 } }))).toBe(754);
+    expect(resumePosition(watch({ user_data: { ...u, played: true, position_seconds: 0 } }))).toBe(0);
+    expect(resumePosition(watch())).toBe(0);
+    const w = watch({
+      effective_subtitle_mode: "auto",
+      effective_subtitle_language: "en",
+      user_data: { ...u, position_seconds: 754 },
+    });
     const choice = defaultChoice(w);
     if (!choice) throw new Error("no choice");
     expect(playRequest("s1", w, choice, false)).toEqual({
@@ -86,6 +161,19 @@ describe("play hand-off defaults", () => {
       subtitleIndex: 5,
     });
     expect(playRequest("s1", w, choice, true).startSeconds).toBe(0);
+  });
+
+  it("prefers the last played edition when the last file is gone", () => {
+    const w = watch({
+      versions: [
+        version({ file_id: "a", edition_key: "theatrical" }),
+        version({ file_id: "b", edition_key: "extended" }),
+      ],
+      effective_version_edition_key: "extended",
+    });
+    expect(defaultChoice(w)?.version.file_id).toBe("b");
+    const plain = watch({ versions: [version({ file_id: "a", edition_key: "extended" }), version({ file_id: "c" })] });
+    expect(defaultChoice(plain)?.version.file_id).toBe("c");
   });
 
   it("formats times", () => {

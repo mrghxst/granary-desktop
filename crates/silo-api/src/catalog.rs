@@ -32,6 +32,7 @@ pub struct WatchRollup {
     pub duration_seconds: Option<f64>,
     pub is_in_progress: Option<bool>,
     pub last_file_id: Option<String>,
+    pub last_edition_key: Option<String>,
     pub watched_count: i64,
     pub unplayed_count: i64,
     pub in_progress_count: i64,
@@ -273,6 +274,21 @@ pub struct WatchDetail {
     pub user_data: Option<WatchRollup>,
     pub effective_subtitle_language: Option<String>,
     pub effective_subtitle_mode: Option<String>,
+    pub effective_show_forced_subtitles: Option<bool>,
+    pub effective_subtitle_track_signature: Option<WatchSubtitleSignature>,
+    pub effective_version_edition_key: Option<String>,
+}
+
+/// `WatchSubtitleSignature`: the subtitle track the profile last chose on an item.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WatchSubtitleSignature {
+    pub codec: Option<String>,
+    pub forced: bool,
+    pub hearing_impaired: bool,
+    pub label: Option<String>,
+    pub language: Option<String>,
+    pub source: Option<String>,
 }
 
 /// Query for `listCatalogItems` (only the parameters Granary sets).

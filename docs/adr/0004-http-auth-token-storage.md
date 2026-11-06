@@ -89,3 +89,10 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 - Phase 5 E2E: `tauri-driver` on Windows needs a separately downloaded `msedgedriver` matching WebView2, which is
   outside the downloads approved for this project; Gate 5 uses the vitest UI flow (fake host) plus a host-side Rust
   integration test (`catalog::tests::login_browse_details_play_handoff`), as prompt.md allows.
+
+### Amendment 4 (Gate 5 review, 2026-11-07): artwork hardening
+- Only raster types (`image/jpeg`, `png`, `webp`, `avif`, `gif`) are accepted and served; SVG is refused because
+  Tauri treats `http://granary-img.localhost` as a local origin with the main window's capability.
+- Every scheme response carries `Content-Security-Policy: default-src 'none'; sandbox` and `nosniff`.
+- The main window only navigates to the app's own origin (`on_navigation`).
+- The 16 MiB cap is enforced while streaming, so bodies without `Content-Length` are cut off too.

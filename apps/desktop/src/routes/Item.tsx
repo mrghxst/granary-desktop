@@ -153,7 +153,14 @@ function PlayPanel({ serverId, itemId }: { serverId: string; itemId: string }) {
             label={t("item.audio")}
             value={String(choice.audioIndex ?? 0)}
             onChange={(x) => {
-              setChoice({ ...choice, audioIndex: Number(x) });
+              // Forced subtitles follow the audio language; keep a subtitle the user picked by hand.
+              const audioIndex = Number(x);
+              const automatic = choice.subtitleIndex === defaultSubtitle(watch, v, choice.audioIndex);
+              setChoice({
+                ...choice,
+                audioIndex,
+                subtitleIndex: automatic ? defaultSubtitle(watch, v, audioIndex) : choice.subtitleIndex,
+              });
             }}
             options={v.audio_tracks.map((a, i) => ({ value: String(i), label: audioLabel(a, i, i18n.language) }))}
           />

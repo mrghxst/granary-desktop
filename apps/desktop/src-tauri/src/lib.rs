@@ -99,8 +99,31 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
         .find(|w| w.label == "main")
         .cloned()
         .ok_or("window `main` missing from tauri.conf.json")?;
-    tauri::WebviewWindowBuilder::from_config(app.handle(), &main)?.build()?;
+    let dev_url = app.config().build.dev_url.clone();
+    tauri::WebviewWindowBuilder::from_config(app.handle(), &main)?
+        // Only the app itself may be the top-level document: never the artwork scheme, the IPC origin or a remote
+        // page, all of which would otherwise run with the main window's capability (phase-5 review M3).
+        .on_navigation(move |url| {
+            let allowed = navigation_allowed(url, dev_url.as_ref());
+            if !allowed {
+                tracing::warn!(scheme = url.scheme(), host = ?url.host_str(), "blocked navigation");
+            }
+            allowed
+        })
+        .build()?;
     Ok(())
+}
+
+/// The app's own origin: `tauri://localhost` / `http(s)://tauri.localhost` for bundled assets, plus the dev server
+/// in development builds.
+fn navigation_allowed(url: &tauri::Url, dev_url: Option<&tauri::Url>) -> bool {
+    let bundled = match url.scheme() {
+        "tauri" => url.host_str() == Some("localhost"),
+        "http" | "https" => url.host_str() == Some("tauri.localhost"),
+        _ => false,
+    };
+    let dev = cfg!(debug_assertions) && dev_url.is_some_and(|d| d.origin() == url.origin());
+    bundled || dev
 }
 
 pub fn run() {
@@ -179,6 +202,34 @@ pub fn run() {
             tracing::error!(error = %e, "Tauri runtime failed");
             logging::flush();
             std::process::exit(1);
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)] // test code
+mod nav_tests {
+    use super::navigation_allowed;
+
+    #[test]
+    fn only_the_app_origin_is_navigable() {
+        let u = |s: &str| tauri::Url::parse(s).unwrap();
+        let dev = u("http://127.0.0.1:1420");
+        for ok in [
+            "http://tauri.localhost/index.html",
+            "tauri://localhost/#/servers",
+            "http://127.0.0.1:1420/#/x",
+        ] {
+            assert!(navigation_allowed(&u(ok), Some(&dev)), "{ok}");
+        }
+        for bad in [
+            "http://granary-img.localhost/1?u=/a.svg",
+            "http://ipc.localhost/plugin",
+            "https://evil.example/",
+            "http://127.0.0.1:1421/",
+            "file:///C:/x.svg",
+        ] {
+            assert!(!navigation_allowed(&u(bad), Some(&dev)), "{bad}");
         }
     }
 }

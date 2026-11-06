@@ -28,6 +28,7 @@
     "security": {
       "csp": {
         "default-src": "'self'",
+        "media-src": "'none'",
         "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:",

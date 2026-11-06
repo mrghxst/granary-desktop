@@ -43,3 +43,15 @@ html[data-video-active="true"],
 html[data-video-active="true"] body {
   background: transparent;
 }
+
+/* Windows "Animation effects" off: no transitions, animations or smooth scrolling anywhere (phase-5 review L5). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

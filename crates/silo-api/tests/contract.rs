@@ -377,6 +377,56 @@ async fn http_client_speaks_the_catalog_contract() {
     }
 }
 
+/// One-shot HTTP/1.1 server on a plain thread that answers with a chunked body (no Content-Length).
+fn chunked_server(content_type: &'static str, total: usize) -> String {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    std::thread::spawn(move || {
+        let Ok((mut sock, _)) = listener.accept() else { return };
+        let mut buf = [0u8; 4096];
+        let _ = sock.read(&mut buf);
+        let head = format!("HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nTransfer-Encoding: chunked\r\n\r\n");
+        if sock.write_all(head.as_bytes()).is_err() {
+            return;
+        }
+        let chunk = vec![0u8; 1024 * 1024];
+        let mut sent = 0;
+        while sent < total {
+            let n = chunk.len().min(total - sent);
+            let frame = [format!("{n:x}\r\n").as_bytes(), &chunk[..n], b"\r\n"].concat();
+            // The client hangs up once it has seen enough: that is the behaviour under test.
+            if sock.write_all(&frame).is_err() {
+                return;
+            }
+            sent += n;
+        }
+        let _ = sock.write_all(b"0\r\n\r\n");
+    });
+    format!("http://{addr}/api/v2/artwork/big")
+}
+
+#[tokio::test]
+async fn artwork_is_capped_without_content_length_and_must_be_raster() {
+    use granary_silo_api::api::MAX_IMAGE_BYTES;
+    let api = HttpSiloApi::new(device()).unwrap();
+    // 64 MiB streamed without Content-Length: refused once the 16 MiB cap is crossed, not buffered whole.
+    let err = api
+        .fetch_image(&chunked_server("image/jpeg", 4 * MAX_IMAGE_BYTES))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, ApiError::BadArtworkUrl(ref m) if m.contains("too large")),
+        "{err:?}"
+    );
+    // A small chunked body is read completely.
+    let ok = api.fetch_image(&chunked_server("image/png", 3000)).await.unwrap();
+    assert_eq!((ok.content_type.as_str(), ok.bytes.len()), ("image/png", 3000));
+    // SVG can carry script: never accepted, whatever the transfer encoding.
+    let svg = api.fetch_image(&chunked_server("image/svg+xml", 10)).await.unwrap_err();
+    assert!(matches!(svg, ApiError::BadArtworkUrl(_)), "{svg:?}");
+}
+
 #[tokio::test]
 async fn http_errors_are_mapped() {
     let server = MockServer::start().await;

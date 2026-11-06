@@ -1,0 +1,67 @@
+[
+  {
+    "name": "artwork loads through granary-img as PNG",
+    "ok": true,
+    "detail": "7/7 decoded"
+  },
+  {
+    "name": "no horizontal overflow at 960px x1",
+    "ok": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "no horizontal overflow at 1920px x1",
+    "ok": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "no horizontal overflow at 1280px x1.5",
+    "ok": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "no horizontal overflow at 1920px x2",
+    "ok": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "no horizontal overflow at 3840px x1",
+    "ok": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "sidebar collapses to the icon rail below lg",
+    "ok": true,
+    "detail": "nav width 64px"
+  },
+  {
+    "name": "content is capped at 2400 css px on 4K",
+    "ok": true,
+    "detail": "width 2400px"
+  },
+  {
+    "name": "no <video> element anywhere",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "Tab moves focus to a control with a visible focus style",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "prefers-reduced-motion removes every transition",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "true-black theme paints the page #000",
+    "ok": true,
+    "detail": "rgb(0, 0, 0)"
+  },
+  {
+    "name": "navigation to the artwork scheme is blocked",
+    "ok": true,
+    "detail": "http://127.0.0.1:1420 -> http://127.0.0.1:1420"
+  }
+]

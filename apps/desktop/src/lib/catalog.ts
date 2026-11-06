@@ -21,6 +21,7 @@ export interface WatchRollup {
   duration_seconds?: number | null;
   is_in_progress?: boolean | null;
   last_file_id?: string | null;
+  last_edition_key?: string | null;
   watched_count: number;
   unplayed_count: number;
   in_progress_count: number;
@@ -194,6 +195,19 @@ export interface WatchDetail {
   user_data?: WatchRollup | null;
   effective_subtitle_language?: string | null;
   effective_subtitle_mode?: string | null;
+  effective_show_forced_subtitles?: boolean | null;
+  effective_subtitle_track_signature?: WatchSubtitleSignature | null;
+  effective_version_edition_key?: string | null;
+}
+
+/** The subtitle track the profile last chose on an item (OAS `WatchSubtitleSignature`). */
+export interface WatchSubtitleSignature {
+  codec?: string | null;
+  forced: boolean;
+  hearing_impaired: boolean;
+  label?: string | null;
+  language?: string | null;
+  source?: string | null;
 }
 
 export interface CatalogQuery {

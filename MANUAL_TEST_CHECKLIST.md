@@ -25,4 +25,22 @@ laptop panel, 60/120 Hz, no VRR, no second monitor, no AV receiver, no PresentMo
       hidden; record `frame-drop-count` / `vo-delayed-frame-count` from the log for display-resample and
       `video-sync=audio`. (Phase 2 review)
 
+## Browse UI (Phase 5, ADR-0001)
+Automated evidence: `docs/evidence/phase-5/` (screenshots of the real app against the mock server, captured over the
+WebView2 DevTools protocol by `scripts/ui-evidence.mjs`: widths 960 and 1920 and 3840 css px, 150 %/200 % device scale,
+reduced motion, true-black). The items below still need human eyes or a live server.
+- [ ] Side-by-side with the Silo web UI on the same server (needs a test server): home rows and hero, library grid
+      and sort, item details (movie, series with season tabs, episode), search. Spacing, type scale, colours and
+      card proportions must read as the same product. Note differences here.
+- [ ] Snap layouts: hover the maximise button and Win+Z; snap to halves/thirds; the sidebar must collapse to the icon
+      rail below 1024 css px and no horizontal scroll bar may appear.
+- [ ] Scaling: change Windows scaling 100 % → 150 % → 200 % with the app open; text and focus rings stay crisp, no
+      clipped controls. Move the window to a monitor with different scaling.
+- [ ] 4K at 100 % scaling: content stops at 2400 css px and stays centred.
+- [ ] Settings → Accessibility → Visual effects → Animation effects off: card hover, row scroll and tab changes must
+      not animate.
+- [ ] Keyboard only: from launch, Tab through server list → sign-in → profile → home → library → item → Play using
+      only Tab/Shift+Tab/Enter/Space/arrow keys/Esc; every focused control shows a ring; the skip link works.
+- [ ] True-black theme on the OLED panel: background and sidebar are #000 (no grey glow in a dark room).
+
 (Extended in Phase 7.)

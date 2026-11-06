@@ -169,7 +169,7 @@ vi.mock("@tauri-apps/api/core", () => ({
           type: "movie",
           versions: [catalogData.version],
           user_data: catalogData.userData,
-          effective_subtitle_mode: "default",
+          effective_subtitle_mode: "off",
         });
       case "player_play":
         return Promise.resolve(null);
@@ -343,7 +343,7 @@ describe("connect flow", () => {
         fileId: "m1-f1",
         startSeconds: 1520,
         audioIndex: 1,
-        // effective_subtitle_mode "default": the default-flagged track (index 3).
+        // Mode "off" with German audio picked: only the forced German track shows (web-app rule).
         subtitleIndex: 3,
       },
     });

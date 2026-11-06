@@ -437,16 +437,22 @@ mod demo {
         })
     }
 
-    /// Placeholder poster: a flat SVG whose colour depends on the key.
-    pub fn svg(key: &str) -> Vec<u8> {
-        let hue = key
+    /// Placeholder poster: a 2×3 PNG (scaled up by the UI) whose colour depends on the key, with a lighter top row.
+    pub fn png(key: &str) -> Vec<u8> {
+        let h = key
             .bytes()
-            .fold(0u32, |a, b| a.wrapping_mul(31).wrapping_add(u32::from(b)))
-            % 360;
-        format!(
-            "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='600' viewBox='0 0 400 600'>             <rect width='400' height='600' fill='hsl({hue},45%,28%)'/></svg>"
-        )
-        .into_bytes()
+            .fold(0u32, |a, b| a.wrapping_mul(31).wrapping_add(u32::from(b)));
+        let [r, g, b, _] = h.to_le_bytes().map(|c| 40 + c / 3);
+        let lighter = [r.saturating_add(30), g.saturating_add(30), b.saturating_add(30)];
+        let base = [r, g, b];
+        let mut raw = Vec::new();
+        for row in 0..3 {
+            raw.push(0); // filter: none
+            for _ in 0..2 {
+                raw.extend_from_slice(if row == 0 { &lighter } else { &base });
+            }
+        }
+        super::png::encode_rgb(2, 3, &raw)
     }
 }
 
@@ -723,6 +729,7 @@ impl SiloApi for MockSiloApi {
             user_data: d.user_data,
             effective_subtitle_language: None,
             effective_subtitle_mode: Some("auto".into()),
+            ..WatchDetail::default()
         })
     }
 
@@ -733,8 +740,72 @@ impl SiloApi for MockSiloApi {
             .and_then(|rest| rest.split('?').next())
             .ok_or_else(|| problem(404, "not_found"))?;
         Ok(ImageData {
-            content_type: "image/svg+xml".into(),
-            bytes: demo::svg(key),
+            content_type: "image/png".into(),
+            bytes: demo::png(key),
         })
+    }
+}
+
+/// Minimal PNG encoder for the mock placeholder artwork (8-bit RGB, stored deflate blocks, no dependencies).
+mod png {
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for &b in data {
+            crc ^= u32::from(b);
+            for _ in 0..8 {
+                crc = if crc & 1 == 1 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
+    }
+
+    fn adler32(data: &[u8]) -> u32 {
+        let (mut a, mut b) = (1u32, 0u32);
+        for &x in data {
+            a = (a + u32::from(x)) % 65521;
+            b = (b + a) % 65521;
+        }
+        (b << 16) | a
+    }
+
+    fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+        // Placeholder chunks are a few bytes, far below u32::MAX.
+        out.extend_from_slice(&u32::try_from(data.len()).unwrap_or(0).to_be_bytes());
+        let start = out.len();
+        out.extend_from_slice(kind);
+        out.extend_from_slice(data);
+        let crc = crc32(&out[start..]);
+        out.extend_from_slice(&crc.to_be_bytes());
+    }
+
+    /// `raw` holds the scanlines, each prefixed with its filter byte; it must be shorter than 64 KiB.
+    pub fn encode_rgb(width: u32, height: u32, raw: &[u8]) -> Vec<u8> {
+        let len = u16::try_from(raw.len()).unwrap_or(0);
+        let mut zlib = vec![0x78, 0x01, 0x01];
+        zlib.extend_from_slice(&len.to_le_bytes());
+        zlib.extend_from_slice(&(!len).to_le_bytes());
+        zlib.extend_from_slice(&raw[..usize::from(len)]);
+        zlib.extend_from_slice(&adler32(&raw[..usize::from(len)]).to_be_bytes());
+        let mut ihdr = Vec::with_capacity(13);
+        ihdr.extend_from_slice(&width.to_be_bytes());
+        ihdr.extend_from_slice(&height.to_be_bytes());
+        ihdr.extend_from_slice(&[8, 2, 0, 0, 0]);
+        let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+        chunk(&mut out, b"IHDR", &ihdr);
+        chunk(&mut out, b"IDAT", &zlib);
+        chunk(&mut out, b"IEND", &[]);
+        out
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn crc_matches_the_png_spec_vector() {
+        // CRC of "IEND" with no data is the well-known AE426082.
+        assert_eq!(crc32(b"IEND"), 0xAE42_6082);
+        assert_eq!(adler32(b"Wikipedia"), 0x11E6_0398);
     }
 }

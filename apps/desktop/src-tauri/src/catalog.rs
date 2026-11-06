@@ -1,7 +1,7 @@
 //! Browse, details and play hand-off commands (Phase 5) plus the `granary-img` artwork scheme. Every Silo operation
 //! used here is listed in docs/research/silo-api.md §13 with its OAS line @6791aac.
 use crate::silo::{CommandError, SiloState};
-use granary_silo_api::api::ImageData;
+use granary_silo_api::api::{ImageData, raster_image_type};
 use granary_silo_api::catalog::{
     CatalogBrowseCollection, CatalogItemDetail, CatalogQuery, Episode, Season, Section, WatchDetail,
 };
@@ -165,17 +165,33 @@ fn percent_decode(s: &str) -> Option<String> {
         .map(|(_, v)| v.into_owned())
 }
 
+/// Headers on every scheme response. Tauri treats `http://granary-img.localhost` as a local origin, so a response
+/// must never be able to act as a document: no script, no plugins, sandboxed, not embeddable elsewhere (phase-5
+/// review M3).
+const SCHEME_HEADERS: &[(&str, &str)] = &[
+    ("Content-Security-Policy", "default-src 'none'; sandbox"),
+    ("X-Content-Type-Options", "nosniff"),
+];
+
 fn image_response(r: Result<ImageData, CommandError>) -> Response<Vec<u8>> {
+    // Defence in depth: only raster types are ever served, whatever the API layer returned.
+    let r = r.and_then(|img| match raster_image_type(&img.content_type) {
+        Some(t) => Ok((t, img.bytes)),
+        None => Err(CommandError::invalid("artwork type".into())),
+    });
+    let mut builder = Response::builder();
+    for (k, v) in SCHEME_HEADERS {
+        builder = builder.header(*k, *v);
+    }
     let built = match r {
-        Ok(img) => Response::builder()
+        Ok((content_type, bytes)) => builder
             .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, img.content_type)
+            .header(header::CONTENT_TYPE, content_type)
             .header(header::CACHE_CONTROL, "private, max-age=3600")
-            .header("X-Content-Type-Options", "nosniff")
-            .body(img.bytes),
+            .body(bytes),
         Err(e) => {
             tracing::debug!(code = %e.code, "artwork not served");
-            Response::builder().status(StatusCode::NOT_FOUND).body(Vec::new())
+            builder.status(StatusCode::NOT_FOUND).body(Vec::new())
         }
     };
     built.unwrap_or_else(|_| Response::new(Vec::new()))
@@ -250,8 +266,32 @@ mod tests {
         let poster = detail.poster_url.unwrap_or_default();
         let response = image_response(s.artwork(&id, &poster).await);
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["content-type"], "image/png");
+        assert_eq!(
+            response.headers()["content-security-policy"],
+            "default-src 'none'; sandbox"
+        );
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
+    }
+
+    #[test]
+    fn scheme_never_serves_svg_and_always_sandboxes() {
+        let svg = image_response(Ok(ImageData {
+            content_type: "image/svg+xml".into(),
+            bytes: b"<svg/>".to_vec(),
+        }));
+        assert_eq!(svg.status(), StatusCode::NOT_FOUND);
+        assert!(svg.body().is_empty());
+        for r in [&svg, &image_response(Err(CommandError::invalid("x".into())))] {
+            assert_eq!(r.headers()["content-security-policy"], "default-src 'none'; sandbox");
+            assert_eq!(r.headers()["x-content-type-options"], "nosniff");
+        }
+        let jpeg = image_response(Ok(ImageData {
+            content_type: "Image/JPEG; charset=binary".into(),
+            bytes: vec![0xFF, 0xD8],
+        }));
+        assert_eq!(jpeg.headers()["content-type"], "image/jpeg");
     }
 
     #[test]

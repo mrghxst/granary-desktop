@@ -27,6 +27,21 @@ pub struct ImageData {
 /// Largest artwork body accepted (bytes); larger responses are refused rather than buffered.
 pub const MAX_IMAGE_BYTES: usize = 16 * 1024 * 1024;
 
+/// Raster image types Granary displays. SVG is refused: it can carry script, and the artwork scheme is served from
+/// an origin Tauri treats as local (phase-5 review M3).
+pub const IMAGE_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"];
+
+/// The essence (`type/subtype`, lower case) of a Content-Type if it is an allowed raster type.
+pub fn raster_image_type(content_type: &str) -> Option<&'static str> {
+    let essence = content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    IMAGE_TYPES.iter().copied().find(|t| *t == essence)
+}
+
 /// Credentials for one authenticated request.
 #[derive(Debug, Clone)]
 pub struct Auth {
@@ -279,28 +294,35 @@ impl SiloApi for HttpSiloApi {
     async fn fetch_image(&self, url: &str) -> Result<ImageData> {
         // Deliberately not `self.request`: no device identity, no bearer, no profile headers.
         let resp = send_raw(self.http.get(url).header("Accept", "image/*")).await?;
-        let content_type = resp
+        let header = resp
             .headers()
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .to_owned();
-        if !content_type.starts_with("image/") {
-            return Err(ApiError::BadArtworkUrl(format!("not an image ({content_type})")));
-        }
+            .unwrap_or_default();
+        let Some(content_type) = raster_image_type(header) else {
+            return Err(ApiError::BadArtworkUrl(format!("not a raster image ({header})")));
+        };
+        let too_large = || ApiError::BadArtworkUrl("image too large".into());
         if resp.content_length().is_some_and(|n| n > MAX_IMAGE_BYTES as u64) {
-            return Err(ApiError::BadArtworkUrl("image too large".into()));
+            return Err(too_large());
         }
-        let bytes = resp
-            .bytes()
+        // Read chunk by chunk so a body without Content-Length (chunked, HTTP/2) is cut off at the cap instead of
+        // being buffered whole (phase-5 review M4).
+        let mut resp = resp;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = resp
+            .chunk()
             .await
-            .map_err(|e| ApiError::from_transport(&e.without_url()))?;
-        if bytes.len() > MAX_IMAGE_BYTES {
-            return Err(ApiError::BadArtworkUrl("image too large".into()));
+            .map_err(|e| ApiError::from_transport(&e.without_url()))?
+        {
+            if bytes.len() + chunk.len() > MAX_IMAGE_BYTES {
+                return Err(too_large());
+            }
+            bytes.extend_from_slice(&chunk);
         }
         Ok(ImageData {
-            content_type,
-            bytes: bytes.to_vec(),
+            content_type: content_type.to_owned(),
+            bytes,
         })
     }
 }
