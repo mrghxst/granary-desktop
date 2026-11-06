@@ -12,3 +12,10 @@ dist/
 vendor-bin/
 test-media/
 *.log
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+.DS_Store

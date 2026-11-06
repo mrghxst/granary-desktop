@@ -1,5 +1,9 @@
 # Granary
 
-Native Windows desktop client compatible with the [Silo](https://github.com/Silo-Server/silo-server) media server. It plays media through mpv for direct play, HDR and audio passthrough. Not affiliated with Silo.
+Native Windows desktop client **compatible with the [Silo](https://github.com/Silo-Server/silo-server) media server**. It plays media through mpv/libplacebo for direct play, correct HDR on OLED desktop monitors and opt-in audio passthrough.
 
-Status: not built yet. [`prompt.md`](prompt.md) is the build plan for Claude Code; see its PART A for how to start it.
+Granary is an independent project. It is **not affiliated with or endorsed by Silo Media L.L.C.**; "Silo" is their trademark.
+
+Status: under construction. See [`PROGRESS.md`](PROGRESS.md).
+
+License: [AGPL-3.0-or-later](LICENSE).
