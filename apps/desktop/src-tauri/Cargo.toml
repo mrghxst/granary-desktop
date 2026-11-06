@@ -1,0 +1,39 @@
+[package]
+name = "granary"
+description = "Granary desktop client (Tauri 2 host)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+default-run = "granary"
+
+[lib]
+name = "granary_lib"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "granary"
+path = "src/main.rs"
+# main.rs only calls granary_lib::run(); no test harness (avoids LNK4199 from the bin-only /DELAYLOAD).
+test = false
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-window-state = "2.5.0"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+granary-player = { path = "../../../crates/player" }
+granary-display = { path = "../../../crates/display" }
+granary-silo-api = { path = "../../../crates/silo-api" }
+
+[lints]
+workspace = true

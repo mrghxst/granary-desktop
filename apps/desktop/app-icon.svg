@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Granary app icon (original artwork, AGPL-3.0-or-later): a grain kernel enclosing a play triangle. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#232328"/>
+      <stop offset="1" stop-color="#0f0f12"/>
+    </linearGradient>
+    <linearGradient id="kernel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3c969"/>
+      <stop offset="1" stop-color="#d9932f"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="url(#bg)"/>
+  <path d="M512 150 C700 260 760 420 760 560 C760 730 650 860 512 880 C374 860 264 730 264 560 C264 420 324 260 512 150 Z"
+        fill="url(#kernel)"/>
+  <path d="M452 430 L452 690 L660 560 Z" fill="#141417"/>
+</svg>

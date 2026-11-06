@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "Granary",
+    "tagline": "Ein Desktop-Client, kompatibel mit Silo-Medienservern."
+  },
+  "home": {
+    "title": "Willkommen bei Granary",
+    "connect": "Mit einem Server verbinden",
+    "notConnected": "Noch kein Server verbunden."
+  },
+  "status": {
+    "playerReady": "libmpv bereit (Client-API {{version}})",
+    "playerMissing": "libmpv nicht verfügbar: {{error}}",
+    "version": "Version {{version}}",
+    "loading": "Lädt…"
+  }
+}

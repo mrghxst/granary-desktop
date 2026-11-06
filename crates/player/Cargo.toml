@@ -1,0 +1,21 @@
+[package]
+name = "granary-player"
+description = "libmpv wrapper: lifecycle, commands, property observers, player state machine (ADR-0002)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+libmpv2-sys.workspace = true
+
+[target.'cfg(windows)'.dependencies.windows]
+workspace = true
+features = ["Win32_System_LibraryLoader"]
+
+[lints]
+workspace = true

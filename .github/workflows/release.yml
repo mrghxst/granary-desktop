@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  # Needed to create the DRAFT release and to read the private libmpv mirror (draft release asset).
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-release
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Build NSIS installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release-build.ps1 -Install
+
+      - name: Attach to draft release (never published automatically)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { "v$((Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version)-dev" }
+          $files = Get-ChildItem target/release/bundle/nsis/*.exe, target/release/bundle/nsis/*.sha256 | ForEach-Object FullName
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --draft --title "Granary $tag" --notes "Draft build from $env:GITHUB_SHA. Review before publishing (private repo)." @files
+          } else {
+            gh release upload $tag --clobber @files
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

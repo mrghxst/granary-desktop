@@ -28,8 +28,38 @@ $archive = Join-Path $dl $pin.asset
 $url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/$($pin.tag)/$($pin.asset)"
 
 if (-not (Test-Path $archive) -or $Force) {
-  Write-Host "Downloading $url"
-  Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+  # Source order (ADR-0005): local copy -> private draft-release mirror (gh + token with access) -> shinchiro URL.
+  # The SHA-256 below is verified whatever the source; a mismatch is fatal.
+  $gotMirror = $false
+  $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+  if ($gh -and $pin.mirror_repo -and $pin.mirror_release) {
+    try {
+      $json = & $gh api "repos/$($pin.mirror_repo)/releases?per_page=100" 2>$null
+      $asset = $null
+      if ($LASTEXITCODE -eq 0 -and $json) {
+        $asset = ($json | ConvertFrom-Json) | Where-Object { $_.tag_name -eq $pin.mirror_release } |
+          ForEach-Object { $_.assets } | Where-Object { $_.name -eq $pin.asset } | Select-Object -First 1
+      }
+      if ($asset) {
+        Write-Host "Downloading $($pin.asset) from private mirror $($pin.mirror_repo) ($($pin.mirror_release))"
+        # cmd redirection keeps the binary stream intact (PowerShell 5.1 would re-encode stdout).
+        cmd /c "`"$gh`" api -H `"Accept: application/octet-stream`" repos/$($pin.mirror_repo)/releases/assets/$($asset.id) > `"$archive`""
+        $gotMirror = ($LASTEXITCODE -eq 0) -and (Test-Path $archive) -and ((Get-Item $archive).Length -eq $pin.size)
+        if (-not $gotMirror) {
+          Write-Host 'Mirror download incomplete; falling back to upstream URL'
+          Remove-Item $archive -ErrorAction SilentlyContinue
+        }
+      } else {
+        Write-Host 'Mirror asset not visible with current credentials; falling back to upstream URL'
+      }
+    } catch {
+      Write-Host "Mirror lookup failed ($($_.Exception.Message)); falling back to upstream URL"
+    }
+  }
+  if (-not $gotMirror) {
+    Write-Host "Downloading $url"
+    Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+  }
 }
 
 $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()

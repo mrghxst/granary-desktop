@@ -6,5 +6,7 @@
   "sha256": "a778b3444b0b8b6d93cb00ca49f2acf62a02d0b61249229fc9944672f80683bb",
   "mpv_commit": "9028187538",
   "license": "GPL-3.0-or-later (shinchiro build config: --enable-gpl --enable-version3)",
-  "note": "x86-64-v3 (AVX2) per prompt CONFIG; shinchiro keeps only ~30 releases, CI caches the verified archive keyed by sha256 (ADR-0005)."
+  "mirror_repo": "mrghxst/granary-desktop",
+  "mirror_release": "deps-libmpv-20261106",
+  "note": "x86-64-v3 (AVX2) per prompt CONFIG; shinchiro keeps only ~30 releases, so the verified archive is mirrored as an asset of a private draft release (ADR-0005)."
 }

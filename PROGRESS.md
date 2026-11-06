@@ -15,7 +15,7 @@ Last updated: 2026-11-06T17:30:00+01:00 | Current phase: 3 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 3: scaffold (Cargo + pnpm workspaces, crates/display|player|silo-api, apps/desktop Tauri app, verify.ps1, CI, skills).
+Phase 3: scaffold written (workspaces, crates, apps/desktop host + UI shell, verify.ps1, release-build.ps1, CI/release workflows, skills, ADR-0007); Gate 3 pending (CI run + review).
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -24,6 +24,7 @@ Phase 3: scaffold (Cargo + pnpm workspaces, crates/display|player|silo-api, apps
 - [ADR-0004](docs/adr/0004-http-auth-token-storage.md) Rust-side HTTP, tokens in Credential Manager, origin-scoped credentials.
 - [ADR-0005](docs/adr/0005-packaging-licensing-updates.md) shinchiro v3 libmpv pinned + private mirror, NSIS per-user, no auto-update.
 - [ADR-0006](docs/adr/0006-display-refresh-hdr-restore-policy.md) Refresh/HDR policy and restore marker.
+- [ADR-0007](docs/adr/0007-workspace-toolchain-ci.md) Workspaces, frontend toolchain (TS 6.0.3 for typescript-eslint), Rust 1.99.1 pin, CI/release workflows.
 - pnpm 12.18.0 via corepack shim installed to `%APPDATA%\npm` (corepack enable into Program Files needs admin).
 - Toolchain (Phase 0): git 2.53.0, node v24.18.0, pnpm 12.18.0, rustc 1.99.1 (host x86_64-pc-windows-msvc),
   VS Build Tools 2022 17.14 (MSVC 14.44.35207, Windows SDK 10.0.26100), gh 2.103.3, 7-Zip 26.01, ffmpeg 8.1.2,
@@ -47,6 +48,8 @@ Phase 3: scaffold (Cargo + pnpm workspaces, crates/display|player|silo-api, apps
 - Phase 7: independent flip with the overlay hidden (ADR-0003 fallback trigger), overlay-hidden pacing, packets 15/16 and
   rational `SetDisplayConfig` refresh switching, explicit `hdr-reference-white` from packet 11 (ADR-0006 M3/M5).
 - Unattended GUI tests can hit the Windows lock screen; input checks then skip by design (seen in 3 runs).
+- TypeScript 7 migration deferred until typescript-eslint supports it (ADR-0007).
+- pnpm minimumReleaseAgeExclude: i18next@26.7.2 (current at time of use; ADR-0007).
 
 ## Log (newest first, one line per completed step)
 - 2026-11-06 Phase 2 DONE: spike (Design A works), review H1/H2/M1–M5/L1–L8 resolved, evidence in docs/spikes/evidence/.

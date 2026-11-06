@@ -1,0 +1,5 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+minimumReleaseAgeExclude:
+  - i18next@26.7.2

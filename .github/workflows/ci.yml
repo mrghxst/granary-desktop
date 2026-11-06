@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # No installer here (private-repo minutes); release.yml builds it on tags.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Rust toolchain (rust-toolchain.toml)
+        shell: pwsh
+        run: |
+          rustup show active-toolchain
+          rustc --version
+          cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: libmpv cache
+        id: libmpv-cache
+        uses: actions/cache@v6
+        with:
+          path: vendor-bin/libmpv
+          key: libmpv-${{ hashFiles('scripts/libmpv.pin.json') }}
+
+      - name: Fetch libmpv (pinned, SHA-256 verified)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/fetch-libmpv.ps1
+
+      - name: Verify (fmt, clippy, tests, typecheck, lint, prettier, vitest, build, secret scan)
+        shell: pwsh
+        run: ./scripts/verify.ps1 -Install -SkipFetch

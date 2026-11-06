@@ -1,0 +1,40 @@
+/*
+ * Design tokens. Colour/radius/font values of the "midnight-cinema" theme are taken from
+ * silo-server/web/src/app.css@6791aac:523-590 (AGPL-3.0-or-later, credited in THIRD_PARTY_NOTICES.md; ADR-0001 C).
+ * "true-black" is Granary's OLED variant: pure black canvas, otherwise identical.
+ */
+:root,
+[data-theme="midnight-cinema"] {
+  --radius: 0.75rem;
+  --font-body: "Plus Jakarta Sans Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-body);
+
+  --background: #141417;
+  --foreground: #e8e8ec;
+  --card: #1c1c20;
+  --card-foreground: #e8e8ec;
+  --popover: #18181c;
+  --popover-foreground: #e8e8ec;
+  --primary: #e8e8ec;
+  --primary-foreground: #141417;
+  --secondary: #232328;
+  --secondary-foreground: #e8e8ec;
+  --muted: #232328;
+  --muted-foreground: #a4a4ae;
+  --border: #28282e;
+  --input: #28282e;
+  --ring: #e8e8ec;
+  --destructive: #ef4444;
+  --sidebar: #0f0f12;
+  --surface: #1c1c20;
+  --surface-hover: #232328;
+  --surface-raised: #28282e;
+}
+
+[data-theme="true-black"] {
+  --background: #000000;
+  --sidebar: #000000;
+  --popover: #0c0c0e;
+  --card: #111113;
+  --surface: #111113;
+}

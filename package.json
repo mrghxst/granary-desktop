@@ -1,0 +1,13 @@
+{
+  "name": "granary-workspace",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@12.18.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm --filter desktop build"
+  }
+}

@@ -1,0 +1,6 @@
+# Pinned so local builds and CI use the same compiler/clippy (lint drift would break `-D warnings`).
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+targets = ["x86_64-pc-windows-msvc"]
+profile = "minimal"

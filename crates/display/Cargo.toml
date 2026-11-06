@@ -1,0 +1,27 @@
+[package]
+name = "granary-display"
+description = "Windows display helpers for Granary: HDR state, SDR white, DXGI luminance, refresh rate and restore marker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies.windows]
+workspace = true
+features = [
+  "Win32_Foundation",
+  "Win32_Devices_Display",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Gdi",
+]
+
+[lints]
+workspace = true
