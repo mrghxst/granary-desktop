@@ -53,9 +53,23 @@ window (B), with mpv-owned top-level video window (B′) if child swapchains can
 
 **Research only: Design C**, revisited only if A and B both fail.
 
+**Idle-state details** (L5):
+- *Cursor*: when controls hide, the host hides the cursor by answering `WM_SETCURSOR` on `GranaryVideo` with
+  `SetCursor(NULL)`; mpv's own `cursor-autohide` is set to `no` so only one component owns the cursor.
+- *Focus*: when the webview is hidden the host calls `SetFocus(GranaryVideo)` so `WM_KEYDOWN` arrives there; on wake
+  focus returns to the WebView2 container and the key is forwarded to the UI as a `player://key` event.
+- *SMTC*: Granary implements System Media Transport Controls itself (title/artwork come from Silo metadata, not file
+  tags); mpv `media-controls=no`.
+- *Keep-awake*: the host calls `SetThreadExecutionState(ES_CONTINUOUS|ES_DISPLAY_REQUIRED)` only while playing and
+  clears it on pause/stop; mpv `stop-screensaver=no`.
+- Display/refresh/HDR changes and their restore marker are governed by ADR-0006.
+
 ## Consequences
 - Multi-monitor moves need no position syncing; the host listens for `WM_MOVE`/`WM_DISPLAYCHANGE` and re-evaluates
   the monitor (HDR state, peak, SDR white, refresh strategy) when the window's `HMONITOR` changes.
+- Open items carried into the spike / `MANUAL_TEST_CHECKLIST.md` (L14): effect of a Windows HDR Calibration profile on
+  DXGI `GetDesc1` values; a window straddling an SDR and an HDR monitor (DWM down-conversion, only the monitor holding
+  the window centre is reported).
 - Independent flip verification needs PresentMon (not installed here) → recorded in `MANUAL_TEST_CHECKLIST.md`
   if it cannot be measured in the spike.
 - While controls are visible, DWM composes the full-window transparent WebView2 over the video (GPU cost); controls

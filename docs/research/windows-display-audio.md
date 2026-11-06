@@ -509,6 +509,7 @@ audio-device=auto                   # follow the Windows default device [S21]
 audio-exclusive=no                  # shared mode on desktop (system sounds, volume) [S21]
 audio-channels=auto-safe            # system layout, stereo fallback [S21]
 audio-fallback-to-null=yes          # keep video going if the device vanishes [S21]
+audio-normalize-downmix=yes         # spec Phase 7: stereo/headphone downmix with normalization (prevents 5.1->2.0 clipping) [S21]
 ```
 
 The host sets these at runtime for each monitor: `display-fps-override`, `video-sync` (`audio` when VRR is declared or passthrough is active), `target-peak` (user override only), and `hdr-reference-white` (only if mpv's cache is stale).

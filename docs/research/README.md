@@ -19,3 +19,8 @@ silo-apple@77def09).
 - [shell-and-player.md](shell-and-player.md) — R3: Tauri 2 + mpv integration and window architecture
 - [windows-display-audio.md](windows-display-audio.md) — R4: HDR, refresh, DXGI luminance, WASAPI, mpv.conf baseline
 - [packaging-and-licensing.md](packaging-and-licensing.md) — R5: libmpv builds, licensing, Tauri bundling, CI
+
+## Measurements made by the main agent
+- "Silo" in user-facing TSX string literals of the upstream web UI:
+  `grep -rhoE '>[^<{]*\bSilo\b[^<{]*<|"[^"]*\bSilo\b[^"]*"' .ref/silo-server/web/src --include=*.tsx | wc -l` → 256
+  (silo-server@6791aac). Used in ADR-0001.

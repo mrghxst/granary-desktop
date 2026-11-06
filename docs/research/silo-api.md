@@ -544,7 +544,7 @@ Progress positions are reported as **source** positions.
 - `playback.watched_threshold = "90"` and `playback.min_resume_threshold = "5"` (`silo-server/internal/config/admin_settings.go@6791aac` L458-459).
 - `ResolveProgressState` (`silo-server/internal/userstore/threshold.go@6791aac` L5-50):
   - below min-resume, nothing is recorded as a resume position;
-  - at or above the watched threshold, the item is completed and the position reset to 0.
+  - strictly above the watched threshold (`position/duration > WatchedFraction` in `threshold.go`), the item is completed and the position reset to 0.
 - These are admin-configurable, so the client should not hard-code them for UI decisions. Use `user_data.played` and `position_seconds` from the server.
 
 ### 8.2 Outside playback
@@ -725,7 +725,7 @@ Useful for a viewer client:
 
 ## Open questions / UNVERIFIED
 
-1. **Evidence tier for libmpv**: `declared` matches a decoder stack that cannot enumerate hardware limits; `exact` requires `video_decode[]` with hardware entries. Which tier the server treats best for a desktop and libmpv client, and whether `form_factor: "desktop"` is accepted (Android only sends `tv|watch|automotive|tablet|mobile`), is **UNVERIFIED**. Test against a live server, or read the server's form_factor validation.
+1. **Evidence tier for libmpv**: `declared` matches a decoder stack that cannot enumerate hardware limits; `exact` requires `video_decode[]` with hardware entries. Which tier the server treats best for a desktop and libmpv client, and whether `form_factor: "desktop"` is accepted (Android only sends `tv|watch|automotive|tablet|mobile`), is **UNVERIFIED**. Server tests do set `ClientPlaybackContext.FormFactor = "desktop"` (`silo-server/internal/playback/protocol_v3_test.go@6791aac` L2860, L4243), so `desktop` is very likely accepted; the request-validation path is still to be confirmed against a live server.
 2. **Full `outcome` vocabulary** of `PlaybackDecision` and `PlaybackMutation` beyond `playable`, `applied`, `stale_sample`, `replayed` and `stopped`: **UNVERIFIED**.
 3. **Whether `sequenced_progress_v1`** must appear in `client_features`: **UNVERIFIED**. The constant exists in Android `PlaybackV2Api.kt` L19.
 4. **Root `/health`**: how Android's `GET /health` resolves on the server is **UNVERIFIED**.
@@ -741,6 +741,10 @@ Useful for a viewer client:
 ## Sources
 
 All paths are relative to the upstream repos cloned under `C:\Users\mr\Documents\ACLAUDE\granary\.ref\`.
+
+Not needed for the viewer/playback contract and therefore not mined in depth: `silo-server/docs/settings-api.md`,
+`silo-server/docs/downloads-api.md` and `silo-server/contracts/settings/v1` (server/admin settings and offline
+downloads, both out of Granary's v0.1 scope).
 
 silo-server @ `6791aac867664c41c55ee82909fe063d145911a6`:
 

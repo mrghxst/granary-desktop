@@ -26,8 +26,20 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 - **Rust-side HTTP and WebSocket** in `crates/silo-api` (`reqwest` + rustls, `tokio-tungstenite` for
   `/api/v2/events/ws`). The UI calls typed Tauri commands (`servers_*`, `auth_*`, `library_*`, `item_*`,
   `playback_*`); it never sees access or refresh tokens.
-- **Images** are served through a custom URI scheme (`granary-img://`) handled in Rust, which resolves the
-  root-relative signed path against the active server, adds auth headers if needed and streams bytes back. No CORS.
+- **TLS** (L3): `reqwest` with rustls using the **platform verifier** (Windows certificate store), so servers behind
+  a private/LAN CA that the user trusts in Windows work; TLS errors are mapped to clear, specific messages (expired,
+  untrusted issuer, name mismatch). Plain `http://` is allowed only after an explicit warning in the add-server flow.
+- **Credential scoping** (M4): Bearer/profile headers are attached **only** to requests whose origin (scheme, host,
+  port) equals the configured server origin. Redirects to other origins drop credentials (custom `reqwest` redirect
+  policy). Stream and artwork URLs on other origins (proxy nodes, object storage) rely solely on their `st`
+  signatures. For mpv, the host sets `http-header-fields` only when the stream URL is same-origin, and otherwise
+  passes the signed URL without headers (mpv applies header fields to every request, including redirects).
+- **Images** are served through a custom URI scheme handler named `granary-img`, which on Windows is reachable as
+  `http://granary-img.localhost/<path>` (L9); the CSP lists it in `img-src`. Rust resolves the root-relative signed path
+  against the active server, applies the credential-scoping rule above and streams bytes back. No CORS.
+- **Login methods** (L4): password login only in v0.1. The device-code flow (`/api/v2/auth/device/start|poll`) and
+  OAuth found in R2 are deferred; they must be documented in silo-api.md before use. `X-Profile-Token` (PIN-verified
+  profile) is kept in memory only; the PIN is asked again after an app restart.
 - **Tokens in Windows Credential Manager** via the `keyring` crate (service `Granary`, account
   `<server_id>/<user_id>`), storing the refresh token; the access token is kept in memory only. Server list and
   non-secret account metadata go to `%APPDATA%\Granary\servers.json`.
@@ -44,6 +56,6 @@ Token storage: (a) plaintext config file; (b) Tauri store plugin; (c) **Windows 
 
 ## Consequences
 - The IPC surface is a fixed list of commands with typed arguments; capability files allow only those.
-- mpv receives the stream URL plus headers (`http-header-fields`) directly from Rust; the WebView never handles them.
+- mpv receives the stream URL (plus headers only when same-origin) directly from Rust; the WebView never handles them.
 - Offline/no-server development uses `MockSiloApi` with sanitized fixtures recorded from upstream docs/tests.
 - `keyring` behaviour is Windows-only here (target is Windows-only); tests use an in-memory credential store.
