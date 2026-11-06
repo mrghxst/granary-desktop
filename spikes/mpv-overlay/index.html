@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Granary spike</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; color: #f4f1ea; font-family: system-ui, sans-serif; overflow: hidden; }
+      #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 16px 24px; display: flex; gap: 8px; align-items: center;
+             background: linear-gradient(to top, rgba(8,10,18,.85), rgba(8,10,18,0)); }
+      #top { position: fixed; left: 24px; top: 16px; font-size: 13px; opacity: .8; text-shadow: 0 1px 2px #000; }
+      button { background: rgba(255,255,255,.12); color: inherit; border: 1px solid rgba(255,255,255,.2); border-radius: 8px;
+               padding: 8px 14px; font: inherit; cursor: pointer; }
+      button:hover { background: rgba(255,255,255,.22); }
+      input { flex: 1; background: rgba(0,0,0,.4); color: inherit; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="top">Granary spike — transparent WebView2 over libmpv (gpu-next/d3d11)</div>
+    <div id="bar">
+      <input id="file" placeholder="path to media file" />
+      <button id="play">Play</button>
+      <button id="pause">Pause</button>
+      <button id="fwd">+3s</button>
+      <button id="fs">Fullscreen</button>
+      <button id="hide">Hide overlay</button>
+      <span id="status"></span>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

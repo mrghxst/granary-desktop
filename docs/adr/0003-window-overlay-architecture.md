@@ -1,6 +1,6 @@
 # ADR-0003: Window and overlay architecture
 
-- Status: Accepted (to be confirmed by the Phase 2 spike; update this ADR with spike results)
+- Status: Accepted — confirmed by the Phase 2 spike ([docs/spikes/mpv-overlay.md](../spikes/mpv-overlay.md))
 - Date: 2026-11-06
 - Inputs: [shell-and-player.md](../research/shell-and-player.md) (R3), [windows-display-audio.md](../research/windows-display-audio.md) (R4), ADR-0002
 
@@ -74,3 +74,12 @@ window (B), with mpv-owned top-level video window (B′) if child swapchains can
   if it cannot be measured in the spike.
 - While controls are visible, DWM composes the full-window transparent WebView2 over the video (GPU cost); controls
   therefore auto-hide after 2.5 s and avoid `backdrop-filter` over video.
+
+## Spike result (2026-11-06)
+Design A worked unchanged on WebView2 157 / Tauri 2.12.5 (16/16 self-test checks on the SDR desktop; HDR swapchain
+windowed and fullscreen with Windows HDR on). Details and logs: [mpv-overlay.md](../spikes/mpv-overlay.md).
+- mpv creates and **disables** its own `mpv` child inside `wid`, so mouse input reaches `GranaryVideo` without hooks.
+- The `GranaryVideo` child must be created on the UI (main) thread; Tauri sync commands run there.
+- The first key pressed while the overlay is hidden wakes it and must be forwarded as `player://key` (as decided above).
+- The fallback B′/B was not needed. Independent flip, DPI changes and multi-monitor moves remain manual checks
+  (no PresentMon or second monitor on the build machine).

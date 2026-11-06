@@ -75,3 +75,14 @@ k = 1: 23.976/24/25/29.97/50/59.94), `video-sync=audio`. `Never switch`: steps 1
 - Mode switches cause a brief black screen on some monitors; the default only switches when no near-multiple exists.
 - Hardware round-trip tests on this machine (single HDR-capable internal panel, 60/120 Hz) cover HDR toggle and
   refresh switching; multi-monitor and VRR behaviour go to `MANUAL_TEST_CHECKLIST.md`.
+
+## Spike amendments (2026-11-06, [mpv-overlay.md](../spikes/mpv-overlay.md))
+- HDR toggle via packet 10 verified on Windows 11 26200 (on in 7–82 ms, restored in 14–61 ms, verified through
+  DisplayConfig and the DXGI colour space). The refresh switch to 120 Hz and its restore were also verified.
+- DXGI `MaxLuminance` changed across toggles (500 → 200 → 400 → 1000). Luminance is therefore read with a **fresh
+  DXGI factory after a ~1.5 s settle delay**, and the value used is logged; the per-monitor override wins.
+- Wait-for-HDR before unpausing: poll DisplayConfig + DXGI colour space (12) with a 10 s timeout, as the spike tool does.
+- On the iGPU test laptop, display-resample at a non-integer ratio (60/23.976) showed 0–4 drops per 30 s, while
+  `video-sync=audio` showed 0; standalone mpv behaves the same, so this is GPU load, not the overlay. The order
+  above stays. `video-sync` is additionally a per-monitor advanced setting, and drop/delayed counters are logged
+  every 30 s during playback for later tuning on the primary target.
