@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router";
 import { goSignIn } from "./lib/nav";
 import { onRevoked } from "./lib/silo";
@@ -13,6 +13,9 @@ import { ServerHome } from "./routes/ServerHome";
 import { Settings } from "./routes/Settings";
 import { Login } from "./routes/Login";
 import { Profiles } from "./routes/Profiles";
+import { usePlayer } from "./player/context";
+import { PlayerProvider } from "./player/PlayerProvider";
+import { PlayerView } from "./player/PlayerView";
 
 /** The host emits `auth://revoked` when the server rejects a stored session: go back to sign-in for that server. */
 function RevokedListener() {
@@ -34,34 +37,43 @@ function RevokedListener() {
   return null;
 }
 
+/** The library stays mounted (scroll, state) but hidden while the player view is up. */
+function HiddenWhilePlaying({ children }: { children: ReactNode }) {
+  const { state } = usePlayer();
+  return <div className={state.active ? "hidden" : "contents"}>{children}</div>;
+}
+
 export function AppRoutes() {
   return (
-    <>
+    <PlayerProvider>
       <RevokedListener />
-      <Routes>
-        <Route path="/servers/add" element={<AddServer />} />
-        <Route path="/servers/:serverId/login" element={<Login />} />
-        <Route path="/servers/:serverId/profiles" element={<Profiles />} />
-        <Route path="/servers/:serverId" element={<Shell />}>
-          <Route path="home" element={<ServerHome />} />
-          <Route path="library/:libraryId" element={<Library />} />
-          <Route path="search" element={<Search />} />
-          <Route path="item/:itemId" element={<Item />} />
-          <Route path="settings" element={<Settings />} />
-          <Route index element={<Navigate to="home" replace />} />
-          <Route path="libraries" element={<Navigate to="../home" replace />} />
-        </Route>
-        <Route
-          path="/settings"
-          element={
-            <main className="mx-auto w-full max-w-3xl p-6">
-              <Settings />
-            </main>
-          }
-        />
-        <Route path="*" element={<Home />} />
-      </Routes>
-    </>
+      <PlayerView />
+      <HiddenWhilePlaying>
+        <Routes>
+          <Route path="/servers/add" element={<AddServer />} />
+          <Route path="/servers/:serverId/login" element={<Login />} />
+          <Route path="/servers/:serverId/profiles" element={<Profiles />} />
+          <Route path="/servers/:serverId" element={<Shell />}>
+            <Route path="home" element={<ServerHome />} />
+            <Route path="library/:libraryId" element={<Library />} />
+            <Route path="search" element={<Search />} />
+            <Route path="item/:itemId" element={<Item />} />
+            <Route path="settings" element={<Settings />} />
+            <Route index element={<Navigate to="home" replace />} />
+            <Route path="libraries" element={<Navigate to="../home" replace />} />
+          </Route>
+          <Route
+            path="/settings"
+            element={
+              <main className="mx-auto w-full max-w-3xl p-6">
+                <Settings />
+              </main>
+            }
+          />
+          <Route path="*" element={<Home />} />
+        </Routes>
+      </HiddenWhilePlaying>
+    </PlayerProvider>
   );
 }
 

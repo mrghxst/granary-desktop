@@ -21,6 +21,7 @@
     "allow-series-seasons",
     "allow-season-episodes",
     "allow-watch-state",
+    "allow-watch-trickplay",
     "allow-player-play",
     "allow-player-stop",
     "allow-player-pause",

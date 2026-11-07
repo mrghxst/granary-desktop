@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import { AppRoutes } from "../App";
@@ -12,6 +12,8 @@ const host = vi.hoisted(() => {
     signedIn: false,
     calls: [] as { cmd: string; args?: Record<string, unknown> | undefined }[],
     revokedHandler: null as ((e: { payload: { serverId: string } }) => void) | null,
+    /** Every other host event listener (player://*, server://event) by name. */
+    handlers: {} as Record<string, ((e: { payload: unknown }) => void) | undefined>,
     revokeNext: false,
     profileSelected: false,
   };
@@ -172,7 +174,18 @@ vi.mock("@tauri-apps/api/core", () => ({
           effective_subtitle_mode: "off",
         });
       case "player_play":
+      case "player_pause":
+      case "player_seek":
+      case "player_set":
+      case "player_overlay":
+      case "player_stop":
+      case "events_connect":
+      case "events_disconnect":
         return Promise.resolve(null);
+      case "player_state":
+        return Promise.reject(fail("internal"));
+      case "player_window":
+        return Promise.resolve({ fullscreen: false, mini: false });
       case "settings_get":
         return Promise.reject(fail("internal"));
       case "libraries_list":
@@ -192,10 +205,16 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: (_event: string, handler: (e: { payload: { serverId: string } }) => void) => {
-    host.revokedHandler = handler;
+  listen: (event: string, handler: (e: { payload: unknown }) => void) => {
+    if (event === "auth://revoked") {
+      host.revokedHandler = handler;
+      return Promise.resolve(() => {
+        host.revokedHandler = null;
+      });
+    }
+    host.handlers[event] = handler;
     return Promise.resolve(() => {
-      host.revokedHandler = null;
+      if (host.handlers[event] === handler) host.handlers[event] = undefined;
     });
   },
 }));
@@ -345,9 +364,77 @@ describe("connect flow", () => {
         audioIndex: 1,
         // Mode "off" with German audio picked: only the forced German track shows (web-app rule).
         subtitleIndex: 3,
+        // Media flyout lines; a movie has no previous/next episode.
+        title: "Northern Lights",
+        hasPrevious: false,
+        hasNext: false,
       },
     });
     expect(document.querySelector("video")).toBeNull();
+
+    // The host reports the attempt: the overlay replaces the library and the page turns transparent.
+    const emit = (event: string, payload: unknown) => {
+      act(() => {
+        host.handlers[event]?.({ payload });
+      });
+    };
+    emit("player://state", {
+      active: true,
+      itemId: "m1",
+      fileId: "m1-f1",
+      phase: "playing",
+      position: 1520,
+      duration: 7080,
+      paused: false,
+      buffering: false,
+      volume: 100,
+      muted: false,
+      props: { speed: 1 },
+    });
+    expect(await screen.findByTestId("player-view")).toBeTruthy();
+    expect(document.documentElement.dataset.videoActive).toBe("true");
+    expect(screen.getByText("25:20 / 1:58:00")).toBeTruthy();
+
+    // mpv-like keys: space pauses, right arrow seeks by the seek step, m mutes, ? opens the shortcuts.
+    fireEvent.keyDown(window, { key: " " });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "m" });
+    fireEvent.keyDown(window, { key: "?", shiftKey: true });
+    expect(host.calls.some((c) => c.cmd === "player_pause")).toBe(true);
+    expect(host.calls.find((c) => c.cmd === "player_seek")?.args).toEqual({ seconds: 10, relative: true });
+    expect(host.calls.find((c) => c.cmd === "player_set")?.args).toEqual({ name: "mute", value: "yes" });
+    expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();
+
+    // Not direct play: the reason is shown.
+    emit("player://notice", {
+      kind: "plan",
+      session_id: "s",
+      plan_id: "p",
+      delivery: "hls",
+      decision_reason: "video codec not supported",
+      direct_play: false,
+      relayed: true,
+      protocol: "hls",
+      degradation_warnings: [],
+      subtitles: [],
+    });
+    expect(await screen.findByText("Not direct play: video codec not supported")).toBeTruthy();
+
+    // A fatal end: the overlay goes, the library is back with the error card.
+    emit("player://notice", { kind: "error", code: "media_gone", message: "The file is gone.", fatal: true });
+    emit("player://state", {
+      active: false,
+      position: 0,
+      paused: false,
+      buffering: false,
+      volume: 100,
+      muted: false,
+      props: {},
+    });
+    expect(screen.queryByTestId("player-view")).toBeNull();
+    expect(document.documentElement.dataset.videoActive).toBeUndefined();
+    expect(screen.getByText("The file is gone.")).toBeTruthy();
+    expect(host.calls.some((c) => c.cmd === "player_overlay" && c.args?.visible === true)).toBe(true);
   });
 
   it("sends the user to the profile picker when no profile is selected", async () => {

@@ -20,6 +20,7 @@ const COMMANDS: &[&str] = &[
     "series_seasons",
     "season_episodes",
     "watch_state",
+    "watch_trickplay",
     "player_play",
     "player_stop",
     "player_pause",

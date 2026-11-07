@@ -141,6 +141,22 @@ pub async fn watch_state(state: State<'_, SiloState>, server_id: String, item_id
         .await
 }
 
+/// Seek-bar previews (`getWatchTrickplay`); only called when the version has `trickplay_available`.
+#[tauri::command]
+pub async fn watch_trickplay(
+    state: State<'_, SiloState>,
+    server_id: String,
+    item_id: String,
+    file_id: String,
+) -> CmdResult<granary_silo_api::playback::WatchTrickplay> {
+    state
+        .with_session(
+            &server_id,
+            |s| async move { s.watch_trickplay(&item_id, &file_id).await },
+        )
+        .await
+}
+
 /// Parse `http://granary-img.localhost/<serverId>?u=<reference>` (or `granary-img://localhost/...`).
 fn parse_image_uri(uri: &str) -> Option<(String, String)> {
     let url = url::Url::parse(uri).ok()?;

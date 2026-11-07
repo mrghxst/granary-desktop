@@ -125,7 +125,8 @@ export interface Chapter {
 }
 
 export interface MarkerOccurrence {
-  kind: "intro" | "credits" | "recap" | "preview" | string;
+  /** `intro`, `credits`, `recap`, `preview` (free-form upstream). */
+  kind: string;
   start_seconds: number;
   end_seconds: number;
 }
@@ -205,7 +206,9 @@ export interface WatchDetail {
   content_id: string;
   title: string;
   type: string;
+  series_id?: string | null;
   series_title?: string | null;
+  backdrop_url?: string | null;
   season_number?: number | null;
   episode_number?: number | null;
   versions: FileVersion[];
@@ -246,6 +249,12 @@ export interface PlayRequest {
   audioIndex: number | null;
   /** `SubtitleTrack.index` of the chosen subtitle, or null for off. */
   subtitleIndex: number | null;
+  /** For the Windows media flyout. */
+  title?: string;
+  subtitle?: string;
+  /** Previous/next episode exist (media keys). */
+  hasPrevious?: boolean;
+  hasNext?: boolean;
 }
 
 const noHost = (): Error & CommandError => Object.assign(new Error("not running inside Granary"), { code: "no_host" });

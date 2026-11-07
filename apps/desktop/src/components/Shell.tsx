@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate, useParams } from "react-router";
 import { goReauth, needsReauth } from "../lib/nav";
+import { bumpRefresh, serverEvents } from "../lib/events";
 import { silo, type LibraryView } from "../lib/silo";
 
 function libraryIcon(kind: string) {
@@ -67,6 +68,29 @@ export function Shell() {
       alive = false;
     };
   }, [serverId, navigate]);
+
+  // Live updates (events socket, protocol silo.events.v2): user state and catalog changes reload screens in place;
+  // access_changed (profile or session access revoked) sends the user back to profile selection.
+  useEffect(() => {
+    let alive = true;
+    let unlisten: (() => void) | undefined;
+    void serverEvents
+      .on((e) => {
+        if (e.serverId !== serverId) return;
+        if (e.event === "access_changed") void navigate(`${base}/profiles`, { replace: true });
+        else bumpRefresh();
+      })
+      .then((u) => {
+        if (alive) unlisten = u;
+        else u();
+      });
+    void serverEvents.connect(serverId).catch(() => undefined);
+    return () => {
+      alive = false;
+      unlisten?.();
+      void serverEvents.disconnect().catch(() => undefined);
+    };
+  }, [serverId, base, navigate]);
 
   return (
     <div className="flex h-full">

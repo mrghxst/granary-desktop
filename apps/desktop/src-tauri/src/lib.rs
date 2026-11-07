@@ -203,6 +203,7 @@ pub fn run() {
             catalog::series_seasons,
             catalog::season_episodes,
             catalog::watch_state,
+            catalog::watch_trickplay,
             playback::commands::player_play,
             playback::commands::player_stop,
             playback::commands::player_pause,

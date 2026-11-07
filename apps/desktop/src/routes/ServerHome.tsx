@@ -9,6 +9,7 @@ import { artwork, catalog, type CatalogItem, type Section } from "../lib/catalog
 import { errorMessage } from "../lib/errors";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
 
+import { useRefreshTick } from "../lib/events";
 import { usePlay } from "../lib/usePlay";
 
 const WIDE_SECTIONS = new Set(["continue_watching", "next_up", "in_progress"]);
@@ -52,6 +53,7 @@ export function ServerHome() {
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { play, error: playError } = usePlay(serverId);
+  const refresh = useRefreshTick();
 
   useEffect(() => {
     let alive = true;
@@ -68,7 +70,7 @@ export function ServerHome() {
     return () => {
       alive = false;
     };
-  }, [serverId, navigate, t]);
+  }, [serverId, navigate, t, refresh]);
 
   const onPlay = (item: CatalogItem) => void play(item.play_content_id ?? item.content_id);
   const featured = sections?.find((s) => s.featured)?.items[0];

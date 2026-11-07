@@ -293,7 +293,10 @@ pub struct WatchDetail {
     pub title: String,
     #[serde(rename = "type")]
     pub kind: String,
+    /// OAS `WatchDetail.series_id` (L54986): next/previous episode in the player.
+    pub series_id: Option<String>,
     pub series_title: Option<String>,
+    pub backdrop_url: Option<String>,
     pub season_number: Option<i64>,
     pub episode_number: Option<i64>,
     pub versions: Vec<FileVersion>,

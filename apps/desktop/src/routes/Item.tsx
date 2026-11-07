@@ -16,6 +16,7 @@ import { errorMessage } from "../lib/errors";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
 import { defaultAudio, defaultChoice, defaultSubtitle, formatTime, resumePosition, type PlayChoice } from "../lib/play";
 
+import { useRefreshTick } from "../lib/events";
 import { useLoad } from "../lib/useLoad";
 import { usePlay } from "../lib/usePlay";
 
@@ -79,7 +80,12 @@ function Select<T extends string>({
 /** Version/audio/subtitle pickers plus Play/Resume, for movies and episodes. */
 function PlayPanel({ serverId, itemId }: { serverId: string; itemId: string }) {
   const { t, i18n } = useTranslation();
-  const { data: watch, error: loadError } = useLoad(`${serverId}/${itemId}`, () => catalog.watch(serverId, itemId));
+  const refresh = useRefreshTick();
+  const { data: watch, error: loadError } = useLoad(
+    `${serverId}/${itemId}`,
+    () => catalog.watch(serverId, itemId),
+    refresh,
+  );
   const [picked, setPicked] = useState<{ itemId: string; choice: PlayChoice } | null>(null);
   const { play, busy, error: playError } = usePlay(serverId);
 
@@ -215,8 +221,11 @@ function EpisodeList({
   const setSeason = (n: number) => {
     setPicked({ seriesId, season: n });
   };
-  const episodesLoad = useLoad(season === null ? null : `${serverId}/${seriesId}/${String(season)}`, () =>
-    season === null ? Promise.resolve([] as Episode[]) : catalog.episodes(serverId, seriesId, season),
+  const refresh = useRefreshTick();
+  const episodesLoad = useLoad(
+    season === null ? null : `${serverId}/${seriesId}/${String(season)}`,
+    () => (season === null ? Promise.resolve([] as Episode[]) : catalog.episodes(serverId, seriesId, season)),
+    refresh,
   );
   const episodes: Episode[] | undefined = episodesLoad.data;
   const { play, busy, error: playError } = usePlay(serverId);
@@ -300,7 +309,8 @@ export function Item() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { serverId = "", itemId = "" } = useParams();
-  const { data: item, error } = useLoad(`${serverId}/${itemId}`, () => catalog.item(serverId, itemId));
+  const refresh = useRefreshTick();
+  const { data: item, error } = useLoad(`${serverId}/${itemId}`, () => catalog.item(serverId, itemId), refresh);
 
   useEffect(() => {
     if (needsReauth(error)) goReauth(navigate, serverId, error);
