@@ -489,7 +489,9 @@ impl SiloApi for HttpSiloApi {
 
 /// Resolve an artwork reference from a server response to the URL Granary may fetch: a relative reference is
 /// resolved against the server origin; an absolute one must be `https` or share the server's origin. Anything else
-/// (other schemes, credentials in the URL, plain `http` to a foreign host) is refused.
+/// (other schemes, credentials in the URL, plain `http` to a foreign host, a foreign host that is `localhost` or a
+/// loopback, private, link-local or otherwise local IP literal) is refused, so server data cannot point the artwork
+/// fetch at this PC or the LAN (phase-5 review L12). Redirects are never followed (see `Api::new`).
 pub fn resolve_artwork_url(origin: &str, reference: &str) -> Result<String> {
     let bad = || ApiError::BadArtworkUrl(String::from("unsupported reference"));
     let base = url::Url::parse(&format!("{origin}/")).map_err(|_| bad())?;
@@ -499,9 +501,39 @@ pub fn resolve_artwork_url(origin: &str, reference: &str) -> Result<String> {
     }
     let same_origin = resolved.origin() == base.origin();
     match resolved.scheme() {
-        "https" => Ok(resolved.into()),
+        "https" if same_origin || !is_local_host(&resolved) => Ok(resolved.into()),
         "http" if same_origin => Ok(resolved.into()),
         _ => Err(bad()),
+    }
+}
+
+/// `localhost` names and IP literals that do not reach the public internet.
+fn is_local_host(url: &url::Url) -> bool {
+    use std::net::Ipv4Addr;
+    fn local_v4(ip: Ipv4Addr) -> bool {
+        let [a, b, ..] = ip.octets();
+        ip.is_loopback()
+            || ip.is_private()
+            || ip.is_link_local()
+            || ip.is_unspecified()
+            || ip.is_broadcast()
+            || (a == 100 && (64..128).contains(&b)) // shared address space (CGNAT, RFC 6598)
+    }
+    match url.host() {
+        Some(url::Host::Domain(d)) => {
+            let d = d.trim_end_matches('.').to_ascii_lowercase();
+            d == "localhost" || d.ends_with(".localhost")
+        }
+        Some(url::Host::Ipv4(ip)) => local_v4(ip),
+        Some(url::Host::Ipv6(ip)) => {
+            let seg0 = ip.segments()[0];
+            ip.is_loopback()
+                || ip.is_unspecified()
+                || (seg0 & 0xfe00) == 0xfc00 // unique local
+                || (seg0 & 0xffc0) == 0xfe80 // link-local
+                || ip.to_ipv4_mapped().is_some_and(local_v4)
+        }
+        None => true,
     }
 }
 
@@ -537,6 +569,33 @@ mod tests {
         assert!(resolve_artwork_url(o, "file:///C:/Windows/win.ini").is_err());
         assert!(resolve_artwork_url(o, "https://u:p@image.example/p.jpg").is_err());
         assert!(resolve_artwork_url(o, "javascript:alert(1)").is_err());
+    }
+
+    #[test]
+    fn foreign_artwork_hosts_must_be_public() {
+        let o = "https://silo.lan";
+        for local in [
+            "https://localhost/p.jpg",
+            "https://app.localhost./p.jpg",
+            "https://127.0.0.1/p.jpg",
+            "https://10.0.0.5/p.jpg",
+            "https://192.168.1.1/p.jpg",
+            "https://172.16.0.1/p.jpg",
+            "https://169.254.169.254/p.jpg",
+            "https://100.64.0.1/p.jpg",
+            "https://0.0.0.0/p.jpg",
+            "https://[::1]/p.jpg",
+            "https://[fd00::1]/p.jpg",
+            "https://[fe80::1]/p.jpg",
+            "https://[::ffff:192.168.1.1]/p.jpg",
+        ] {
+            assert!(resolve_artwork_url(o, local).is_err(), "{local}");
+        }
+        assert!(resolve_artwork_url(o, "https://8.8.8.8/p.jpg").is_ok());
+        assert!(resolve_artwork_url(o, "https://[2606:4700::1]/p.jpg").is_ok());
+        // The server itself may live on the LAN: its own origin is always fine.
+        assert!(resolve_artwork_url("https://192.168.1.10:8443", "https://192.168.1.10:8443/a.jpg").is_ok());
+        assert!(resolve_artwork_url("http://127.0.0.1:8096", "/api/v2/artwork/k").is_ok());
     }
 
     #[test]

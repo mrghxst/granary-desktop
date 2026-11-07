@@ -153,7 +153,8 @@ fn value_end(b: &[u8], mut j: usize, quote: Quote, encoded: bool) -> usize {
 /// Replace secret values in `s` (ANSI colour codes are removed first):
 /// - `key=value`, `key: value`, `"key":"value"`, `\"key\":\"value\"`, `key: Some("value")`, `key%3Dvalue` where the
 ///   key names a secret (`Authorization: Bearer x` included);
-/// - bare JWTs (`eyJ…` with two dots) and `silo.ticket.<ticket>` WebSocket subprotocols anywhere.
+/// - bare JWTs (`eyJ…` with two dots) and `silo.ticket.<ticket>` WebSocket subprotocols anywhere;
+/// - loopback relay route tokens (`/r/<32 hex>/`, playback/relay.rs), which stand in for a signed stream URL.
 pub fn redact(input: &str) -> Cow<'_, str> {
     let stripped = strip_ansi(input);
     let s: &str = &stripped;
@@ -186,6 +187,16 @@ pub fn redact(input: &str) -> Cow<'_, str> {
         let start = i;
         while i < b.len() && is_ident(b[i]) {
             i += 1;
+        }
+        // Relay route token: `/r/<token>/` with a 128-bit hex token (phase-8 review L4).
+        if start >= 3
+            && &b[start - 3..start] == b"/r/"
+            && i - start == 32
+            && b.get(i) == Some(&b'/')
+            && b[start..i].iter().all(u8::is_ascii_hexdigit)
+        {
+            mask(&mut out, &mut copied, start, i);
+            continue;
         }
         // Bare JWT: header.payload.signature.
         if b[start..].starts_with(b"eyJ") {
@@ -322,6 +333,22 @@ mod tests {
     fn redacts_bare_jwts() {
         let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxfQ.sig-_x";
         assert_eq!(r(&format!("refreshed {jwt} done")), "refreshed [REDACTED] done");
+    }
+
+    #[test]
+    fn redacts_relay_route_tokens() {
+        assert_eq!(
+            r("mpv loadfile http://127.0.0.1:50123/r/0123456789abcdef0123456789abcdef/master.m3u8"),
+            "mpv loadfile http://127.0.0.1:50123/r/[REDACTED]/master.m3u8"
+        );
+        // Not a route token: wrong length, not hex, or no trailing segment.
+        for s in [
+            "/r/abc/x",
+            "/r/0123456789abcdef0123456789abcdeg/x",
+            "/r/0123456789abcdef0123456789abcdef",
+        ] {
+            assert_eq!(r(s), s);
+        }
     }
 
     #[test]
