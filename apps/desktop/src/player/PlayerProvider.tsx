@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { errorMessage } from "../lib/errors";
 import { catalog, type Episode } from "../lib/catalog";
 import { bumpRefresh } from "../lib/events";
 import { defaultChoice, playRequest } from "../lib/play";
@@ -64,8 +66,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startRef = useRef(start);
+  const { t } = useTranslation();
+  const tRef = useRef(t);
   useEffect(() => {
     startRef.current = start;
+    tRef.current = t;
   });
 
   useEffect(() => {
@@ -79,7 +84,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             break;
           case "error":
             if (n.fatal) setError({ code: n.code, message: n.message });
-            else setToast(n.message);
+            else setToast(errorMessage(tRef.current, n));
             break;
           case "ended": {
             // Autoplay: the next episode starts right away when the file ends (the countdown card may have run).

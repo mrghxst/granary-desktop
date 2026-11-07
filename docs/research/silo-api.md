@@ -658,7 +658,7 @@ Useful for a viewer client:
 
 ## 13. Used by Granary so far (Phases 4–6)
 
-`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (29 operations, 125 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
+`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (30 operations, 125 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
 
 | Operation | Rust (`SiloApi`) | Auth |
 | --- | --- | --- |
@@ -685,6 +685,7 @@ Useful for a viewer client:
 | `replanPlayback` (OAS:L201353) | `replan_playback` | bearer + profile headers |
 | `getWatchTrickplay` (OAS:L234363) | `watch_trickplay` (`?file_id=`) | bearer + profile headers |
 | `createEventsSocketTicket` (OAS:L176024) | `events_ticket` | bearer + profile headers |
+| `connectEventsSocket` (OAS:L175913) | `events.rs` WebSocket (`?ticket=` from `events_ticket`) | ticket only |
 | `getPlaybackMedia` / `headPlaybackMedia` (OAS:L220333 / L220910) | `fetch_media` (host relay, ADR-0008) | bearer + profile headers, same origin only |
 | `getPlaybackManifest` / `getPlaybackSegment` (OAS:L200108 / L200322) | `fetch_media` | bearer + profile headers, same origin only |
 | `getPlaybackSubtitle` / `getPlaybackSubtitleFonts` (OAS:L221191 / L221723) | `fetch_media` | bearer + profile headers, same origin only |

@@ -34,4 +34,16 @@ describe("error codes", () => {
     expect(errorMessage(t, { code: "made_up", message: "x" })).toBe("Something went wrong.");
     expect(errorMessage(t, new Error("boom"))).toBe("Something went wrong.");
   });
+
+  it("translates player errors and keeps the server's reason as a detail", async () => {
+    await i18n.changeLanguage("de");
+    const t = i18n.t.bind(i18n) as TFunction;
+    expect(errorMessage(t, { code: "not_playable", message: "not playable: unsupported_codec" })).toBe(
+      "Diese Datei kann nicht abgespielt werden (unsupported_codec).",
+    );
+    expect(errorMessage(t, { code: "stream_failed", message: "relay 503" })).toBe(
+      "Der Stream konnte nicht wiederhergestellt werden.",
+    );
+    await i18n.changeLanguage("en");
+  });
 });

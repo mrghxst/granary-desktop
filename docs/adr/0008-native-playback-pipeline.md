@@ -66,6 +66,21 @@
 - Against the in-process mock the events socket is unreachable (backoff warnings in the log, expected); a live server
   check needs `.env.local` (PROGRESS.md, Blocked / needs human).
 
+## Amendment 1 (Gate 6 review, 2026-11-07)
+The code and this record disagreed in places; this is what the code does:
+- Capabilities are fetched at the start of each attempt (`Controller::begin`), not cached across attempts, and
+  refreshed once on `409 installation_changed`. The `state` field of the capability is not checked.
+- Recovery: up to 2 reloads of the same plan at the last confirmed position, then the old session is stopped and a
+  **new start** is negotiated at that position (1 renegotiation). `failure_recovery` replans are not used.
+- The resume position is the requested start until mpv has reported playback of the current load; a load that fails
+  before the first frame reloads at the requested start, never at 0 (review M1).
+- No server call blocks the host task for long (review M2): progress samples run in a spawned task with at most one
+  in flight (a newer sample waits for it, so sequence order is kept); Stop unloads mpv at once and waits at most 4 s
+  for the server stop, after which the delivery continues in the background with the same `stop_id`.
+- Track menus: direct play switches `aid`/`sid` in mpv; remux/transcode plans ask the server for a
+  `track_change` replan with `selected_tracks` (audio ordinal, subtitle `track_id` + `combined_index` from the
+  plan inventory) and load the new plan at the current position (review M3).
+
 ## Alternatives considered
 - **`http-header-fields` with the bearer token**: simplest, but leaks tokens into mpv (logs, redirects, crash dumps)
   and breaks ADR-0004. Rejected.

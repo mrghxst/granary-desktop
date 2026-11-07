@@ -421,7 +421,7 @@ describe("connect flow", () => {
     expect(await screen.findByText("Not direct play: video codec not supported")).toBeTruthy();
 
     // A fatal end: the overlay goes, the library is back with the error card.
-    emit("player://notice", { kind: "error", code: "media_gone", message: "The file is gone.", fatal: true });
+    emit("player://notice", { kind: "error", code: "stream_failed", message: "relay 503", fatal: true });
     emit("player://state", {
       active: false,
       position: 0,
@@ -433,7 +433,8 @@ describe("connect flow", () => {
     });
     expect(screen.queryByTestId("player-view")).toBeNull();
     expect(document.documentElement.dataset.videoActive).toBeUndefined();
-    expect(screen.getByText("The file is gone.")).toBeTruthy();
+    // Translated from the code, not the host's English message (phase-6 review M5).
+    expect(screen.getByText("The stream could not be recovered.")).toBeTruthy();
     expect(host.calls.some((c) => c.cmd === "player_overlay" && c.args?.visible === true)).toBe(true);
   });
 

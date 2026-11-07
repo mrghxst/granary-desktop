@@ -1,5 +1,5 @@
 //! One playback attempt (ADR-0008): negotiate with the server, load the plan into mpv, report sequenced progress,
-//! stop exactly once, and recover from dropped connections. Driven by one task (see `playback::runner`), so the
+//! stop exactly once, and recover from dropped connections. Driven by one task (see `playback::host`), so the
 //! sequence counter and the stop id never race.
 //!
 //! Protocol rules followed here (silo-api.md §6 and §13, all `@6791aac`):
@@ -29,6 +29,12 @@ pub const PAUSED_HEARTBEAT: Duration = Duration::from_secs(5 * 60);
 const RELOADS_PER_SESSION: u32 = 2;
 /// New attempts after the reloads are exhausted.
 const RENEGOTIATIONS: u32 = 1;
+/// How long `stop` waits for the server stop before the UI moves on; delivery continues in the background with the
+/// same stop id (phase-6 review M2).
+const STOP_WAIT: Duration = Duration::from_secs(4);
+
+/// A progress sample in flight and its result (sent from a spawned task so a slow server never blocks the host).
+type ProgressResult = (PlaybackProgressBody, Result<String, ApiError>);
 
 /// What to play (from the UI's `PlayRequest`).
 #[derive(Debug, Clone, PartialEq)]
@@ -170,6 +176,18 @@ pub struct Controller {
     renegotiations: u32,
     retry_at: Option<Instant>,
     started_reported: bool,
+    /// At most one progress sample in flight (sequence order is kept).
+    progress_inflight: Option<tokio::task::JoinHandle<ProgressResult>>,
+    /// A sample was asked for while one was in flight; send it when that one finishes.
+    progress_due: bool,
+}
+
+/// Outcome of delivering a stop.
+enum StopDelivery {
+    Stopped(String),
+    /// 404/410: the server already ended the session.
+    Gone,
+    Failed,
 }
 
 fn is_transient(e: &ApiError) -> bool {
@@ -229,6 +247,8 @@ impl Controller {
             renegotiations: 0,
             retry_at: None,
             started_reported: false,
+            progress_inflight: None,
+            progress_due: false,
         };
         // `pause` is global in mpv and keep-open pauses at EOF: a reused core would start the next file paused while
         // the state machine (and the UI) believe it plays.
@@ -299,9 +319,14 @@ impl Controller {
         self.plan = plan.clone();
         self.sequence = 0;
         self.stop_id = None;
+        self.started_reported = false;
+        self.last_progress = None;
+        self.progress_due = false;
         self.stopped = false;
         self.server_ended = false;
         self.reloads = 0;
+        // Until mpv reports playback, the position to resume from (and to report) is the requested start.
+        self.last_source_position = start_seconds.max(0.0);
         self.apply_output();
         self.load_plan()
     }
@@ -412,9 +437,15 @@ impl Controller {
         if self.stopped {
             return;
         }
+        self.drain_progress().await;
+        if self.stopped {
+            return;
+        }
         let before = self.state.clone();
         self.state.apply(ev);
-        if self.state.position > 0.0 || matches!(self.state.phase, Phase::Playing | Phase::Paused) {
+        // Only positions mpv reported after the first frame of this load count (phase-6 review M1): right after a
+        // (re)load the position is 0 until the seek to the start lands.
+        if self.started_reported && matches!(self.state.phase, Phase::Playing | Phase::Paused) {
             self.last_source_position = self.source_position();
         }
         match ev {
@@ -426,12 +457,13 @@ impl Controller {
                 // First frame of the load, or a seek finished.
                 if !self.started_reported || before.phase == Phase::Seeking {
                     self.started_reported = true;
-                    self.send_progress().await;
+                    self.last_source_position = self.source_position();
+                    self.request_progress();
                 }
             }
             MpvEvent::Property { name, .. } if name == "pause" => {
                 if before.paused != self.state.paused && self.started_reported {
-                    self.send_progress().await;
+                    self.request_progress();
                 }
             }
             MpvEvent::EndFile {
@@ -467,6 +499,10 @@ impl Controller {
         if self.stopped {
             return;
         }
+        self.drain_progress().await;
+        if self.stopped {
+            return;
+        }
         if let Some(at) = self.retry_at
             && now >= at
         {
@@ -480,7 +516,7 @@ impl Controller {
             _ => return,
         };
         if self.started_reported && self.last_progress.is_none_or(|t| now.duration_since(t) >= interval) {
-            self.send_progress().await;
+            self.request_progress();
         }
     }
 
@@ -539,8 +575,14 @@ impl Controller {
             .map_err(|e| ControllerError::Player(e.to_string()))
     }
 
-    /// UI subtitle menu.
-    pub fn select_subtitle(&mut self, choice: &SubtitleChoice) -> Result<(), ControllerError> {
+    /// UI subtitle menu. Direct play switches in mpv; a remux/transcode only carries the negotiated tracks, so the
+    /// server re-plans with `track_change` (phase-6 review M3, `silo-api.md` §8).
+    pub async fn select_subtitle(&mut self, choice: &SubtitleChoice) -> Result<(), ControllerError> {
+        if !self.plan.is_direct() {
+            let subtitle = self.subtitle_identity(choice)?;
+            let audio = self.plan.selected_tracks.audio.clone();
+            return self.track_change(SelectedTracks { audio, subtitle }).await;
+        }
         match choice {
             SubtitleChoice::Off => self.set("sid", "no"),
             SubtitleChoice::Embedded { stream_index } => {
@@ -564,10 +606,64 @@ impl Controller {
         Ok(())
     }
 
-    /// UI audio menu: mpv switches locally (direct play carries every track of the original file).
-    pub fn select_audio(&mut self, index: u32) {
+    /// UI audio menu: direct play carries every track of the original file, so mpv switches locally; other plans
+    /// re-plan with `track_change` (phase-6 review M3).
+    pub async fn select_audio(&mut self, index: u32) -> Result<(), ControllerError> {
+        if !self.plan.is_direct() {
+            let current = self.plan.selected_tracks.audio.clone();
+            let audio = Some(TrackIdentity {
+                // Keep the server's id only when it names the same ordinal; an empty id selects by index.
+                id: current
+                    .filter(|t| t.index == Some(i64::from(index)))
+                    .map(|t| t.id)
+                    .unwrap_or_default(),
+                index: Some(i64::from(index)),
+            });
+            let subtitle = self.plan.selected_tracks.subtitle.clone();
+            self.track_change(SelectedTracks { audio, subtitle }).await?;
+            self.args.audio_index = Some(index);
+            return Ok(());
+        }
         self.args.audio_index = Some(index);
         self.set("aid", &(index + 1).to_string());
+        Ok(())
+    }
+
+    /// The protocol identity of a subtitle menu choice, from the plan's inventory (`None` = off).
+    fn subtitle_identity(&self, choice: &SubtitleChoice) -> Result<Option<TrackIdentity>, ControllerError> {
+        let inventory = &self.plan.subtitle.inventory;
+        let item = match choice {
+            SubtitleChoice::Off => return Ok(None),
+            SubtitleChoice::Embedded { stream_index } => {
+                inventory.iter().find(|t| t.stream_index == Some(*stream_index))
+            }
+            SubtitleChoice::External { track_id } => inventory.iter().find(|t| &t.track_id == track_id),
+        };
+        let item = item.ok_or_else(|| ControllerError::Player("no such subtitle".into()))?;
+        Ok(Some(TrackIdentity {
+            id: item.track_id.clone(),
+            index: Some(item.combined_index),
+        }))
+    }
+
+    /// Ask the server for a plan with other tracks and load it at the current position.
+    async fn track_change(&mut self, selected: SelectedTracks) -> Result<(), ControllerError> {
+        let position = self.source_position();
+        let mut body = self.replan_body("track_change", position);
+        body.selected_tracks = selected;
+        let decision = self.session.replan_playback(&self.session_id, &body).await?;
+        let Some((_, plan)) = decision.playable() else {
+            return Err(ControllerError::NotPlayable(decision.outcome));
+        };
+        tracing::info!(
+            position = format!("{position:.1}"),
+            "tracks changed on the server; reloading"
+        );
+        self.plan = plan.clone();
+        self.args.subtitle_index = self.plan.selected_tracks.subtitle.as_ref().and_then(|t| t.index);
+        self.last_source_position = position.max(0.0);
+        self.started_reported = false;
+        self.load_plan()
     }
 
     /// Seek to a source-timeline position.
@@ -575,10 +671,11 @@ impl Controller {
         let t = &self.plan.timeline;
         if t.can_seek_to(source_seconds) {
             let target = t.player_position(source_seconds);
-            return self
-                .backend
+            self.backend
                 .seek_absolute(target)
-                .map_err(|e| ControllerError::Player(e.to_string()));
+                .map_err(|e| ControllerError::Player(e.to_string()))?;
+            self.last_source_position = source_seconds.max(0.0);
+            return Ok(());
         }
         // Outside the seek window (transcodes): ask the server to re-anchor and reload there.
         let decision = self
@@ -589,6 +686,8 @@ impl Controller {
             return Err(ControllerError::NotPlayable(decision.outcome));
         };
         self.plan = plan.clone();
+        self.last_source_position = source_seconds.max(0.0);
+        self.started_reported = false;
         self.load_plan()
     }
 
@@ -614,10 +713,17 @@ impl Controller {
         }
     }
 
-    async fn send_progress(&mut self) {
+    /// Ask for a progress sample. It is sent from a spawned task; while one is in flight the next is marked due and
+    /// sent as soon as the first finishes (phase-6 review M2).
+    fn request_progress(&mut self) {
         if self.stopped || self.server_ended {
             return;
         }
+        if self.progress_inflight.is_some() {
+            self.progress_due = true;
+            return;
+        }
+        self.progress_due = false;
         self.sequence += 1;
         let body = PlaybackProgressBody {
             installation_id: self.installation_id.clone(),
@@ -626,20 +732,44 @@ impl Controller {
             is_paused: self.state.paused,
         };
         self.last_progress = Some(Instant::now());
-        match self.session.playback_progress(&self.session_id, &body).await {
-            Ok(m) => {
+        let session = Arc::clone(&self.session);
+        let session_id = self.session_id.clone();
+        self.progress_inflight = Some(tokio::spawn(async move {
+            let r = session.playback_progress(&session_id, &body).await.map(|m| m.outcome);
+            (body, r)
+        }));
+    }
+
+    /// Handle a finished progress sample (and send a due one).
+    async fn drain_progress(&mut self) {
+        if self.progress_inflight.as_ref().is_some_and(|h| h.is_finished())
+            && let Some(h) = self.progress_inflight.take()
+        {
+            match h.await {
+                Ok(r) => self.progress_done(r).await,
+                Err(e) => tracing::warn!(error = %e, "progress task failed"),
+            }
+        }
+        if self.progress_due && self.progress_inflight.is_none() && self.started_reported {
+            self.request_progress();
+        }
+    }
+
+    async fn progress_done(&mut self, (body, result): ProgressResult) {
+        match result {
+            Ok(outcome) => {
                 tracing::info!(
                     sequence = body.sequence,
                     position = format!("{:.1}", body.position),
                     paused = body.is_paused,
-                    outcome = %m.outcome,
+                    outcome = %outcome,
                     "progress acknowledged"
                 );
                 self.sink.notice(Notice::Progress {
                     sequence: body.sequence,
                     position: body.position,
                     paused: body.is_paused,
-                    outcome: m.outcome,
+                    outcome,
                 });
             }
             Err(e) if matches!(status_of(&e), Some(404 | 410)) => {
@@ -658,10 +788,26 @@ impl Controller {
                 if let Some("installation_changed") = e.problem_id() {
                     self.sink.notice(Notice::Error {
                         code: "installation_changed".into(),
-                        message: "The server was reconfigured; progress will be saved at the end.".into(),
+                        message: "The server was reconfigured; progress may not be saved for this playback.".into(),
                         fatal: false,
                     });
                 }
+            }
+        }
+    }
+
+    /// Tests: wait for every in-flight (and due) progress sample to be handled.
+    #[cfg(test)]
+    pub async fn settle(&mut self) {
+        loop {
+            if let Some(h) = self.progress_inflight.take() {
+                if let Ok(r) = h.await {
+                    self.progress_done(r).await;
+                }
+            } else if self.progress_due && self.started_reported && !self.stopped {
+                self.request_progress();
+            } else {
+                break;
             }
         }
     }
@@ -713,7 +859,7 @@ impl Controller {
         }
         self.renegotiations += 1;
         tracing::info!(resume = format!("{resume:.1}"), "negotiating a new playback attempt");
-        self.stop_server_session().await;
+        self.stop_server_session(STOP_WAIT).await;
         self.relay.clear();
         self.started_reported = false;
         if let Err(e) = self.negotiate(resume).await {
@@ -731,23 +877,25 @@ impl Controller {
         self.sink.notice(Notice::Ended);
     }
 
-    /// Stop the attempt: final sample + stop (once, same stop id on retry), then unload.
+    /// Stop the attempt: unload mpv at once, then the final sample + stop (once, same stop id on retry). The UI waits
+    /// at most [`STOP_WAIT`] for the server; delivery continues in the background after that.
     pub async fn stop(&mut self) {
         if self.stopped {
             return;
         }
         self.stopped = true;
         self.retry_at = None;
-        let outcome = self.stop_server_session().await;
-        self.relay.clear();
         if let Err(e) = self.backend.stop() {
             tracing::warn!(error = %e, "mpv stop failed");
         }
+        let outcome = self.stop_server_session(STOP_WAIT).await;
+        self.relay.clear();
         self.sink.notice(Notice::Stopped { outcome });
     }
 
-    /// Send the stop for the current server session. Returns the outcome, `None` if it could not be delivered.
-    async fn stop_server_session(&mut self) -> Option<String> {
+    /// Send the stop for the current server session, waiting at most `wait`. Returns the outcome, `None` if it was
+    /// not delivered (yet). A delivery still running after `wait` keeps going with the same stop id.
+    async fn stop_server_session(&mut self, wait: Duration) -> Option<String> {
         if self.server_ended || self.session_id.is_empty() {
             return None;
         }
@@ -765,33 +913,48 @@ impl Controller {
             position,
             is_paused: sequence.map(|_| self.state.paused),
         };
-        for attempt in 1..=3 {
-            match self.session.stop_playback(&self.session_id, &body).await {
-                Ok(m) => {
-                    tracing::info!(
-                        outcome = %m.outcome,
-                        position = ?body.position.map(|p| format!("{p:.1}")),
-                        "playback stopped on the server"
-                    );
-                    self.server_ended = true;
-                    return Some(m.outcome);
-                }
-                Err(e) if matches!(status_of(&e), Some(404 | 410)) => {
-                    self.server_ended = true;
-                    return None;
-                }
-                Err(e) if is_transient(&e) && attempt < 3 => {
-                    tracing::warn!(code = e.code(), attempt, "stop failed; retrying with the same stop id");
-                    tokio::time::sleep(Duration::from_millis(500 * attempt)).await;
-                }
-                Err(e) => {
-                    tracing::warn!(code = e.code(), "stop could not be delivered");
-                    return None;
-                }
+        let mut task = tokio::spawn(deliver_stop(Arc::clone(&self.session), self.session_id.clone(), body));
+        // This attempt's server session is over from the client's side either way.
+        self.server_ended = true;
+        match tokio::time::timeout(wait, &mut task).await {
+            Ok(Ok(StopDelivery::Stopped(outcome))) => Some(outcome),
+            Ok(Ok(StopDelivery::Gone | StopDelivery::Failed)) => None,
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, "stop task failed");
+                None
+            }
+            Err(_) => {
+                tracing::warn!("server stop still pending; delivering in the background");
+                None
             }
         }
-        None
     }
+}
+
+/// Deliver one stop body: up to three attempts on transient failures, same stop id (a replay answers `replayed`).
+async fn deliver_stop(session: Arc<Session>, session_id: String, body: PlaybackStopBody) -> StopDelivery {
+    for attempt in 1..=3u64 {
+        match session.stop_playback(&session_id, &body).await {
+            Ok(m) => {
+                tracing::info!(
+                    outcome = %m.outcome,
+                    position = ?body.position.map(|p| format!("{p:.1}")),
+                    "playback stopped on the server"
+                );
+                return StopDelivery::Stopped(m.outcome);
+            }
+            Err(e) if matches!(status_of(&e), Some(404 | 410)) => return StopDelivery::Gone,
+            Err(e) if is_transient(&e) && attempt < 3 => {
+                tracing::warn!(code = e.code(), attempt, "stop failed; retrying with the same stop id");
+                tokio::time::sleep(Duration::from_millis(500 * attempt)).await;
+            }
+            Err(e) => {
+                tracing::warn!(code = e.code(), "stop could not be delivered");
+                return StopDelivery::Failed;
+            }
+        }
+    }
+    StopDelivery::Failed
 }
 
 /// `/path?exp&sig`: the path and the query parameter names of a URL, never the values (signatures, tokens).
@@ -958,17 +1121,23 @@ mod tests {
         assert!(r.backend.calls().contains(&"set sid=no".to_owned()));
         play_to(c, 30.0).await;
         c.on_event(&MpvEvent::PlaybackRestart).await;
+        c.settle().await;
         play_to(c, 35.5).await;
         c.on_event(&prop("pause", PropValue::Flag(true))).await;
+        c.settle().await;
         c.on_event(&prop("pause", PropValue::Flag(false))).await;
+        c.settle().await;
         // A seek reports once it has landed.
         c.seek(100.0).await.unwrap();
         c.on_event(&MpvEvent::Seek).await;
         play_to(c, 100.0).await;
         c.on_event(&MpvEvent::PlaybackRestart).await;
+        c.settle().await;
         // Periodic sample only after the interval.
         c.tick(Instant::now()).await;
+        c.settle().await;
         c.tick(Instant::now() + PROGRESS_INTERVAL).await;
+        c.settle().await;
 
         let progress = r.api.playback_log().progress;
         let seqs: Vec<i64> = progress.iter().map(|p| p.1).collect();
@@ -1014,8 +1183,10 @@ mod tests {
         let c = &mut r.controller;
         c.on_event(&MpvEvent::FileLoaded).await;
         c.on_event(&MpvEvent::PlaybackRestart).await;
+        c.settle().await;
         r.api.end_session(c.session_id());
         c.tick(Instant::now() + PROGRESS_INTERVAL).await;
+        c.settle().await;
         assert!(c.is_finished());
         assert!(r.api.playback_log().stops.is_empty());
         assert!(
@@ -1074,6 +1245,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_load_that_fails_before_playback_reloads_at_the_requested_start() {
+        // Phase-6 review M1: the resume point must not fall back to 0 when the first load fails.
+        let mut r = rig(StartArgs {
+            start_seconds: 600.0,
+            ..args()
+        })
+        .await;
+        let c = &mut r.controller;
+        c.on_event(&MpvEvent::StartFile).await;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        // mpv reports position 0 before the start seek lands, then the connection drops.
+        c.on_event(&prop("time-pos", PropValue::Double(0.0))).await;
+        c.on_event(&MpvEvent::EndFile {
+            reason: EndReason::Error("network".into()),
+        })
+        .await;
+        c.tick(Instant::now() + Duration::from_secs(120)).await;
+        let loads: Vec<String> = r
+            .backend
+            .calls()
+            .into_iter()
+            .filter(|c| c.starts_with("cmd loadfile"))
+            .collect();
+        assert_eq!(loads.len(), 2, "{loads:?}");
+        assert!(loads[1].ends_with("start=600.000"), "{}", loads[1]);
+    }
+
+    #[tokio::test]
+    async fn stop_unloads_mpv_before_waiting_for_the_server() {
+        // Phase-6 review M2: the picture goes away at once; the server stop follows.
+        let mut r = rig(args()).await;
+        let c = &mut r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        play_to(c, 31.0).await;
+        c.settle().await;
+        c.stop().await;
+        let calls = r.backend.calls();
+        assert!(calls.iter().any(|c| c == "cmd stop"), "{calls:?}");
+        assert_eq!(r.api.playback_log().stops.len(), 1);
+    }
+
+    #[tokio::test]
     async fn embedded_subtitle_is_selected_by_stream_index() {
         let r = rig(StartArgs {
             subtitle_index: Some(3),
@@ -1100,14 +1314,87 @@ mod tests {
             r.backend.calls()
         );
         c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 2 })
+            .await
             .unwrap();
         assert!(r.backend.calls().contains(&"set sid=1".to_owned()));
-        c.select_subtitle(&SubtitleChoice::Off).unwrap();
+        c.select_subtitle(&SubtitleChoice::Off).await.unwrap();
         assert!(
             c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 9 })
+                .await
                 .is_err()
         );
-        c.select_audio(0);
+        c.select_audio(0).await.unwrap();
         assert_eq!(r.backend.calls().last().unwrap(), "set aid=1");
+        assert!(r.api.playback_log().replans.is_empty(), "direct play switches locally");
+    }
+
+    #[tokio::test]
+    async fn track_switches_on_a_transcode_replan_with_track_change() {
+        // Phase-6 review M3: a remux/transcode carries only the negotiated tracks.
+        let mut r = rig(args()).await;
+        let c = &mut r.controller;
+        c.plan.delivery = "server_transcode_hls".into();
+        c.plan.subtitle.inventory = vec![SubtitleInventoryItem {
+            track_id: "emb-3".into(),
+            combined_index: 4,
+            stream_index: Some(3),
+            ..SubtitleInventoryItem::default()
+        }];
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        play_to(c, 50.0).await;
+        let loads = |r: &Rig| {
+            r.backend
+                .calls()
+                .iter()
+                .filter(|c| c.starts_with("cmd loadfile"))
+                .count()
+        };
+        let before = loads(&r);
+
+        let c = &mut r.controller;
+        c.select_audio(1).await.unwrap();
+        let log = r.api.playback_log();
+        assert_eq!(log.replans.len(), 1);
+        let body = &log.replans[0];
+        assert_eq!(body.operation, "track_change");
+        assert!(body.failure.is_none());
+        assert_eq!(body.selected_tracks.audio.as_ref().and_then(|t| t.index), Some(1));
+        assert!((body.position_seconds - 50.0).abs() < 1e-9);
+        assert_eq!(loads(&r), before + 1, "the new plan is loaded");
+        assert!(
+            !r.backend.calls().contains(&"set aid=2".to_owned()),
+            "no local aid switch"
+        );
+
+        // The new plan from the mock is direct; force another transcode and pick the embedded subtitle.
+        let c = &mut r.controller;
+        c.plan.delivery = "server_transcode_hls".into();
+        c.plan.subtitle.inventory = vec![SubtitleInventoryItem {
+            track_id: "emb-3".into(),
+            combined_index: 4,
+            stream_index: Some(3),
+            ..SubtitleInventoryItem::default()
+        }];
+        c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 3 })
+            .await
+            .unwrap();
+        let log = r.api.playback_log();
+        let sub = log.replans[1].selected_tracks.subtitle.clone().unwrap();
+        assert_eq!((sub.id.as_str(), sub.index), ("emb-3", Some(4)));
+        assert_eq!(
+            log.replans[1].selected_tracks.audio.as_ref().and_then(|t| t.index),
+            Some(1),
+            "audio choice kept"
+        );
+        // Unknown tracks fail without a request.
+        let c = &mut r.controller;
+        c.plan.delivery = "server_transcode_hls".into();
+        assert!(
+            c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 9 })
+                .await
+                .is_err()
+        );
+        assert_eq!(r.api.playback_log().replans.len(), 2);
     }
 }

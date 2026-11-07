@@ -168,3 +168,18 @@ None.
   - `events.rs` resets its failure counter on every successful connect, so a server that accepts and closes at once causes a reconnect every 250 ms.
   - If the up-next card has already started the next episode when `Ended` arrives, `PlayerProvider.tsx:84-90` can call `start` a second time.
   - **Fix:** remember added sidecars and reselect by id; reset the back-off only after the socket stayed up for a while; ignore `Ended` when a start is in flight.
+
+## Resolution (2026-11-07)
+- **M1:** `last_source_position` is the requested start (or the seek/replan target) until mpv reports playback after `PlaybackRestart`. Test: `a_load_that_fails_before_playback_reloads_at_the_requested_start`.
+- **M2:** progress samples are sent from a spawned task, one in flight; a newer sample waits for it. `stop` unloads mpv first, then waits at most 4 s (`STOP_WAIT`) for the server; after that, delivery continues in the background with the same `stop_id`. Test: `stop_unloads_mpv_before_waiting_for_the_server`.
+- **M3:** on non-direct plans, audio and subtitle choices send a `track_change` replan with `selected_tracks` and load the new plan at the current position. Test: `track_switches_on_a_transcode_replan_with_track_change`.
+- **M4:** `player_mini` lifts the minimum size, positions the window by its real `outer_size`, restores 960x600 when leaving, and keeps the saved geometry until the restore succeeds.
+- **M5:** the player error codes and notice codes are in `ERROR_CODES` and in en/de `errors.*`, with a `{{reason}}` detail. Notices, `fail` and the error card all go through `errorMessage`. Tests: `errors.test.ts`, `flow.test.tsx`.
+- **Lows fixed:**
+  - L1: module doc and ADR-0008 amendment 1.
+  - L2: `connectEventsSocket` added to §13; the subset now has 30 operations.
+  - L3: the message no longer promises a save.
+  - L7: mini and fullscreen are undone when playback ends.
+  - L8: an accept error backs off for 50 ms.
+  - L9: `started_reported`, `last_progress` and `progress_due` are reset per attempt.
+- **Lows deferred:** L4, L5, L6 and L10 are recorded in PROGRESS.md under Known issues.

@@ -60,6 +60,15 @@ server over WebView2 DevTools: 2160p HDR10 HEVC and 1080p H.264 fixtures, direct
 - [ ] Media keys on a keyboard and the Windows media flyout (Win+A volume panel): play/pause, next/previous episode,
       title and series lines shown.
 - [ ] Mini player (T) and fullscreen (f, double-click) round-trips keep the video aligned with the overlay.
+- [ ] Mini player size (Gate 6 review M4): T shrinks the window to about 480x270 in the bottom-right corner of the
+      current monitor, fully on screen and always on top; T again restores the previous size/position (and maximised
+      state); stopping playback in mini or fullscreen mode returns to the normal window (L7).
+- [ ] Track change on a transcode (live server, review M3): during a non-direct playback pick another audio track and
+      an embedded subtitle; playback reloads at the same position with the new track (log: "tracks changed on the
+      server; reloading"), no silent audio.
+- [ ] Unreachable server during playback (pull the network cable or block the server): q closes the player at once;
+      the log shows "server stop still pending; delivering in the background" (review M2).
+- [ ] German UI: a refused file shows a German error card with the server reason in brackets (review M5).
 - [ ] Up next on a real episode with a credits marker: the card appears at the marker, counts down 10 s and starts the
       next episode; Cancel keeps playing to the end; with autoplay off nothing happens.
 - [ ] Trickplay previews on a server with trickplay generated: hover the seek bar; the thumbnail matches the frame

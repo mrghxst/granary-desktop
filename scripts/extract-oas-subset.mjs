@@ -43,6 +43,7 @@ const OPERATIONS = [
   "getPlaybackSubtitleFonts",
   "getWatchTrickplay",
   "createEventsSocketTicket",
+  "connectEventsSocket",
 ];
 
 const oas = JSON.parse(readFileSync(src, "utf8"));

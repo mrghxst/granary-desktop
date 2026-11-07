@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslation } from "react-i18next";
 import { ContextMenu, type MenuAction } from "../components/ContextMenu";
 import { artwork } from "../lib/catalog";
+import { errorMessage } from "../lib/errors";
 import { formatTime } from "../lib/play";
 import {
   ASPECTS,
@@ -458,10 +459,9 @@ function PlayerControls() {
 
   const fail = useCallback(
     (e: unknown) => {
-      const m = e && typeof e === "object" && "message" in e ? String(e.message) : String(e);
-      showToast(m);
+      showToast(errorMessage(t, e));
     },
-    [showToast],
+    [showToast, t],
   );
 
   const playEpisode = useCallback(
@@ -1287,9 +1287,22 @@ export function PlayerView() {
   const { state, ctx, error, dismissError } = usePlayer();
   const fileKey = ctx ? `${ctx.serverId}|${ctx.watch.content_id}|${ctx.version.file_id}` : "none";
 
-  // Playback over: the WebView must be visible again for the library.
+  // Playback over: the WebView must be visible again for the library, and a mini/fullscreen player window goes back
+  // to the normal window (phase-6 review L7).
+  const wasActive = useRef(false);
   useEffect(() => {
-    if (!state.active) void player.overlay(true).catch(() => undefined);
+    if (state.active) {
+      wasActive.current = true;
+      return;
+    }
+    void player.overlay(true).catch(() => undefined);
+    if (wasActive.current) {
+      wasActive.current = false;
+      void player
+        .mini(false)
+        .then(() => player.fullscreen(false))
+        .catch(() => undefined);
+    }
   }, [state.active]);
 
   if (state.active) return <PlayerControls key={fileKey} />;
@@ -1298,7 +1311,7 @@ export function PlayerView() {
     <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 p-6" role="alertdialog">
       <div className="flex max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
         <h2 className="text-lg font-semibold">{t("player.failed")}</h2>
-        <p className="text-sm text-muted-foreground">{error.message}</p>
+        <p className="text-sm text-muted-foreground">{errorMessage(t, error)}</p>
         <button
           type="button"
           className="self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"

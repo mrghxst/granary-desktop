@@ -981,6 +981,56 @@
         }
       }
     },
+    "connectEventsSocket": {
+      "method": "GET",
+      "path": "/api/v2/events/ws",
+      "security": null,
+      "params": [
+        {
+          "in": "header",
+          "name": "Sec-WebSocket-Protocol",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "Origin",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "channels",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "101": null,
+        "400": {
+          "contentType": "text/plain",
+          "schema": {
+            "type": "string"
+          }
+        },
+        "401": {
+          "contentType": "text/plain",
+          "schema": {
+            "type": "string"
+          }
+        },
+        "403": {
+          "contentType": "text/plain",
+          "schema": {
+            "type": "string"
+          }
+        },
+        "503": {
+          "contentType": "text/plain",
+          "schema": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "createEventsSocketTicket": {
       "method": "POST",
       "path": "/api/v2/events/ws-ticket",

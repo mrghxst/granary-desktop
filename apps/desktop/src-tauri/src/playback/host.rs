@@ -408,13 +408,22 @@ impl Runner {
                 let _ = reply.send(r);
             }
             Cmd::Audio(index) => {
-                if let Some(c) = self.controller.as_mut() {
-                    c.select_audio(index);
+                if let Some(c) = self.controller.as_mut()
+                    && let Err(e) = c.select_audio(index).await
+                {
+                    tracing::warn!(code = %e.code(), "audio track change failed");
+                    let notice = Notice::Error {
+                        code: e.code(),
+                        message: e.to_string(),
+                        fatal: false,
+                    };
+                    self.ui
+                        .emit(EVENT_NOTICE, serde_json::to_value(&notice).unwrap_or_default());
                 }
             }
             Cmd::Subtitle { choice, reply } => {
                 let r = match self.controller.as_mut() {
-                    Some(c) => c.select_subtitle(&choice).map_err(|e| e.to_string()),
+                    Some(c) => c.select_subtitle(&choice).await.map_err(|e| e.to_string()),
                     None => Err("nothing is playing".into()),
                 };
                 let _ = reply.send(r);

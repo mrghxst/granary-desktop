@@ -8,20 +8,19 @@ Last updated: 2026-11-07T13:40:00+01:00 | Current phase: 6 | Last commit: (see g
 - [x] 3 Scaffold, CI, project skills — DONE (commit 508e26c) — gate: verify.ps1 exit 0 (11 steps), tauri dev launches (libmpv api 2.6, single-instance, owner-checked restore), CI green, reviewer docs/reviews/phase-3.md FAIL → 4 high + 6 medium + 8 low resolved
 - [x] 4 Silo connectivity & auth — DONE (commit 6573af4 + review fixes) — gate: verify.ps1 exit 0, CI green, contract tests vs OAS subset @6791aac, mocked add → login → PIN → libraries flow (live test blocked: no .env.local), reviewer docs/reviews/phase-4.md FAIL → 1 high + 2 medium + 2 low resolved
 - [x] 5 UI (web-app parity) — DONE (commit bd2369b + review fixes) — gate: verify.ps1 exit 0, CI green, vitest flow + host E2E test, ui-evidence.mjs 13/13 checks with 14 screenshots (docs/evidence/phase-5), reviewer docs/reviews/phase-5.md PASS WITH FINDINGS → 5 medium + 3 low resolved
-- [ ] 6 Native playback & progress sync
+- [x] 6 Native playback & progress sync — DONE — gate: verify.ps1 exit 0 (11 steps), playback evidence 17/17 (docs/evidence/phase-6, mock server + ffmpeg clips, d3d11va), progress/stop/recovery controller tests, reviewer docs/reviews/phase-6.md PASS WITH FINDINGS → 5 medium + 6 low resolved (L1–L3, L7–L9), L4–L6/L10 deferred below
 - [ ] 7 Display & audio (auto-HDR, refresh match, passthrough)
 - [ ] 8 Polish
 - [ ] 9 Packaging & release workflow
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 6: native playback & progress sync — implementation, docs (ADR-0008) and real-playback evidence done
-(`docs/evidence/phase-6/`, 17/17 checks). Next: Gate 6 review (`docs/reviews/phase-6.md`, reviewer subagent was running when the session hit its usage limit; re-run if the file is missing), fixes, gate block.
-Phase 7 started early (WIP, not wired into the app yet): `crates/display` policy.rs (HDR/refresh/tone-mapping decisions) and session.rs
-(apply + restore marker), packets 16→10 HDR set, rational SetDisplayConfig refresh, mode list; round trip
-`docs/evidence/phase-7/display-roundtrip.txt` (refresh 60→120→60 Hz restored; HDR switch did not read back on this
-laptop in this session, neither packet 16 nor 10; possibly power policy, unverified). Remaining Phase 7: host wiring (prepare before load,
-restore on stop/move/exit), settings + UI, audio options, DV stats, ADR amendment, checklist.
+Phase 7: display & audio. Done: `crates/display` policy + session (restore marker), host wiring (`playback/output.rs`:
+output decided before `loadfile`, held 10 s idle for the next episode, restored at idle/monitor move/exit), settings
+UI (HDR mode, refresh strategy, per-monitor VRR/peak/black/refresh, audio device/channels/passthrough/exclusive/
+normalise), DV/HDR stats, in-app evidence 17/17 and hardware round trip exit 0 (`docs/evidence/phase-7/`).
+Earlier HDR toggle failures were Windows' battery HDR policy (works on AC power). Remaining: ADR-0006 amendment,
+MANUAL_TEST_CHECKLIST Phase 7 section, Gate 7 review + gate block.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -78,8 +77,18 @@ restore on stop/move/exit), settings + UI, audio options, DV stats, ADR amendmen
 - Events socket against the in-process mock is unreachable by design (backoff warnings in the dev log).
 - Next episode does not cross a season boundary (neighbours come from `listSeasonEpisodes` of the current season;
   no next-up endpoint upstream, silo-api.md open question 9) — Phase 8 polish.
+- Phase 6 review lows deferred: L4 more controller tests (installation_changed retry, seek_reanchor, stop retry
+  reusing stop_id, 409 not retried, BackendGone, shutdown mid-attempt); L5 evidence tightening (mock resume point
+  beyond clip length made "N → e3" pass via instant EOF, overlay auto-hide measured by CSS opacity, hwdec `.some()`);
+  L6 punctuation keys from the native video window assume a US layout (send translated chars via ToUnicode);
+  L10 duplicate sidecar on re-selecting the same external subtitle, events back-off reset on every connect,
+  `Ended` while an up-next start is in flight — Phase 8 polish.
+- Track change on remux/transcode plans (`track_change` replan) is covered by controller tests against the mock only;
+  the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-07 Gate 6 PASSED: review M1 (resume position from the requested start until playback), M2 (progress from a spawned task, one in flight; Stop unloads mpv first, server stop bounded to 4 s then background), M3 (`track_change` replan on non-direct plans), M4 (mini player lifts min size, positions by actual size, keeps geometry until restored), M5 (player error codes + notices translated en/de); L1 ADR-0008 amendment, L2 connectEventsSocket in §13 + subset (30 ops), L3, L7, L8, L9; verify.ps1 exit 0.
+- 2026-11-07 Phase 7: output policy applied before the first frame (HDR/refresh/tone mapping/audio), idle grace + restore, settings UI, mock clip facts, evidence 17/17 + round trip exit 0.
 - 2026-11-07 Phase 6: player overlay (keyboard map, menus, stats, trickplay, up next, media keys), events socket live refresh, precise seeks + unpause on reused core, per-session hwdec log, ADR-0008, playback evidence 17/17 (`scripts/playback-evidence.mjs`); verify.ps1 exit 0.
 - 2026-11-07 Gate 5: review fixes M1–M5 (web-app subtitle/resume/version rules, raster-only sandboxed artwork scheme + navigation guard, streamed 16 MiB cap, UI evidence via WebView2 DevTools), L5/L9/L10; verify.ps1 exit 0.
 - 2026-11-06 Phase 5: UI web-app parity screens, catalog commands + mock catalog, granary-img scheme, settings store, contract tests for 6 new operations, vitest browse → details → play flow + host-side E2E test; verify.ps1 exit 0.

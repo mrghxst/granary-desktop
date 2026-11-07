@@ -290,6 +290,15 @@
     "no_host": "Not running inside Granary.",
     "profile_required": "Choose a profile first.",
     "bad_artwork_url": "This image cannot be loaded.",
-    "invalid_request": "Granary sent an invalid request. Please try again."
+    "invalid_request": "Granary sent an invalid request. Please try again.",
+    "not_playable": "This file cannot be played ({{reason}}).",
+    "playback_unsupported": "This server does not offer the playback protocol Granary needs.",
+    "player_unavailable": "The video player could not be started ({{reason}}).",
+    "player_error": "The video player reported an error ({{reason}}).",
+    "player_shutdown": "The video player stopped unexpectedly.",
+    "playback_session_ended": "The server ended this playback session.",
+    "installation_changed": "The server was reconfigured; progress may not be saved for this playback.",
+    "stream_failed": "The stream could not be recovered.",
+    "reconnecting": "Connection lost. Reconnecting…"
   }
 }

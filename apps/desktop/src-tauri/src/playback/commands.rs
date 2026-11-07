@@ -449,6 +449,12 @@ pub fn player_fullscreen(app: AppHandle, fullscreen: Option<bool>) -> CmdResult<
     emit_window(&app)
 }
 
+/// The main window's minimum size (`tauri.conf.json` minWidth/minHeight), lifted while the mini player is shown.
+const MIN_WINDOW: tauri::LogicalSize<f64> = tauri::LogicalSize {
+    width: 960.0,
+    height: 600.0,
+};
+
 /// Always-on-top mini player in the bottom-right corner of the current monitor; `false` restores the window.
 #[tauri::command]
 pub fn player_mini(app: AppHandle, enabled: bool) -> CmdResult<WindowState> {
@@ -478,8 +484,12 @@ pub fn player_mini(app: AppHandle, enabled: bool) -> CmdResult<WindowState> {
                 maximized,
             ));
             let scale = w.scale_factor().unwrap_or(1.0);
-            let size = PhysicalSize::new((480.0 * scale) as u32, (270.0 * scale) as u32);
-            w.set_size(size).map_err(err)?;
+            // The configured minimum size would clamp the mini player to 960x600 (phase-6 review M4).
+            w.set_min_size(None::<tauri::Size>).map_err(err)?;
+            w.set_size(PhysicalSize::new((480.0 * scale) as u32, (270.0 * scale) as u32))
+                .map_err(err)?;
+            // Place it by the size Windows actually applied (frame included), not the requested one.
+            let size = w.outer_size().map_err(err)?;
             if let Ok(Some(m)) = w.current_monitor() {
                 let area = m.work_area();
                 let margin = (24.0 * scale) as i32;
@@ -492,13 +502,16 @@ pub fn player_mini(app: AppHandle, enabled: bool) -> CmdResult<WindowState> {
             w.set_always_on_top(true).map_err(err)?;
         }
         (false, true) => {
-            if let Some((pos, size, maximized)) = saved.take() {
+            if let Some((pos, size, maximized)) = *saved {
                 w.set_always_on_top(false).map_err(err)?;
                 w.set_size(size).map_err(err)?;
                 w.set_position(pos).map_err(err)?;
+                w.set_min_size(Some(MIN_WINDOW)).map_err(err)?;
                 if maximized {
                     w.maximize().map_err(err)?;
                 }
+                // Forget the geometry only once it is back, so a failed restore can be retried.
+                *saved = None;
             }
         }
         _ => {}

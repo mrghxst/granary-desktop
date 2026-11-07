@@ -76,8 +76,14 @@ impl Relay {
         let r = Arc::clone(&routes);
         let task = tokio::spawn(async move {
             loop {
-                let Ok((stream, _)) = listener.accept().await else {
-                    continue;
+                let stream = match listener.accept().await {
+                    Ok((stream, _)) => stream,
+                    Err(e) => {
+                        // Persistent errors (handle exhaustion) would otherwise spin a core (phase-6 review L8).
+                        tracing::warn!(error = %e, "relay accept failed");
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        continue;
+                    }
                 };
                 let routes = Arc::clone(&r);
                 tokio::spawn(async move {
