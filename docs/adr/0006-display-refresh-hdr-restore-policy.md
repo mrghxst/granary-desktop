@@ -145,3 +145,52 @@ Intel Arc 140V internal panel; modes 30/48/60/75/100/120 Hz.
 - `display_roundtrip` exit 0: HDR on → off restored, 60 → 120 → 60 Hz restored. Evidence: `docs/evidence/phase-7/display-roundtrip.txt`.
 - In-app evidence 17/17: `scripts/output-evidence.mjs`.
 - **Windows battery HDR policy:** on battery power, Windows refuses to enable HDR (the packet call succeeds but HDR never reads back). Earlier "HDR did not read back" results were taken on battery. On AC power, the switch works. Granary logs the failed read-back, leaves HDR off, tone-maps to SDR and restores nothing that was not changed.
+
+## Amendment 2 (Gate 7 review fixes, 2026-11-07, [phase-7 review](../reviews/phase-7.md))
+
+### Delivered range, not the source range (M1)
+- Display and audio output decide on `PlaybackPlan::delivered()`: the plan's `source` with the
+  `effective_recipe` codecs, frame rate and dynamic range laid over it. Upstream tone-maps every transcode to SDR
+  (`internal/playback/plan_v3.go:1458`@6791aac), so a transcoded HDR file no longer switches Windows HDR on.
+- The playback request declares HDR output (`hdr_details`, `display.hdr_types`) when HDR is already on **or** when the
+  panel supports HDR and the HDR mode is not "off" (Granary switches it on before the first frame). Otherwise the
+  server would downgrade an HDR remux to an SDR transcode for every user with HDR off.
+
+### Reuse key includes the policy; settings apply live (M5)
+- Output is reused only when monitor, content **and** the resulting `Policy` are the same.
+- A settings save during playback re-decides at once. When only tone-mapping overrides changed (peak, black level),
+  the display is left as it is and only the mpv options change ("retune", no flicker). A changed HDR mode, refresh
+  strategy or VRR flag restores and applies again.
+
+### Exit order (M2)
+- `Cmd::Shutdown` unloads mpv and restores the display first (local, bounded), then sends the server stop with what
+  is left of the 5 s exit budget. A server stop that misses the budget is the lesser loss.
+
+### Restore marker survives an unfinished repair (M3)
+- `DisplaySession::new` loads the existing marker. Entries a startup repair could not finish (a monitor that was
+  unplugged) are kept, adopted by the current process and written back with every save. When the same monitor is
+  changed again, the earliest recorded original wins. An unreadable marker is moved aside to `*.unreadable.json`.
+
+### Panic restore only when the process dies (M4)
+- The release profile sets `panic = "abort"`: every panic ends the process, so the panic hook's restore always
+  precedes process exit and never runs for a panic a task caught. Debug and test builds (unwind) skip the restore in
+  the hook.
+
+### Bounded HDR switching (M6)
+- `hdr_timeout` is 5 s (was 10 s).
+- A switch that Windows did not apply is remembered per monitor and power state (`GetSystemPowerStatus`), and not
+  tried again in the same state during this run: on battery, only the first HDR title waits.
+- A monitor move decides off the host task (`spawn_blocking`); the options are applied only if the same playback is
+  still running. Pause, seek and Stop keep working during the switch.
+
+### Refresh rule kept (L1)
+- Automatic switches only to an exact multiple within 10 % of the current rate (`m ≥ 0.9·R`), so 23.976 fps on
+  120 Hz goes to 119.88 Hz, while 144/165 Hz panels keep their rate and resample (`display-resample`). This is
+  deliberate for the primary target: every mode switch blanks an OLED for about a second, and resampling at
+  ≥ 144 Hz has no visible judder. "Match content" (opt-in, TVs) still picks the lowest exact multiple. Checklist A.6
+  now states this expectation.
+
+### Session end (L7, accepted risk)
+- `WM_ENDSESSION` (log-off, shutdown) is still not handled. Windows ends the process; the marker repairs the state at
+  the next start. Windows persists the advanced-colour toggle per monitor, so HDR can stay on until Granary starts
+  again. This is accepted for 0.1 and recorded in PROGRESS.md.

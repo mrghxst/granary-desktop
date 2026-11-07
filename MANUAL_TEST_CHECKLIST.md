@@ -87,14 +87,17 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
        refresh, HDR state and DXGI peak. If the monitor runs VRR (G-SYNC/FreeSync) for video, tick "Uses VRR (G-SYNC/FreeSync) for video".
 2. [ ] Play an HDR10 title. Press `i`: "output dynamic range" HDR, "target peak" ≈ the monitor's peak (or your
        override), "source dynamic range" hdr10. Windows HDR was already on, so it is **not** toggled (no black flash).
+       Check it **windowed and fullscreen** (`f`): same brightness and colours in both (composed vs independent flip).
 3. [ ] Highlights: compare a bright scene with the Windows HDR Calibration result; if clipped or dim, set the
-       per-monitor peak override (e.g. the calibrated max nits), stop, play again; `target-peak` follows.
+       per-monitor peak override (e.g. the calibrated max nits) while it plays; `target-peak` follows at once
+       (no restart, no black flash).
 4. [ ] Play an SDR title with HDR on: whites match the desktop's SDR whites side by side (windowed);
        `hdr-reference-white` in the stats equals Windows "SDR content brightness".
 5. [ ] Dolby Vision title (profile 5 or 8): stats show "Dolby Vision P5/P8" and "dolby-vision-rpu active"; colours
-       are not green/purple (P5) and not washed out.
+       are not green/purple (P5) and not washed out. Check it **windowed and fullscreen** (`f`).
 6. [ ] 23.976 fps title on a 120/144/165/240 Hz monitor with VRR **off**: the log line "display output decided" shows
-       whether the current rate already fits or an exact multiple (e.g. 119.88 Hz) was chosen; no stutter in a slow
+       the reason. Automatic switches only to an exact multiple within 10 % of the current rate (120 Hz → 119.88 Hz);
+       on 144/165 Hz it keeps the rate and resamples (`display-resample`, ADR-0006 amendment 2). No stutter in a slow
        pan (`frame-drop-count` stays 0 in the stats over 60 s).
 7. [ ] Same with VRR ticked: no refresh change at all; stats show `video-sync=audio`.
 8. [ ] Stop playback: settings stay for 10 s (start the next episode within that time: no second black flash), then
@@ -108,7 +111,19 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
         immediately. Kill it instead (Task Manager → End task): on the next start the log says "restored display
         state left over by a previous run" and the monitor is back before the window appears.
 12. [ ] Audio: device list shows your outputs; switching device or channels in Settings during playback applies
-        without restarting the file (Settings hint: "Audio settings apply immediately").
+        without restarting the file (Settings hint: "Audio and display settings apply immediately").
+13. [ ] HDR10+ title (dynamic metadata), **windowed and fullscreen**: stats show "source dynamic range" hdr10_plus and
+        HDR output; scene-to-scene brightness changes follow the metadata without pumping (libplacebo applies the
+        dynamic metadata; `hdr-compute-peak=auto`).
+14. [ ] Near-black gradients: `./scripts/gen-test-media.ps1` makes `hdr10_near_black_ramp.mkv` and
+        `sdr_near_black_ramp.mkv` (left edge black, right edge ~10 nits / ~10 %; smooth top half, 32 steps bottom).
+        On the OLED, with no black override: the left edge is true black (no raised/grey blacks), the top half shows no
+        banding, the steps in the bottom half are all distinguishable; `target-contrast` in the log is `inf` (HDR) or `auto` (SDR).
+        Then set a black override of 0.5 nits: the darkest steps lift visibly (proves the override reaches mpv);
+        clear it again.
+15. [ ] Battery (laptop with an HDR panel): unplug, Windows HDR off, play an HDR title: Windows refuses HDR on battery;
+        the log says "HDR switch failed ... on battery" once, the title plays tone-mapped, and the next HDR title starts
+        without the wait ("HDR switch skipped"). Plug in: the next HDR title switches HDR on again.
 
 ### B. TV / AV receiver (HTPC, opt-in features)
 1. [ ] Settings → Display: refresh "Match content" (or per-monitor override for the TV only). Play 23.976, 25, 29.97

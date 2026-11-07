@@ -186,7 +186,7 @@
     "passthroughCodecs": "Formats your receiver can decode",
     "exclusive": "Exclusive audio mode",
     "exclusiveHint": "Takes over the audio device during playback (WASAPI exclusive).",
-    "audioLiveHint": "Audio settings apply immediately; display settings from the next video.",
+    "audioLiveHint": "Audio and display settings apply immediately, also during playback.",
     "subtitles": "Subtitles",
     "subScale": "Subtitle size",
     "preferSdh": "Prefer subtitles for the hard of hearing",

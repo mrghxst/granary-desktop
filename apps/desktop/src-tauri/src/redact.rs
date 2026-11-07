@@ -233,7 +233,9 @@ pub struct RedactingWriter<W: Write>(pub W);
 impl<W: Write> Write for RedactingWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let text = String::from_utf8_lossy(buf);
-        // Never let a redaction bug take the app down from inside a log call (review H2).
+        // Never let a redaction bug take the app down from inside a log call (review H2). Release builds abort on
+        // panic (phase-7 review M4), so there this only guards debug builds; redact() never slices inside a UTF-8
+        // character and its tests try every offset.
         match std::panic::catch_unwind(|| redact(&text).into_owned()) {
             Ok(clean) => self.0.write_all(clean.as_bytes())?,
             Err(_) => self.0.write_all(b"[REDACTION FAILED: log line dropped]\n")?,

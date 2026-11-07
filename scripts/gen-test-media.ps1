@@ -90,6 +90,21 @@ Invoke-FF 'sdr_h264_23976.mkv' @(
   '-c:a','ac3','-b:a','448k','-ac','6'
 )
 
+# 4./5. Near-black ramps (MANUAL_TEST_CHECKLIST A.14): left = black, right ~10 nits (PQ) / ~10 % (SDR); smooth top
+#    half, 32 steps in the bottom half. Raised blacks show as a grey left edge, banding as visible steps in the top half.
+Invoke-FF 'hdr10_near_black_ramp.mkv' @(
+  '-f','lavfi','-i','color=c=black:size=1920x1080:rate=24:duration=20',
+  '-vf',"format=yuv420p10le,geq=lum='64+if(lt(Y,H/2),X/W*276,floor(X/W*32)*276/32)':cb=512:cr=512,setparams=range=tv:color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc",
+  '-c:v','libx265','-preset','ultrafast','-x265-params',$x265,
+  '-color_primaries','bt2020','-color_trc','smpte2084','-colorspace','bt2020nc','-color_range','tv'
+)
+Invoke-FF 'sdr_near_black_ramp.mkv' @(
+  '-f','lavfi','-i','color=c=black:size=1920x1080:rate=24:duration=20',
+  '-vf',"format=yuv420p10le,geq=lum='64+if(lt(Y,H/2),X/W*88,floor(X/W*32)*88/32)':cb=512:cr=512,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709",
+  '-c:v','libx265','-preset','ultrafast','-x265-params','log-level=error',
+  '-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709','-color_range','tv'
+)
+
 # Probe summary.
 Get-ChildItem $out -Filter *.mkv | ForEach-Object {
   $p = & ffprobe -v error -show_entries 'stream=index,codec_type,codec_name,profile,width,height,r_frame_rate,pix_fmt,color_transfer,color_primaries,channels' -of compact=p=0:nk=0 $_.FullName

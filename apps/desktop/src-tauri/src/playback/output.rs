@@ -30,6 +30,10 @@ pub type SettingsOf = Box<dyn Fn() -> Settings + Send + Sync>;
 struct Active {
     gdi: String,
     content: Content,
+    /// Settings-derived policy this was decided with: a change re-decides (phase-7 review M5).
+    policy: Policy,
+    /// Granary switched HDR on for this (held) output.
+    hdr_switched: bool,
     /// Display-side mpv options of this monitor (audio options are added on every call).
     display_options: Vec<(String, String)>,
     summary: Vec<(String, String)>,
@@ -197,6 +201,16 @@ impl Output {
         audio_options(&(self.settings)().audio)
     }
 
+    /// Settings were saved during playback: re-decide for the active monitor and return the display options to set
+    /// live (`None` when nothing plays). Tone-mapping overrides apply without touching the display; a changed HDR
+    /// mode, refresh strategy or VRR flag restores and re-applies at once (phase-7 review M5).
+    pub fn settings_changed(&self) -> Option<Vec<(String, String)>> {
+        let mut inner = self.lock();
+        let active = inner.active.clone()?;
+        let settings = (self.settings)();
+        Some(self.apply(&mut inner, &settings, active.content, Some(active.gdi)))
+    }
+
     /// Lines for the stats overlay.
     pub fn summary(&self) -> Vec<(String, String)> {
         self.lock()
@@ -238,23 +252,36 @@ impl Output {
             inner.active = None;
             return neutral_display_options();
         };
-        if let Some(a) = &inner.active
-            && a.gdi.eq_ignore_ascii_case(&gdi)
-            && a.content == content
-        {
-            tracing::debug!("display output reused from the previous playback");
-            return a.display_options.clone();
-        }
-        // Different needs (or another monitor): undo the previous changes first, so restore always returns to the
-        // state before Granary touched anything.
-        Self::restore(inner, Some(ctrl));
-        inner.active = None;
         let monitor_path = ctrl
             .displays()
             .ok()
             .and_then(|ds| ds.into_iter().find(|d| d.gdi_name.eq_ignore_ascii_case(&gdi)))
             .map(|d| d.monitor_path);
         let policy = policy_of(&settings.display, monitor_path.as_deref());
+        let same_needs = inner
+            .active
+            .as_ref()
+            .is_some_and(|a| a.gdi.eq_ignore_ascii_case(&gdi) && a.content == content);
+        if same_needs && let Some(a) = inner.active.as_ref().filter(|a| a.policy == policy) {
+            tracing::debug!("display output reused from the previous playback");
+            return a.display_options.clone();
+        }
+        // Same monitor and content, only the tone-mapping overrides changed: re-decide on the display as it is now
+        // (still switched), without a restore/re-switch flicker. The session keeps the original state recorded.
+        let retune = same_needs
+            && inner.active.as_ref().is_some_and(|a| {
+                a.policy.hdr == policy.hdr
+                    && a.policy.refresh == policy.refresh
+                    && a.policy.prefs.vrr == policy.prefs.vrr
+                    && a.policy.prefs.refresh == policy.prefs.refresh
+            });
+        if !retune {
+            // Different needs (or another monitor): undo the previous changes first, so restore always returns to the
+            // state before Granary touched anything.
+            Self::restore(inner, Some(ctrl));
+            inner.active = None;
+        }
+        let held = inner.active.take();
         match inner.session.prepare(ctrl, &gdi, &content, &policy) {
             Ok(a) => {
                 tracing::info!(
@@ -272,7 +299,10 @@ impl Output {
                     notes = ?a.notes,
                     "display output decided"
                 );
+                let switched_earlier = held.as_ref().is_some_and(|h| h.hdr_switched);
+                let hdr_switched = a.hdr_switched || (switched_earlier && a.hdr == HdrDecision::AlreadyOn);
                 let hdr = match a.hdr {
+                    _ if hdr_switched => "HDR (switched on)".to_owned(),
                     HdrDecision::AlreadyOn => "HDR (already on)".to_owned(),
                     HdrDecision::Enable => "HDR (switched on)".to_owned(),
                     HdrDecision::StaySdr(r) => format!("SDR ({r:?})"),
@@ -301,6 +331,8 @@ impl Output {
                 inner.active = Some(Active {
                     gdi,
                     content,
+                    policy,
+                    hdr_switched,
                     display_options: a.options.clone(),
                     summary,
                 });
@@ -350,6 +382,19 @@ mod tests {
         refresh: Rational,
         settings: Settings,
     ) -> (Arc<MockDisplayController>, Output, PathBuf) {
+        let (m, out, marker, _) = rig_shared(name, hdr_on, refresh, settings);
+        (m, out, marker)
+    }
+
+    /// Like `rig`, with settings the test can change between calls.
+    fn rig_shared(
+        name: &str,
+        hdr_on: bool,
+        refresh: Rational,
+        settings: Settings,
+    ) -> (Arc<MockDisplayController>, Output, PathBuf, Arc<Mutex<Settings>>) {
+        let shared = Arc::new(Mutex::new(settings));
+        let read = shared.clone();
         let m = Arc::new(MockDisplayController::single(hdr_on, refresh));
         let dir = std::env::temp_dir().join(format!("granary-output-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -363,9 +408,9 @@ mod tests {
                 settle: Duration::ZERO,
             },
             Box::new(|| Some(GDI.to_owned())),
-            Box::new(move || settings.clone()),
+            Box::new(move || read.lock().unwrap().clone()),
         );
-        (m, out, marker)
+        (m, out, marker, shared)
     }
 
     fn get<'a>(o: &'a [(String, String)], k: &str) -> Option<&'a str> {
@@ -407,6 +452,75 @@ mod tests {
         m.fail_set_hdr(false);
         out.release();
         assert!(!m.display(&m.id()).unwrap().hdr_enabled);
+    }
+
+    #[test]
+    fn tone_mapping_change_during_playback_retunes_without_a_restore() {
+        let (m, out, marker, settings) = rig_shared("retune", false, Rational::new(60, 1), Settings::default());
+        out.prepare(&source("hdr10", 24.0));
+        assert!(m.display(&m.id()).unwrap().hdr_enabled);
+        settings.lock().unwrap().display.monitors.insert(
+            MOCK_PATH.into(),
+            MonitorSettings {
+                peak_nits: Some(650.0),
+                ..MonitorSettings::default()
+            },
+        );
+        // A restore/re-switch would hit the failing HDR switch.
+        m.fail_set_hdr(true);
+        let o = out.settings_changed().unwrap();
+        assert_eq!(get(&o, "target-peak"), Some("650"), "new override applied live");
+        assert!(m.display(&m.id()).unwrap().hdr_enabled, "display left as it was");
+        assert!(marker.exists() && out.holding());
+        assert!(
+            out.summary()
+                .iter()
+                .any(|(k, v)| k == "output-dynamic-range" && v.contains("switched on")),
+            "still reported as switched by Granary"
+        );
+        m.fail_set_hdr(false);
+        out.release();
+        assert!(
+            !m.display(&m.id()).unwrap().hdr_enabled,
+            "the original state is restored"
+        );
+        assert!(!marker.exists());
+    }
+
+    #[test]
+    fn hdr_mode_change_during_playback_re_decides_at_once() {
+        let (m, out, marker, settings) = rig_shared("mode", false, Rational::new(60, 1), Settings::default());
+        out.prepare(&source("hdr10", 24.0));
+        assert!(m.display(&m.id()).unwrap().hdr_enabled);
+        settings.lock().unwrap().display.hdr_mode = "off".into();
+        let o = out.settings_changed().unwrap();
+        assert!(
+            !m.display(&m.id()).unwrap().hdr_enabled,
+            "restored when HDR switching is turned off"
+        );
+        assert_eq!(get(&o, "target-peak"), Some("auto"), "tone-mapped to SDR");
+        assert!(!marker.exists() && !out.holding());
+        out.release();
+        assert!(out.settings_changed().is_none(), "nothing plays after release");
+    }
+
+    #[test]
+    fn transcode_of_an_hdr_source_stays_sdr() {
+        // Phase-7 review M1: upstream tone-maps every transcode to SDR (`plan_v3.go:1458`@6791aac).
+        let (m, out, marker) = rig("transcode", false, Rational::new(60, 1), Settings::default());
+        let plan = granary_silo_api::playback::PlaybackPlan {
+            delivery: "server_transcode_hls".into(),
+            source: source("hdr10", 23.976),
+            effective_recipe: Some(granary_silo_api::playback::EffectiveRecipe {
+                dynamic_range: Some("sdr".into()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let o = out.prepare(&plan.delivered());
+        assert!(!m.display(&m.id()).unwrap().hdr_enabled, "no pointless HDR switch");
+        assert_eq!(get(&o, "target-peak"), Some("auto"));
+        assert!(!marker.exists());
     }
 
     #[test]

@@ -7,6 +7,7 @@
 pub mod marker;
 pub mod mock;
 pub mod policy;
+pub mod power;
 pub mod process;
 pub mod session;
 pub mod types;

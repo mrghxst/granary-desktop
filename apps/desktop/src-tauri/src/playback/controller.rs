@@ -335,7 +335,7 @@ impl Controller {
     /// tone-mapping target and audio options in place before `loadfile`).
     fn apply_output(&mut self) {
         let sink = Arc::clone(&self.sink);
-        let source = self.plan.source.clone();
+        let source = self.plan.delivered();
         let options = super::output::run_blocking(move || sink.before_load(&source));
         for (name, value) in options {
             if let Err(e) = self.backend.set_property(&name, &value) {

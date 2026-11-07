@@ -33,3 +33,6 @@ expect_used = "warn"
 lto = "thin"
 codegen-units = 1
 strip = "debuginfo"
+# A panic ends the process (phase-7 review M4): the panic hook restores the display state and is always followed by
+# process exit, so it never switches HDR off under a playback that a caught panic would otherwise let continue.
+panic = "abort"

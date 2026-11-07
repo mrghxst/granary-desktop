@@ -1,0 +1,11 @@
+# Gate 7 display round trip after the review fixes, 2026-11-07, Intel Arc 140V laptop panel, ON BATTERY
+# command: cargo run -q -p granary-display --example display_roundtrip -- <scratch dir>
+# exit code: 0
+# Windows refuses HDR on battery: the switch is reported, not retried, and nothing unchanged is restored.
+display 00000000:0001139f/8388688 '' \\.\DISPLAY1: hdr_supported=true hdr_enabled=false refresh=60.000 Hz sdr_white=80 nits peak=500 nits modes=[30.000, 48.000, 60.000, 75.000, 100.000, 120.000]
+APPLIED in 6813 ms: hdr=StaySdr(Unsupported) hdr_switched=false hdr_output=false refresh_switched=true now 120.000 Hz, peak=500 nits, notes=["HDR switch failed (HDR did not read back on in time) on battery; playing tone-mapped SDR"]
+mpv options: [("target-peak", "auto"), ("target-contrast", "auto"), ("hdr-reference-white", "auto"), ("video-sync", "audio"), ("video-sync-max-factor", "5"), ("display-fps-override", "120.000169")]
+marker present while applied: true
+RESTORE in 86 ms: all_ok=true [EntryOutcome { id: DisplayId { adapter_luid_low: 70559, adapter_luid_high: 0, target_id: 8388688 }, hdr_restored: Some(true), refresh_restored: Some(true), error: None }]
+RESTORED \\.\DISPLAY1: hdr false -> false, refresh 60.000 -> 60.000 Hz, marker removed: true
+DISPLAY ROUNDTRIP OK

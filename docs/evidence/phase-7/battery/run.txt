@@ -1,0 +1,22 @@
+PASS display_list reports the monitors (\\?\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 60 Hz hdr=false)
+power: battery
+  saved 01-hdr10-stats.png
+PASS HDR content on battery: refusal handled (HDR left off, tone-mapped SDR) (SDR (Unsupported))
+PASS stats: output dynamic range matches the monitor (SDR (Unsupported), monitor hdr=false)
+PASS stats: tone-mapping target peak (nits for HDR output, auto for SDR) (output-target-peak=auto mpv target-peak=auto target-contrast=auto)
+PASS stats: source dynamic range from the plan (hdr10)
+PASS stats: audio output options (device=auto exclusive=no spdif=)
+PASS HDR held during the idle grace [capability skip] (HDR was not switched)
+PASS restored after the idle grace (hdr false -> false, 60 -> 60 Hz)
+  saved 02-sdr25-stats.png
+PASS SDR content: HDR left as it was (hdr=false)
+PASS 25 fps: switched to an exact multiple (60 -> 75 Hz (75.000 Hz (switched) · ExactMultiple · video-sync display-resample))
+PASS audio settings apply live (audio-normalize-downmix yes -> no, still playing) (yes -> no, phase=playing)
+PASS refresh restored after the idle grace (60 -> 60 Hz, hdr false)
+PASS every monitor back to its original HDR state and refresh rate (\\?\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 60 Hz hdr=false)
+PASS log: display output decided before each playback (2 decisions)
+PASS log: display state restored
+PASS log: HDR refusal on battery reported
+PASS log: no unrestored display state
+
+OUTPUT EVIDENCE: 17/17 PASS -> docs/evidence/phase-7/battery

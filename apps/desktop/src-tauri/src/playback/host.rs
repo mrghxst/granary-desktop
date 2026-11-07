@@ -99,6 +99,7 @@ const STATS: &[&str] = &[
     "video-target-params/gamma",
     "video-target-params/max-luma",
     "target-peak",
+    "target-contrast",
     "hdr-reference-white",
     "video-sync",
     "display-sync-active",
@@ -120,6 +121,8 @@ const STATS: &[&str] = &[
     "audio-device",
     "audio-exclusive",
     "audio-spdif",
+    "audio-channels",
+    "audio-normalize-downmix",
     "video-bitrate",
     "audio-bitrate",
     "demuxer-cache-duration",
@@ -200,10 +203,15 @@ pub enum Cmd {
     Event(MpvEvent),
     /// mpv's event thread ended (the core shut down).
     BackendGone,
-    /// Settings were saved: apply the audio options live.
+    /// Settings were saved: apply the audio and display options live.
     SettingsChanged,
     /// The main window moved or changed DPI: re-check the monitor it is on.
     WindowMoved,
+    /// Display options decided off the host task after a monitor move, for the playback with this generation.
+    MovedOutput {
+        generation: u64,
+        options: Vec<(String, String)>,
+    },
     /// `audio-device-list` (name, description) for the settings page.
     AudioDevices(oneshot::Sender<Vec<AudioDevice>>),
     /// App exit: stop playback and restore the display state at once.
@@ -258,6 +266,8 @@ struct Runner {
     idle_since: Option<Instant>,
     /// Re-check the window's monitor at this moment (coalesced move events).
     move_check_at: Option<Instant>,
+    /// Bumped by every play request; a monitor-move result for an older playback is dropped.
+    generation: u64,
 }
 
 impl PlayerHost {
@@ -286,6 +296,7 @@ impl PlayerHost {
             play_started: None,
             idle_since: None,
             move_check_at: None,
+            generation: 0,
         };
         tauri::async_runtime::spawn(runner.run(rx));
         Self { tx }
@@ -455,9 +466,13 @@ impl Runner {
             }
             Cmd::SettingsChanged => {
                 if let Some(b) = self.active_backend() {
-                    for (name, value) in self.output.audio_now() {
+                    // Phase-7 review M5: a changed HDR mode, refresh strategy or tone-mapping override takes effect now,
+                    // not only at the next playback.
+                    let output = self.output.clone();
+                    let display = run_blocking(move || output.settings_changed()).unwrap_or_default();
+                    for (name, value) in display.into_iter().chain(self.output.audio_now()) {
                         if let Err(e) = b.set_property(&name, &value) {
-                            tracing::warn!(option = %name, error = %e, "audio option not applied live");
+                            tracing::warn!(option = %name, error = %e, "option not applied live");
                         }
                     }
                 }
@@ -467,14 +482,31 @@ impl Runner {
                     self.move_check_at = Some(Instant::now() + MOVE_SETTLE);
                 }
             }
+            Cmd::MovedOutput { generation, options } => {
+                if let Some(b) = self.active_backend().filter(|_| generation == self.generation) {
+                    for (name, value) in options {
+                        if let Err(e) = b.set_property(&name, &value) {
+                            tracing::warn!(option = %name, error = %e, "display option not applied after move");
+                        }
+                    }
+                }
+            }
             Cmd::AudioDevices(reply) => {
                 let _ = reply.send(self.audio_devices());
             }
             Cmd::Shutdown(reply) => {
-                self.stop().await;
-                self.idle_since = None;
+                // Phase-7 review M2: the local work comes first (unload the picture, restore the display, both fast),
+                // then the server stop in what is left of the exit budget. A display restore that never ran is the
+                // worse outcome; a server stop that misses the budget keeps delivering until the process exits.
+                if let Some(b) = self.active_backend()
+                    && let Err(e) = b.stop()
+                {
+                    tracing::warn!(error = %e, "mpv stop failed at exit");
+                }
                 let output = self.output.clone();
                 run_blocking(move || output.release());
+                self.stop().await;
+                self.idle_since = None;
                 let _ = reply.send(());
             }
         }
@@ -494,15 +526,17 @@ impl Runner {
             && now >= at
         {
             self.move_check_at = None;
-            if let Some(b) = self.active_backend() {
+            if self.active_backend().is_some() {
+                // Phase-7 review M6: an HDR switch can take seconds; run it off the host task so pause, seek and Stop
+                // keep working, and apply the result only if the same playback is still running.
                 let output = self.output.clone();
-                if let Some(options) = run_blocking(move || output.monitor_moved()) {
-                    for (name, value) in options {
-                        if let Err(e) = b.set_property(&name, &value) {
-                            tracing::warn!(option = %name, error = %e, "display option not applied after move");
-                        }
+                let tx = self.tx.clone();
+                let generation = self.generation;
+                tokio::task::spawn_blocking(move || {
+                    if let Some(options) = output.monitor_moved() {
+                        let _ = tx.send(Cmd::MovedOutput { generation, options });
                     }
-                }
+                });
             }
         }
     }
@@ -528,6 +562,7 @@ impl Runner {
 
     async fn play(&mut self, session: Arc<Session>, args: StartArgs, item: MediaItem) -> Result<(), (String, String)> {
         self.play_started = Some(Instant::now());
+        self.generation = self.generation.wrapping_add(1);
         // Stop the previous attempt but keep its display changes: the new plan reuses them when it has the same needs.
         if let Some(mut c) = self.controller.take() {
             c.stop().await;

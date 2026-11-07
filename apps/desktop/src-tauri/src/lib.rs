@@ -22,6 +22,10 @@ use tauri_plugin_window_state::StateFlags;
 
 /// Panic path (ADR-0006 restore guarantee): put back whatever this process changed, from the restore marker, before
 /// the process dies. Best effort; a marker that is not fully restored stays for the startup repair.
+///
+/// Only with `panic = "abort"` (release builds): there every panic ends the process right after the hook. With
+/// unwinding (debug/test builds) a panic can be caught (tokio tasks, `catch_unwind`) while playback continues, so the
+/// display is left alone and the startup repair handles a real crash (phase-7 review M4).
 #[cfg(windows)]
 fn restore_displays_now() {
     use granary_display::marker::{self, RestoreMarker};
@@ -179,7 +183,9 @@ pub fn run() {
     logging::init(&paths::log_dir());
     std::panic::set_hook(Box::new(|p| {
         tracing::error!(panic = %p, "panic");
-        restore_displays_now();
+        if cfg!(panic = "abort") {
+            restore_displays_now();
+        }
         logging::flush();
     }));
 

@@ -1,5 +1,5 @@
 # PROGRESS
-Last updated: 2026-11-07T13:40:00+01:00 | Current phase: 6 | Last commit: (see git log)
+Last updated: 2026-11-07T20:30:00+01:00 | Current phase: 8 | Last commit: (see git log)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
@@ -9,18 +9,15 @@ Last updated: 2026-11-07T13:40:00+01:00 | Current phase: 6 | Last commit: (see g
 - [x] 4 Silo connectivity & auth — DONE (commit 6573af4 + review fixes) — gate: verify.ps1 exit 0, CI green, contract tests vs OAS subset @6791aac, mocked add → login → PIN → libraries flow (live test blocked: no .env.local), reviewer docs/reviews/phase-4.md FAIL → 1 high + 2 medium + 2 low resolved
 - [x] 5 UI (web-app parity) — DONE (commit bd2369b + review fixes) — gate: verify.ps1 exit 0, CI green, vitest flow + host E2E test, ui-evidence.mjs 13/13 checks with 14 screenshots (docs/evidence/phase-5), reviewer docs/reviews/phase-5.md PASS WITH FINDINGS → 5 medium + 3 low resolved
 - [x] 6 Native playback & progress sync — DONE — gate: verify.ps1 exit 0 (11 steps), playback evidence 17/17 (docs/evidence/phase-6, mock server + ffmpeg clips, d3d11va), progress/stop/recovery controller tests, reviewer docs/reviews/phase-6.md PASS WITH FINDINGS → 5 medium + 6 low resolved (L1–L3, L7–L9), L4–L6/L10 deferred below
-- [ ] 7 Display & audio (auto-HDR, refresh match, passthrough)
+- [x] 7 Display & audio (auto-HDR, refresh match, passthrough) — DONE — gate: verify.ps1 exit 0, display crate 36 + app 56 tests (mode selection, restore, leftover marker, refused HDR, live retune), display_roundtrip exit 0 (mains: HDR + refresh; battery: HDR refusal + refresh), output-evidence 17/17 (mains and battery runs), MANUAL_TEST_CHECKLIST A.1–A.15 / B.1–B.6, reviewer docs/reviews/phase-7.md PASS WITH FINDINGS → 7 medium + L1/L3/L6/L7 resolved, L2/L4/L5/L8 deferred below
 - [ ] 8 Polish
 - [ ] 9 Packaging & release workflow
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 7: display & audio. Done: `crates/display` policy + session (restore marker), host wiring (`playback/output.rs`:
-output decided before `loadfile`, held 10 s idle for the next episode, restored at idle/monitor move/exit), settings
-UI (HDR mode, refresh strategy, per-monitor VRR/peak/black/refresh, audio device/channels/passthrough/exclusive/
-normalise), DV/HDR stats, in-app evidence 17/17 and hardware round trip exit 0 (`docs/evidence/phase-7/`).
-Earlier HDR toggle failures were Windows' battery HDR policy (works on AC power). ADR-0006 amendment 1, panic-hook
-restore and MANUAL_TEST_CHECKLIST Phase 7 section (OLED desktop, then TV/receiver) done. Next: Gate 7 review + gate block.
+Phase 8: polish. Done: About screen, log viewer, onboarding, offline banner, jsx-a11y lint, Profiles back button /
+aria-pressed / Remove confirmation, cold start + idle memory measured (`scripts/measure-perf.ps1`,
+`docs/evidence/phase-8/perf.json`). Next: time-to-first-frame, `docs/perf.md`, Gate 8 review.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -55,6 +52,12 @@ restore and MANUAL_TEST_CHECKLIST Phase 7 section (OLED desktop, then TV/receive
 - Distribution to third parties requires a complete libmpv dependency source set (ADR-0005 known gap).
 
 ## Known issues
+- Phase 7 accepted risk (review L7): `WM_ENDSESSION` (log-off/shutdown during playback) is not handled; the marker
+  repairs HDR/refresh at the next start, so a switched monitor can stay in HDR until Granary runs again.
+- Phase 7 review lows deferred: L2 reuse key is the content, not the decision (HDR10 → HDR10+ episode re-switches);
+  L4 fractional-rate switching unverified on hardware (no 59.94 mode on this panel), applied path not logged, marker has
+  no resolution (ADR restore wording); L5 Settings shows the SDR-state DXGI peak while HDR is off, out-of-range numbers
+  dropped silently; L8 small items (exclusive-mode failure notice, `from_mpv` fallback, test-only `holding()`).
 - Phase 6 (from phase-2 review L2/L4): production video module drives all Win32 window calls from the UI thread and
   handles `WM_SYSKEYDOWN`/`WM_SETCURSOR`; idle-cursor auto-hide (H1 rule) and key-wake re-verified in an unlocked session.
 - Phase 7: independent flip with the overlay hidden (ADR-0003 fallback trigger), overlay-hidden pacing, packets 15/16 and
@@ -87,6 +90,8 @@ restore and MANUAL_TEST_CHECKLIST Phase 7 section (OLED desktop, then TV/receive
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-07 Gate 7 PASSED: review M1 (delivered range from `effective_recipe`, HDR declared when switchable), M2 (exit restores before the server stop), M3 (leftover marker entries kept), M4 (`panic = "abort"`), M5 (policy in reuse key, live retune), M6 (5 s HDR wait, refused switch remembered per power state, monitor move off the host task), M7 (checklist HDR10+/near-black/windowed+fullscreen); L1, L3, L6, L7; verify.ps1 exit 0, round trip + evidence 17/17 on battery.
+- 2026-11-07 Phase 8 (part): About, log viewer, onboarding, offline banner, a11y lint, perf measurement (median ready 778 ms, idle 455 MiB working set over 7 processes).
 - 2026-11-07 Gate 6 PASSED: review M1 (resume position from the requested start until playback), M2 (progress from a spawned task, one in flight; Stop unloads mpv first, server stop bounded to 4 s then background), M3 (`track_change` replan on non-direct plans), M4 (mini player lifts min size, positions by actual size, keeps geometry until restored), M5 (player error codes + notices translated en/de); L1 ADR-0008 amendment, L2 connectEventsSocket in §13 + subset (30 ops), L3, L7, L8, L9; verify.ps1 exit 0.
 - 2026-11-07 Phase 7: output policy applied before the first frame (HDR/refresh/tone mapping/audio), idle grace + restore, settings UI, mock clip facts, evidence 17/17 + round trip exit 0.
 - 2026-11-07 Phase 6: player overlay (keyboard map, menus, stats, trickplay, up next, media keys), events socket live refresh, precise seeks + unpause on reused core, per-session hwdec log, ADR-0008, playback evidence 17/17 (`scripts/playback-evidence.mjs`); verify.ps1 exit 0.

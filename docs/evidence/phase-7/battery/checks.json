@@ -1,0 +1,87 @@
+[
+  {
+    "name": "display_list reports the monitors",
+    "ok": true,
+    "detail": "\\\\?\\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 60 Hz hdr=false"
+  },
+  {
+    "name": "HDR content on battery: refusal handled (HDR left off, tone-mapped SDR)",
+    "ok": true,
+    "detail": "SDR (Unsupported)"
+  },
+  {
+    "name": "stats: output dynamic range matches the monitor",
+    "ok": true,
+    "detail": "SDR (Unsupported), monitor hdr=false"
+  },
+  {
+    "name": "stats: tone-mapping target peak (nits for HDR output, auto for SDR)",
+    "ok": true,
+    "detail": "output-target-peak=auto mpv target-peak=auto target-contrast=auto"
+  },
+  {
+    "name": "stats: source dynamic range from the plan",
+    "ok": true,
+    "detail": "hdr10"
+  },
+  {
+    "name": "stats: audio output options",
+    "ok": true,
+    "detail": "device=auto exclusive=no spdif="
+  },
+  {
+    "name": "HDR held during the idle grace [capability skip]",
+    "ok": true,
+    "detail": "HDR was not switched"
+  },
+  {
+    "name": "restored after the idle grace",
+    "ok": true,
+    "detail": "hdr false -> false, 60 -> 60 Hz"
+  },
+  {
+    "name": "SDR content: HDR left as it was",
+    "ok": true,
+    "detail": "hdr=false"
+  },
+  {
+    "name": "25 fps: switched to an exact multiple",
+    "ok": true,
+    "detail": "60 -> 75 Hz (75.000 Hz (switched) · ExactMultiple · video-sync display-resample)"
+  },
+  {
+    "name": "audio settings apply live (audio-normalize-downmix yes -> no, still playing)",
+    "ok": true,
+    "detail": "yes -> no, phase=playing"
+  },
+  {
+    "name": "refresh restored after the idle grace",
+    "ok": true,
+    "detail": "60 -> 60 Hz, hdr false"
+  },
+  {
+    "name": "every monitor back to its original HDR state and refresh rate",
+    "ok": true,
+    "detail": "\\\\?\\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 60 Hz hdr=false"
+  },
+  {
+    "name": "log: display output decided before each playback",
+    "ok": true,
+    "detail": "2 decisions"
+  },
+  {
+    "name": "log: display state restored",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "log: HDR refusal on battery reported",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "log: no unrestored display state",
+    "ok": true,
+    "detail": ""
+  }
+]

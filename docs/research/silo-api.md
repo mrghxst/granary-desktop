@@ -418,6 +418,23 @@ The field names come from OAS `PlaybackDecision`, `PlaybackPlan`, `StreamV3` (OA
 
 The full set of `outcome` values was not enumerated (**UNVERIFIED**). The OAS mentions `adaptation_unavailable` as a terminal decision. `426` is returned for protocol and upgrade mismatches (`playback-protocol-v3.md` §2).
 
+**Effective recipe** (`internal/playback/protocol_v3.go@6791aac` L973-989, `EffectiveRecipeV3`; emitted as
+`effective_recipe` by `internal/apiv2/playback.go@6791aac` L98). `source` describes the original file; `effective_recipe`
+describes what the stream delivers: `video_codec`, `video_sample_entry`, `segment_container`, `audio_codec`, `width`,
+`height`, `frame_rate`, `bitrate_kbps`, `dynamic_range` (`sdr | hdr10 | hdr10_plus | hlg | dolby_vision | hdr_unknown`,
+`protocol_v3.go` L388-393), `audio_channels`, `audio_layout`, all optional.
+
+- A transcode is always SDR: `plan.EffectiveRecipe.DynamicRange = DynamicRangeSDRV3` (`plan_v3.go@6791aac` L1458), with
+  the tone map done by the server.
+- Remux and direct plans copy the source (`recipeFromSourceV3`, `plan_v3.go` L2408-2410), except
+  `client_dv7_to_hdr10` (`plan_v3.go` L551-556), an `original_http` plan that the client plays as HDR10.
+- Granary reads `video_codec`, `audio_codec`, `frame_rate`, `dynamic_range` and `audio_channels`
+  (`PlaybackPlan::delivered`). Display and audio output decide on these (ADR-0006 amendment 2); the stats overlay
+  still shows `source`.
+- `nativeOutputHDRV3` (`capabilities_v3.go@6791aac` L353-394) allows native HDR for non-`original_http` plans only
+  when the output context declares HDR. Granary declares it when Windows HDR is on, or when the panel supports HDR
+  and Granary will switch it on (HDR mode not "off").
+
 **Timeline** (`playback-protocol-v3.md@6791aac` L1011-1050). The four numbers must be kept distinct:
 
 - `source_start_seconds` and `stream_origin_seconds`;

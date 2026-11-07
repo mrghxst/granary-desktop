@@ -173,13 +173,19 @@ pub fn install(app: &tauri::App, app_version: String, hwdec: String, libmpv_ok: 
         Box::new(|_| Err("libmpv is not available".into()))
     };
     let hardware = Arc::new(std::sync::OnceLock::new());
+    #[cfg(windows)]
+    let settings_handle = handle.clone();
     let env = Arc::new(move || {
         #[cfg(windows)]
         {
             Environment {
                 app_version: app_version.clone(),
                 os_version: super::platform::os_version(),
-                output: super::platform::output_facts(),
+                output: super::platform::output_facts(
+                    settings_handle
+                        .try_state::<crate::settings::SettingsStore>()
+                        .is_none_or(|s| s.current().display.hdr_mode != "off"),
+                ),
                 hardware: hardware.get_or_init(super::platform::probe_hardware_decoders).clone(),
             }
         }

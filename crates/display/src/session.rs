@@ -10,7 +10,9 @@ use std::time::Duration;
 /// Timing knobs (tests use zero).
 #[derive(Debug, Clone, Copy)]
 pub struct Timing {
-    /// How long to wait for HDR to read back on (DisplayConfig + DXGI colour space).
+    /// How long to wait for HDR to read back on (DisplayConfig + DXGI colour space). The switch read back in
+    /// well under a second on this machine (evidence/phase-7: 3.2 s for HDR + refresh including the 1.5 s settle);
+    /// 5 s leaves margin while bounding how long a refused switch blocks playback (phase-7 review M6).
     pub hdr_timeout: Duration,
     /// Settle time before re-reading DXGI luminance after an HDR toggle (unstable for ~1.5 s, Phase 2 spike).
     pub settle: Duration,
@@ -19,14 +21,14 @@ pub struct Timing {
 impl Default for Timing {
     fn default() -> Self {
         Self {
-            hdr_timeout: Duration::from_secs(10),
+            hdr_timeout: Duration::from_secs(5),
             settle: Duration::from_millis(1500),
         }
     }
 }
 
 /// Settings that drive the decisions.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Policy {
     pub hdr: HdrMode,
     pub refresh: RefreshStrategy,
@@ -55,16 +57,57 @@ pub struct Applied {
 pub struct DisplaySession {
     marker_path: PathBuf,
     marker: RestoreMarker,
+    /// Entries of an earlier run that startup repair could not finish (e.g. the monitor was unplugged). They stay in
+    /// the marker file next to this session's own entries, so their original state is never lost (phase-7 review M3).
+    leftover: Vec<MarkerEntry>,
+    /// Monitors (monitor path, or GDI name) where Windows did not switch HDR on, with the power source at the time
+    /// (`true` = battery). A later title in the same power state does not wait for the refusal again (review M6).
+    refused: Vec<(String, bool)>,
+    on_battery: fn() -> bool,
     timing: Timing,
 }
 
+fn same_display(a: &MarkerEntry, b: &MarkerEntry) -> bool {
+    a.id == b.id || (!a.monitor_path.is_empty() && a.monitor_path == b.monitor_path)
+}
+
 impl DisplaySession {
+    /// A session for this process. A marker already on disk at this point is a leftover of an earlier run whose
+    /// startup repair did not finish; its entries are adopted so the next save keeps them.
     pub fn new(marker_path: PathBuf, timing: Timing) -> Self {
+        let leftover = match RestoreMarker::load(&marker_path) {
+            Ok(Some(m)) => {
+                if !m.entries.is_empty() {
+                    tracing::warn!(
+                        entries = m.entries.len(),
+                        "display restore marker from an earlier run kept"
+                    );
+                }
+                m.entries
+            }
+            Ok(None) => Vec::new(),
+            Err(e) => {
+                // Unreadable: keep a copy instead of overwriting it with the next save.
+                let backup = marker_path.with_extension("unreadable.json");
+                tracing::error!(error = %e, backup = %backup.display(), "display restore marker unreadable; kept aside");
+                let _ = std::fs::rename(&marker_path, &backup);
+                Vec::new()
+            }
+        };
         Self {
             marker_path,
             marker: RestoreMarker::for_current_process(),
+            leftover,
+            refused: Vec::new(),
+            on_battery: crate::power::on_battery,
             timing,
         }
+    }
+
+    /// Replace the power-source probe (tests).
+    pub fn with_power_probe(mut self, on_battery: fn() -> bool) -> Self {
+        self.on_battery = on_battery;
+        self
     }
 
     /// Displays this session changed and has not restored yet.
@@ -72,8 +115,23 @@ impl DisplaySession {
         &self.marker.entries
     }
 
+    /// Write this session's entries plus the leftovers of an earlier run, or remove the file when both are empty.
+    fn persist(&self) -> Result<(), DisplayError> {
+        let mut m = self.marker.clone();
+        for l in &self.leftover {
+            if !m.entries.iter().any(|e| same_display(e, l)) {
+                m.entries.push(l.clone());
+            }
+        }
+        if m.entries.is_empty() {
+            RestoreMarker::remove(&self.marker_path)
+        } else {
+            m.save(&self.marker_path)
+        }
+    }
+
     fn record(&mut self, d: &DisplayInfo, hdr: bool, refresh: bool) -> Result<(), DisplayError> {
-        self.marker.record(MarkerEntry {
+        let mut entry = MarkerEntry {
             id: d.id.clone(),
             gdi_name: d.gdi_name.clone(),
             monitor_path: d.monitor_path.clone(),
@@ -81,9 +139,26 @@ impl DisplaySession {
             hdr_changed: hdr,
             original_refresh: d.refresh,
             refresh_changed: refresh,
-        });
+        };
+        // A leftover for the same monitor holds the state before any Granary change: it wins.
+        if let Some(i) = self.leftover.iter().position(|l| same_display(l, &entry)) {
+            let l = self.leftover.remove(i);
+            entry.original_hdr = l.original_hdr;
+            entry.original_refresh = l.original_refresh;
+            entry.hdr_changed |= l.hdr_changed;
+            entry.refresh_changed |= l.refresh_changed;
+        }
+        self.marker.record(entry);
         // Written (and synced) before the change itself, so a crash in between is repaired at the next start.
-        self.marker.save(&self.marker_path)
+        self.persist()
+    }
+
+    fn display_key(d: &DisplayInfo) -> String {
+        if d.monitor_path.is_empty() {
+            d.gdi_name.clone()
+        } else {
+            d.monitor_path.clone()
+        }
     }
 
     /// Decide and apply for the display named `gdi_name` (the monitor holding the player window).
@@ -102,6 +177,15 @@ impl DisplaySession {
         let mut notes = Vec::new();
         let mut hdr = policy::hdr_decision(&d, policy.hdr, content.range);
         let mut hdr_switched = false;
+        let power = (self.on_battery)();
+        let key = Self::display_key(&d);
+        if hdr == HdrDecision::Enable && self.refused.iter().any(|(k, b)| *k == key && *b == power) {
+            notes.push(format!(
+                "HDR switch skipped: Windows did not switch HDR on for this monitor earlier ({}); playing tone-mapped SDR",
+                if power { "on battery" } else { "on mains power" }
+            ));
+            hdr = HdrDecision::StaySdr(policy::SdrReason::Unsupported);
+        }
         if hdr == HdrDecision::Enable {
             self.record(&d, true, false)?;
             let on = ctrl
@@ -114,7 +198,11 @@ impl DisplaySession {
                         Err(e) => e.to_string(),
                         _ => "HDR did not read back on in time".into(),
                     };
-                    notes.push(format!("HDR switch failed ({why}); playing tone-mapped SDR"));
+                    notes.push(format!(
+                        "HDR switch failed ({why}){}; playing tone-mapped SDR",
+                        if power { " on battery" } else { "" }
+                    ));
+                    self.refused.push((key.clone(), power));
                     // Undo a half-applied toggle now; the marker still covers a crash.
                     let _ = ctrl.set_hdr(&d.id, false);
                     hdr = HdrDecision::StaySdr(policy::SdrReason::Unsupported);
@@ -124,6 +212,13 @@ impl DisplaySession {
                 std::thread::sleep(self.timing.settle);
             }
         }
+        // Enabling HDR can change the refresh or the mode list on a bandwidth-limited link (HDMI 2.0 at 4K): plan the
+        // refresh against the display as it is now (phase-7 review L3). The marker keeps the state before any change.
+        let d = if hdr_switched {
+            ctrl.display(&d.id).unwrap_or(d)
+        } else {
+            d
+        };
         let modes = match ctrl.modes(&d) {
             Ok(m) => m,
             Err(e) => {
@@ -178,10 +273,11 @@ impl DisplaySession {
         }
         let report = marker::restore(ctrl, &self.marker, self.timing.hdr_timeout);
         if report.all_ok() {
-            if let Err(e) = RestoreMarker::remove(&self.marker_path) {
-                tracing::warn!(error = %e, "display restore marker could not be removed");
-            }
             self.marker.entries.clear();
+            // Removes the file, or keeps only the leftovers of an earlier run.
+            if let Err(e) = self.persist() {
+                tracing::warn!(error = %e, "display restore marker could not be updated");
+            }
         } else {
             tracing::warn!("display restore incomplete; marker kept for startup repair");
             // Keep only the entries that failed, so a retry does not touch restored displays again.
@@ -192,7 +288,7 @@ impl DisplaySession {
                 .map(|o| o.id.clone())
                 .collect();
             self.marker.entries.retain(|e| failed.contains(&e.id));
-            let _ = self.marker.save(&self.marker_path);
+            let _ = self.persist();
         }
         Some(report)
     }
@@ -293,6 +389,92 @@ mod tests {
         let a = s.prepare(&m, GDI, &hdr10(24.0), &Policy::default())?;
         assert!(!a.hdr_output && !a.hdr_switched);
         assert!(a.notes.iter().any(|n| n.contains("HDR switch failed")));
+        Ok(())
+    }
+
+    static BATTERY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+    fn battery() -> bool {
+        BATTERY.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    #[test]
+    fn a_refused_hdr_switch_is_not_retried_in_the_same_power_state() -> Result<(), DisplayError> {
+        let m = MockDisplayController::single(false, Rational::new(120, 1));
+        m.fail_set_hdr(true);
+        let mut s = DisplaySession::new(path("refused"), zero()).with_power_probe(battery);
+        BATTERY.store(true, std::sync::atomic::Ordering::SeqCst);
+        let a = s.prepare(&m, GDI, &hdr10(24.0), &Policy::default())?;
+        assert!(
+            a.notes
+                .iter()
+                .any(|n| n.contains("HDR switch failed") && n.contains("on battery"))
+        );
+        // Windows would now accept it, but in the same power state the switch is not attempted (no wait).
+        m.fail_set_hdr(false);
+        let b = s.prepare(&m, GDI, &hdr10(24.0), &Policy::default())?;
+        assert!(!b.hdr_switched && !b.hdr_output);
+        assert!(
+            b.notes.iter().any(|n| n.contains("HDR switch skipped")),
+            "{:?}",
+            b.notes
+        );
+        assert!(!m.display(&m.id())?.hdr_enabled);
+        // Plugged in: tried again.
+        BATTERY.store(false, std::sync::atomic::Ordering::SeqCst);
+        let c = s.prepare(&m, GDI, &hdr10(24.0), &Policy::default())?;
+        assert!(c.hdr_switched && c.hdr_output);
+        let _ = s.restore(&m);
+        BATTERY.store(true, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    #[test]
+    fn a_leftover_marker_entry_survives_the_next_playback() -> Result<(), DisplayError> {
+        let m = MockDisplayController::single(false, Rational::new(120, 1));
+        let p = path("leftover");
+        // Monitor B (unplugged now) was left in HDR by a crashed run; startup repair could not restore it.
+        let mut b = m.entry(true, false);
+        b.id.target_id += 1;
+        b.gdi_name = r"\\.\DISPLAY2".into();
+        b.monitor_path = r"\\?\DISPLAY#OTHER#2".into();
+        RestoreMarker {
+            entries: vec![b.clone()],
+            ..RestoreMarker::default()
+        }
+        .save(&p)?;
+        let mut s = DisplaySession::new(p.clone(), zero());
+        let a = s.prepare(&m, GDI, &hdr10(24.0), &Policy::default())?;
+        assert!(a.hdr_switched);
+        let saved = RestoreMarker::load(&p)?.ok_or(DisplayError::Api("no marker".into()))?;
+        assert_eq!(saved.entries.len(), 2, "{saved:?}");
+        assert!(saved.entries.contains(&b));
+        assert!(s.restore(&m).is_some_and(|r| r.all_ok()));
+        assert!(!m.display(&m.id())?.hdr_enabled);
+        // Monitor A is restored; B is still remembered for the next startup repair.
+        let kept = RestoreMarker::load(&p)?.ok_or(DisplayError::Api("marker removed".into()))?;
+        assert_eq!(kept.entries, vec![b]);
+        Ok(())
+    }
+
+    #[test]
+    fn a_leftover_for_the_same_monitor_keeps_the_earliest_original() -> Result<(), DisplayError> {
+        // A crashed run switched this monitor from 60 to 120 Hz and the repair failed: the next restore must return
+        // to 60 Hz (the leftover's original), not to the 120 Hz the session sees now.
+        let m = MockDisplayController::single(false, Rational::new(120, 1));
+        let p = path("leftover-same");
+        let mut e = m.entry(false, true);
+        e.original_refresh = Rational::new(60, 1);
+        RestoreMarker {
+            entries: vec![e],
+            ..RestoreMarker::default()
+        }
+        .save(&p)?;
+        let mut s = DisplaySession::new(p.clone(), zero());
+        assert!(s.prepare(&m, GDI, &hdr10(24.0), &Policy::default())?.hdr_switched);
+        let saved = RestoreMarker::load(&p)?.ok_or(DisplayError::Api("no marker".into()))?;
+        assert_eq!(saved.entries.len(), 1);
+        assert_eq!(saved.entries[0].original_refresh, Rational::new(60, 1));
+        assert!(saved.entries[0].hdr_changed && saved.entries[0].refresh_changed);
         Ok(())
     }
 

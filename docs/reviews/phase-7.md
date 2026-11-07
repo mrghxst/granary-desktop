@@ -261,3 +261,29 @@ None.
   - `DynamicRange::from_mpv` is used only in tests; when the server omits `dynamic_range` and no DV profile is present,
     content is treated as SDR without consulting mpv's `video-params`.
   - `Output::holding()` is used only in tests.
+
+## Resolution (2026-11-07)
+All seven Medium findings are fixed. Lows are fixed or deferred as listed. ADR-0006 Amendment 2 records the decisions.
+
+| Finding | Resolution |
+|---|---|
+| M1 | `PlaybackPlan::delivered()` lays `effective_recipe` (range, codecs, fps, channels) over `source`. Output decides on it (`controller.rs` `apply_output`). `OutputFacts::hdr_switchable` declares HDR output when the panel supports HDR and the HDR mode is not "off". Documented in `silo-api.md` with `protocol_v3.go`/`plan_v3.go`/`capabilities_v3.go`@6791aac. Tests: `delivered_range_comes_from_the_effective_recipe`, `transcode_of_an_hdr_source_stays_sdr`, `hdr_output_is_exact_when_probed` (switchable case). |
+| M2 | `Cmd::Shutdown` stops mpv and releases the display first, then sends the server stop. |
+| M3 | `DisplaySession::new` loads the existing marker and keeps leftover entries; the earliest original wins; an unreadable marker is moved aside. Tests: `a_leftover_marker_entry_survives_the_next_playback`, `a_leftover_for_the_same_monitor_keeps_the_earliest_original`. |
+| M4 | `panic = "abort"` in the release profile. The hook restores only when `cfg!(panic = "abort")`. |
+| M5 | The reuse key includes the `Policy`. `Output::settings_changed` runs on `SettingsChanged`: a tone-mapping-only change retunes without a restore; a mode change restores and re-applies. The Settings hint now says display settings apply immediately. Tests: `tone_mapping_change_during_playback_retunes_without_a_restore`, `hdr_mode_change_during_playback_re_decides_at_once`. In-app: audio change applied live (`audio-normalize-downmix` yes → no). |
+| M6 | `hdr_timeout` is 5 s. A refused switch is remembered per monitor and power state (`power::on_battery`), test `a_refused_hdr_switch_is_not_retried_in_the_same_power_state`. Monitor-move decisions run in `spawn_blocking`; the result applies only to the same playback generation (`Cmd::MovedOutput`). |
+| M7 | Checklist: A.2/A.5 windowed and fullscreen, A.13 HDR10+, A.14 near-black ramps (new `hdr10_near_black_ramp.mkv` / `sdr_near_black_ramp.mkv` from `gen-test-media.ps1`, Y 64→338 / 64→149 verified with `signalstats`), A.15 battery refusal. |
+| L1 | Rule kept deliberately (OLED mode switches blank the panel; resampling at ≥144 Hz). ADR amendment 2 and checklist A.6 now match the code. |
+| L3 | The display is re-read after a successful HDR switch, before the refresh plan. |
+| L6 | `output-evidence.mjs` now asserts the values: output range matches the monitor, target peak is nits for HDR / `auto` for SDR, live audio compares `audio-normalize-downmix`, capability skips are labelled, and the battery refusal path is checked. Stats include `target-contrast`, `audio-channels`, `audio-normalize-downmix`. |
+| L7 | Accepted risk, recorded in PROGRESS.md and ADR amendment 2. |
+| L2, L4, L5, L8 | Deferred to PROGRESS.md known issues (none affects restore safety). |
+
+### Checks after the fixes
+- `scripts/verify.ps1` → exit 0 (fmt, clippy -D warnings, cargo test, typecheck, lint, format, vitest, build, secret scan).
+- `cargo test -p granary-display` 36 passed; `cargo test -p granary --lib` 56 passed; `granary-silo-api` lib 42 passed.
+- `display_roundtrip` on battery → exit 0. HDR refused and reported, refresh 60 → 120 → 60 Hz restored, marker
+  removed (`docs/evidence/phase-7/display-roundtrip-battery.txt`).
+- `output-evidence.mjs` on battery → 17/17 (`docs/evidence/phase-7/battery/`). The earlier mains-power run (HDR
+  switched on and restored) stays in `docs/evidence/phase-7/`.

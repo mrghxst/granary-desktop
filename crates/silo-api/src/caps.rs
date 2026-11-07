@@ -97,6 +97,9 @@ pub struct OutputFacts {
     pub display_id: Option<String>,
     /// Windows HDR (advanced colour) active on that monitor; `None` when it could not be probed.
     pub hdr_active: Option<bool>,
+    /// HDR is off but the panel supports it and Granary switches it on for HDR content (HDR mode not "off"), so the
+    /// output is HDR-capable for this playback (phase-7 review M1; ADR-0006).
+    pub hdr_switchable: bool,
 }
 
 /// Hardware video decoders found by the D3D11 decoder-profile probe (FFmpeg codec names).
@@ -184,6 +187,12 @@ fn delivery(containers: &[&str], native_subtitles: bool, claims: &[&str]) -> Del
 fn output(facts: &OutputFacts) -> OutputContext {
     let panel = match facts.hdr_active {
         Some(true) => Some(HdrCapabilities {
+            hdr10: true,
+            hdr10_plus: false,
+            hlg: true,
+            dolby_vision_profiles: Vec::new(),
+        }),
+        _ if facts.hdr_switchable => Some(HdrCapabilities {
             hdr10: true,
             hdr10_plus: false,
             hlg: true,
@@ -299,6 +308,7 @@ mod tests {
             &OutputFacts {
                 display_id: Some(r"\\.\DISPLAY1".into()),
                 hdr_active: Some(true),
+                hdr_switchable: false,
             },
         );
         let d = ctx.output.display.unwrap();
@@ -311,9 +321,23 @@ mod tests {
             &OutputFacts {
                 display_id: None,
                 hdr_active: Some(false),
+                hdr_switchable: false,
             },
         );
         assert_eq!(sdr.output.display.unwrap().hdr_types, None);
+        // HDR off, but Granary will switch it on for HDR content: the server may plan native HDR.
+        let switchable = playback_context(
+            "0.1.0",
+            "10",
+            &OutputFacts {
+                display_id: None,
+                hdr_active: Some(false),
+                hdr_switchable: true,
+            },
+        );
+        let d = switchable.output.display.unwrap();
+        assert_eq!(d.hdr_evidence, "exact");
+        assert!(d.hdr_types.is_some_and(|h| h.hdr10) && switchable.output.hdr_details.is_some());
     }
 
     #[test]

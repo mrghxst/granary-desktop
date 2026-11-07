@@ -290,19 +290,20 @@ pub fn os_version() -> String {
     }
 }
 
-/// The monitor showing the main window and whether Windows HDR is active on it.
-pub fn output_facts() -> OutputFacts {
+/// The monitor showing the main window, whether Windows HDR is active on it and whether Granary would switch it on
+/// (`hdr_switching`: the HDR mode setting is not "off").
+pub fn output_facts(hdr_switching: bool) -> OutputFacts {
     use granary_display::DisplayController;
     let Some(device) = super::video::monitor_device() else {
         return OutputFacts::default();
     };
-    let hdr = granary_display::win::WindowsDisplayController
+    let display = granary_display::win::WindowsDisplayController
         .displays()
         .ok()
-        .and_then(|ds| ds.into_iter().find(|d| d.gdi_name == device))
-        .map(|d| d.hdr_active());
+        .and_then(|ds| ds.into_iter().find(|d| d.gdi_name == device));
     OutputFacts {
         display_id: Some(device),
-        hdr_active: hdr,
+        hdr_active: display.as_ref().map(granary_display::DisplayInfo::hdr_active),
+        hdr_switchable: hdr_switching && display.is_some_and(|d| d.hdr_supported && !d.hdr_enabled),
     }
 }

@@ -395,6 +395,19 @@ pub struct PlaybackSource {
     pub duration_seconds: Option<f64>,
 }
 
+/// `EffectiveRecipeV3` subset (`internal/playback/protocol_v3.go:973-989`@6791aac): what the delivered stream carries.
+/// A transcode is always SDR with a server-side tone map (`plan_v3.go:1458`); a remux or direct plan copies the source
+/// (`recipeFromSourceV3`, `plan_v3.go:2409`), except `client_dv7_to_hdr10` (`plan_v3.go:556`), which plays as HDR10.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EffectiveRecipe {
+    pub video_codec: Option<String>,
+    pub audio_codec: Option<String>,
+    pub frame_rate: Option<f64>,
+    pub dynamic_range: Option<String>,
+    pub audio_channels: Option<i64>,
+}
+
 /// `PlaybackPlan` (OAS:L44282) subset.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -414,6 +427,7 @@ pub struct PlaybackPlan {
     pub requested_media_file_id: String,
     pub effective_media_file_id: String,
     pub source: PlaybackSource,
+    pub effective_recipe: Option<EffectiveRecipe>,
     pub expires_at: Option<String>,
 }
 
@@ -421,6 +435,35 @@ impl PlaybackPlan {
     /// The original file, byte for byte: the player owns tracks, subtitles and dynamic range.
     pub fn is_direct(&self) -> bool {
         self.delivery == "original_http"
+    }
+
+    /// What the player receives: the source descriptor with the recipe's codecs, frame rate and dynamic range laid
+    /// over it (phase-7 review M1). Display and audio output decide on this, not on the original file.
+    pub fn delivered(&self) -> PlaybackSource {
+        let mut s = self.source.clone();
+        let Some(r) = &self.effective_recipe else {
+            return s;
+        };
+        let text = |v: &Option<String>| v.as_deref().filter(|t| !t.is_empty()).map(str::to_owned);
+        if let Some(range) = text(&r.dynamic_range) {
+            if range != "dolby_vision" {
+                s.dolby_vision_profile = None;
+            }
+            s.dynamic_range = Some(range);
+        }
+        if let Some(c) = text(&r.video_codec) {
+            s.video_codec = Some(c);
+        }
+        if let Some(c) = text(&r.audio_codec) {
+            s.audio_codec = Some(c);
+        }
+        if let Some(f) = r.frame_rate.filter(|f| f.is_finite() && *f > 0.0) {
+            s.frame_rate = Some(f);
+        }
+        if r.audio_channels.is_some() {
+            s.audio_channels = r.audio_channels;
+        }
+        s
     }
 }
 
@@ -572,6 +615,37 @@ pub fn mint_id() -> String {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn delivered_range_comes_from_the_effective_recipe() {
+        // Shape of upstream `PlaybackPlanV3` (`internal/apiv2/playback.go:98`@6791aac): a transcode of an HDR10/DV file.
+        let p: PlaybackPlan = serde_json::from_str(
+            r#"{"delivery":"server_transcode_hls",
+                "source":{"dynamic_range":"dolby_vision","dolby_vision_profile":8,"audio_codec":"truehd","frame_rate":23.976},
+                "effective_recipe":{"video_codec":"h264","audio_codec":"aac","dynamic_range":"sdr","audio_channels":2}}"#,
+        )
+        .unwrap();
+        let d = p.delivered();
+        assert_eq!(d.dynamic_range.as_deref(), Some("sdr"));
+        assert_eq!(d.dolby_vision_profile, None, "a tone-mapped stream carries no RPU");
+        assert_eq!(d.audio_codec.as_deref(), Some("aac"));
+        assert_eq!(d.frame_rate, Some(23.976), "frame rate kept when the recipe has none");
+        assert_eq!(
+            p.source.dynamic_range.as_deref(),
+            Some("dolby_vision"),
+            "source untouched (stats)"
+        );
+        // No recipe (older server or fixture): the source decides.
+        let mut q = p.clone();
+        q.effective_recipe = None;
+        assert_eq!(q.delivered(), q.source);
+        // DV kept when the recipe says so.
+        q.effective_recipe = Some(EffectiveRecipe {
+            dynamic_range: Some("dolby_vision".into()),
+            ..EffectiveRecipe::default()
+        });
+        assert_eq!(q.delivered().dolby_vision_profile, Some(8));
+    }
 
     #[test]
     fn timeline_maps_player_and_source_positions() {

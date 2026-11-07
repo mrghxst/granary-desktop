@@ -13,6 +13,7 @@
 // Local only: talks to 127.0.0.1. Test values of the in-process mock (alice / pw) are used for sign-in.
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const outDir = process.argv[2] ?? "docs/evidence/phase-7";
 const port = Number(process.argv[3] ?? 9333);
@@ -175,7 +176,19 @@ const before = await monitors();
 writeFileSync(join(outDir, "monitors-before.json"), JSON.stringify(before, null, 2));
 check("display_list reports the monitors", before.length >= 1, before.map((m) => `${m.name || m.key} ${m.refreshHz} Hz hdr=${m.hdrEnabled}`).join("; "));
 const start = before.find((m) => m.current) ?? before[0];
-const canHdr = start.hdrSupported && !start.hdrEnabled;
+// Windows refuses to switch HDR on while on battery (ADR-0006 amendment 1): the app must then report the refusal,
+// play tone-mapped SDR and leave HDR off. Power state from WMI (read-only).
+let onBattery = false;
+try {
+  const online = execFileSync("powershell.exe", ["-NoProfile", "-Command", "(Get-CimInstance -Namespace root/wmi -ClassName BatteryStatus -ErrorAction SilentlyContinue | Select-Object -First 1).PowerOnline"], { encoding: "utf8" }).trim();
+  onBattery = online === "False";
+} catch {
+  onBattery = false;
+}
+log(`power: ${onBattery ? "battery" : "mains (or no battery)"}`);
+const canHdr = start.hdrSupported && !start.hdrEnabled && !onBattery;
+const refusedHdr = start.hdrSupported && !start.hdrEnabled && onBattery;
+const skip = (name, detail) => check(`${name} [capability skip]`, true, detail);
 // Desktop defaults (HDR for HDR content only, automatic refresh), audio defaults.
 await evaluate(
   `__g.invoke("settings_get").then((s) => __g.invoke("settings_set", { settings: { ...s, display: { ...s.display, hdrMode: "content", refresh: "auto" } } }))`,
@@ -209,18 +222,28 @@ await key("i");
 await sleep(1200);
 await shot("01-hdr10-stats");
 await key("i");
+const range1 = String(stats1["output-dynamic-range"] ?? "");
+const hdrOut1 = /^HDR/.test(range1);
 if (canHdr) {
-  check("HDR content: Windows HDR switched on", now.hdrEnabled, String(stats1["output-dynamic-range"]));
+  check("HDR content: Windows HDR switched on", now.hdrEnabled && /switched on/.test(range1), range1);
+} else if (refusedHdr) {
+  check("HDR content on battery: refusal handled (HDR left off, tone-mapped SDR)", !now.hdrEnabled && /^SDR/.test(range1), range1);
 } else {
-  check("HDR content: capability skip (HDR already on or unsupported)", true, `hdrSupported=${start.hdrSupported} hdrEnabled=${start.hdrEnabled}`);
+  skip("HDR content: HDR already on or unsupported", `hdrSupported=${start.hdrSupported} hdrEnabled=${start.hdrEnabled}`);
 }
-check("stats: output dynamic range", /HDR|SDR/.test(String(stats1["output-dynamic-range"] ?? "")), String(stats1["output-dynamic-range"]));
-check("stats: tone-mapping target peak", String(stats1["target-peak"] ?? stats1["output-target-peak"] ?? "") !== "", `target-peak=${stats1["target-peak"]} (${stats1["output-target-peak"]})`);
+check("stats: output dynamic range matches the monitor", hdrOut1 === now.hdrEnabled, `${range1}, monitor hdr=${now.hdrEnabled}`);
+const peak1 = String(stats1["output-target-peak"] ?? "");
+check(
+  "stats: tone-mapping target peak (nits for HDR output, auto for SDR)",
+  hdrOut1 ? Number(peak1) >= 80 : peak1 === "auto",
+  `output-target-peak=${peak1} mpv target-peak=${stats1["target-peak"]} target-contrast=${stats1["target-contrast"]}`,
+);
 check("stats: source dynamic range from the plan", stats1["source-dynamic-range"] === "hdr10", String(stats1["source-dynamic-range"]));
 check("stats: audio output options", stats1["audio-device"] !== undefined, `device=${stats1["audio-device"]} exclusive=${stats1["audio-exclusive"]} spdif=${stats1["audio-spdif"]}`);
 await stopAndWaitRestore("hdr");
 now = await current();
-check("held during the idle grace (next episode)", !canHdr || now.hdrEnabled, `hdr=${now.hdrEnabled}`);
+if (canHdr) check("HDR held during the idle grace (for a next episode)", now.hdrEnabled, `hdr=${now.hdrEnabled}`);
+else skip("HDR held during the idle grace", "HDR was not switched");
 await sleep(13000);
 now = await current();
 check("restored after the idle grace", same(now, start), `hdr ${start.hdrEnabled} -> ${now.hdrEnabled}, ${start.refreshHz} -> ${now.refreshHz} Hz`);
@@ -240,13 +263,18 @@ check("SDR content: HDR left as it was", now.hdrEnabled === start.hdrEnabled, `h
 if (multiple.length > 0 && Math.abs(start.refreshHz / 25 - Math.round(start.refreshHz / 25)) > 0.002) {
   check("25 fps: switched to an exact multiple", multiple.some((hz) => Math.abs(hz - now.refreshHz) < 0.01), `${start.refreshHz} -> ${now.refreshHz} Hz (${stats2["output-refresh"]})`);
 } else {
-  check("25 fps: capability skip (no exact multiple or already fits)", true, String(stats2["output-refresh"]));
+  skip("25 fps: no exact multiple or already fits", String(stats2["output-refresh"]));
 }
-// Audio settings apply live during playback.
+// Audio settings apply live during playback: mpv's audio-normalize-downmix goes from yes to no without a restart.
+const downmixBefore = String(stats2["audio-normalize-downmix"]);
 await evaluate(`__g.invoke("settings_get").then((s) => __g.invoke("settings_set", { settings: { ...s, audio: { ...s.audio, normalizeDownmix: false } } }))`);
 await sleep(1500);
 const live = await evaluate(`__g.invoke("player_stats")`);
-check("audio settings apply live", (await state()).phase === "playing", `phase=${(await state()).phase}`);
+check(
+  "audio settings apply live (audio-normalize-downmix yes -> no, still playing)",
+  downmixBefore === "yes" && String(live["audio-normalize-downmix"]) === "no" && (await state()).phase === "playing",
+  `${downmixBefore} -> ${live["audio-normalize-downmix"]}, phase=${(await state()).phase}`,
+);
 await stopAndWaitRestore("sdr");
 await sleep(13000);
 now = await current();
@@ -261,7 +289,6 @@ check(
   before.every((b) => after.some((a) => a.key === b.key && same(a, b))),
   after.map((m) => `${m.name || m.key} ${m.refreshHz} Hz hdr=${m.hdrEnabled}`).join("; "),
 );
-void live;
 
 // The host log for this run.
 const logDir = join(process.env.LOCALAPPDATA ?? "", "Granary", "logs");
@@ -280,6 +307,7 @@ const decided = keep.filter((l) => l.includes("display output decided"));
 check("log: display output decided before each playback", decided.length >= 2, `${decided.length} decisions`);
 if (canHdr) check("log: HDR switched for the HDR clip", decided.some((l) => /hdr_switched=true/.test(l)));
 check("log: display state restored", keep.some((l) => l.includes("display state restored")) || !decided.some((l) => /switched=true/.test(l)));
+if (refusedHdr) check("log: HDR refusal on battery reported", keep.some((l) => /HDR switch failed .*on battery|HDR switch skipped/.test(l)));
 check("log: no unrestored display state", !keep.some((l) => l.includes("not fully restored")));
 
 writeFileSync(join(outDir, "checks.json"), JSON.stringify(checks, null, 2));

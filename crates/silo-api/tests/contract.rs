@@ -635,6 +635,7 @@ fn granary_start_body(caps: &PlaybackCapabilities) -> PlaybackStartBody {
             &OutputFacts {
                 display_id: Some(r"\\.\DISPLAY1".into()),
                 hdr_active: Some(true),
+                hdr_switchable: false,
             },
         ),
         start_position: Some(12.5),
