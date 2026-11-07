@@ -165,6 +165,32 @@ pub struct FileVersion {
     pub effective_audio_track_index: Option<i64>,
     pub audio_tracks: Vec<AudioTrack>,
     pub subtitle_tracks: Vec<SubtitleTrack>,
+    /// `WatchChapter`/`VersionChapter` (OAS:L54617).
+    pub chapters: Vec<Chapter>,
+    /// `WatchFileVersion.marker_segments`: every intro/credits/recap/preview occurrence in source-time order.
+    pub marker_segments: Vec<MarkerOccurrence>,
+    /// Seek-bar previews are published; read them with `getWatchTrickplay`.
+    pub trickplay_available: bool,
+}
+
+/// `WatchChapter` / `VersionChapter`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Chapter {
+    pub index: i64,
+    pub title: String,
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+    pub source: String,
+}
+
+/// `MarkerOccurrence` (OAS:L39442): `kind` is `intro | credits | recap | preview`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MarkerOccurrence {
+    pub kind: String,
+    pub start_seconds: f64,
+    pub end_seconds: f64,
 }
 
 /// `CatalogRating`.

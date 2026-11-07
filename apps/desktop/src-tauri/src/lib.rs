@@ -10,6 +10,7 @@ pub mod catalog;
 pub mod commands;
 pub mod logging;
 pub mod paths;
+pub mod playback;
 pub mod redact;
 pub mod settings;
 pub mod silo;

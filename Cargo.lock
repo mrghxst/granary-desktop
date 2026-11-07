@@ -1572,9 +1572,14 @@ dependencies = [
 name = "granary"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "futures-util",
  "granary-display",
  "granary-player",
  "granary-silo-api",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "serde",
  "serde_json",
  "tauri",
@@ -1587,6 +1592,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "url",
+ "uuid",
 ]
 
 [[package]]

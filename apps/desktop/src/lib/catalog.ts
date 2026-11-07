@@ -111,6 +111,23 @@ export interface FileVersion {
   effective_audio_track_index?: number | null;
   audio_tracks: AudioTrack[];
   subtitle_tracks: SubtitleTrack[];
+  chapters?: Chapter[];
+  marker_segments?: MarkerOccurrence[];
+  trickplay_available?: boolean;
+}
+
+export interface Chapter {
+  index: number;
+  title: string;
+  start_seconds: number;
+  end_seconds: number;
+  source: string;
+}
+
+export interface MarkerOccurrence {
+  kind: "intro" | "credits" | "recap" | "preview" | string;
+  start_seconds: number;
+  end_seconds: number;
 }
 
 export interface CastCredit {
