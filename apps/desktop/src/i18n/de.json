@@ -6,7 +6,6 @@
   "home": {
     "title": "Willkommen bei Granary",
     "connect": "Mit einem Server verbinden",
-    "notConnected": "Noch kein Server verbunden.",
     "servers": "Server",
     "addServer": "Server hinzufügen",
     "signedInAs": "Angemeldet als {{username}}",
@@ -16,7 +15,16 @@
     "signOut": "Abmelden",
     "remove": "Entfernen",
     "untested": "Ungetestete Serverversion",
-    "insecure": "Unverschlüsselt (http)"
+    "insecure": "Unverschlüsselt (http)",
+    "onboarding": {
+      "title": "Willkommen bei Granary",
+      "step1": "Füge deinen Silo-Server mit seiner Adresse hinzu (zum Beispiel https://media.example.com).",
+      "step2": "Melde dich an und wähle dein Profil.",
+      "step3": "Durchsuche deine Bibliotheken und spiele ab: Videos laufen im nativen Player mit HDR und Bildwiederholrate passend zu deinem Monitor.",
+      "privacy": "Dein Passwort wird nie gespeichert; Granary behält nur das Sitzungstoken des Servers in der Windows-Anmeldeinformationsverwaltung."
+    },
+    "confirmRemove": "Entfernen und Anmeldung vergessen",
+    "cancel": "Abbrechen"
   },
   "addServer": {
     "title": "Server hinzufügen",
@@ -61,7 +69,8 @@
     "playerReady": "libmpv bereit (Client-API {{version}})",
     "playerMissing": "libmpv nicht verfügbar: {{error}}",
     "version": "Version {{version}}",
-    "loading": "Lädt…"
+    "loading": "Lädt…",
+    "offline": "Du bist offline. Granary verbindet sich wieder, sobald das Netzwerk zurück ist."
   },
   "shell": {
     "skip": "Zum Inhalt springen",
@@ -71,7 +80,8 @@
     "libraries": "Mediatheken",
     "profile": "Profil wechseln",
     "servers": "Server",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "about": "Über"
   },
   "browse": {
     "watched": "Gesehen",
@@ -300,5 +310,26 @@
     "installation_changed": "Der Server wurde neu eingerichtet; der Fortschritt dieser Wiedergabe wird eventuell nicht gespeichert.",
     "stream_failed": "Der Stream konnte nicht wiederhergestellt werden.",
     "reconnecting": "Verbindung verloren. Neue Verbindung wird aufgebaut…"
+  },
+  "about": {
+    "title": "Über Granary",
+    "version": "Version",
+    "player": "Player",
+    "license": "Lizenz",
+    "compatible": "Granary ist ein unabhängiger Desktop-Client, kompatibel mit Silo-Medienservern. Es steht in keiner Verbindung zum Silo-Projekt und wird von diesem nicht unterstützt.",
+    "sourceOffer": "Granary ist freie Software unter der GNU Affero General Public License v3 oder neuer. Der vollständige Quellcode ist im Repository verfügbar.",
+    "checkUpdates": "Nach Updates suchen",
+    "source": "Quellcode",
+    "licenseText": "Lizenztext",
+    "updatesHint": "Öffnet die Release-Seite im Browser. Granary aktualisiert sich nie selbst.",
+    "logs": "Protokolle",
+    "logsHint": "Protokolle bleiben auf diesem PC. Tokens, Passwörter und signierte URLs werden vor dem Schreiben und erneut beim Anzeigen oder Exportieren entfernt.",
+    "showLogs": "Aktuelles Protokoll anzeigen",
+    "refreshLogs": "Aktualisieren",
+    "exportLogs": "Protokolle exportieren",
+    "openLogFolder": "Protokollordner öffnen",
+    "exported": "Protokolle gespeichert unter {{path}}",
+    "noLogs": "Noch keine Protokolleinträge.",
+    "notices": "Hinweise zu Drittanbietern"
   }
 }

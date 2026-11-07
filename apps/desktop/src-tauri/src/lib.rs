@@ -6,6 +6,7 @@
 //! 5. `setup`: display repair from a leftover restore marker, *then* the main window is created (ADR-0006,
 //!    phase-3 review H1). The window is declared with `"create": false` in tauri.conf.json for this reason.
 
+pub mod about;
 pub mod catalog;
 pub mod commands;
 pub mod logging;
@@ -164,7 +165,11 @@ fn navigation_allowed(url: &tauri::Url, dev_url: Option<&tauri::Url>) -> bool {
     bundled || dev
 }
 
+/// Process start, for the cold-start measurement logged by [`commands::app_ready`] (docs/perf.md).
+pub static STARTED: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
 pub fn run() {
+    let _ = STARTED.set(std::time::Instant::now());
     // SAFETY: Rust 2024 marks set_var unsafe because concurrent environment access is UB on some platforms; on
     // Windows the CRT/OS environment block is synchronised, and this runs first in main before Granary starts any
     // thread. WebView2 reads the variable when its environment is created, so the page background can be transparent
@@ -224,6 +229,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::app_ready,
+            about::about_info,
+            about::open_link,
+            about::logs_tail,
+            about::logs_export,
             silo::servers_list,
             silo::servers_probe,
             silo::servers_add,

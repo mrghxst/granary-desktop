@@ -2,6 +2,8 @@ import { useEffect, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router";
 import { goSignIn } from "./lib/nav";
 import { onRevoked } from "./lib/silo";
+import { About } from "./routes/About";
+import { OfflineBanner } from "./components/OfflineBanner";
 import { AddServer } from "./routes/AddServer";
 import { Home } from "./routes/Home";
 import { Shell } from "./components/Shell";
@@ -47,6 +49,7 @@ export function AppRoutes() {
   return (
     <PlayerProvider>
       <RevokedListener />
+      <OfflineBanner />
       <PlayerView />
       <HiddenWhilePlaying>
         <Routes>
@@ -59,6 +62,7 @@ export function AppRoutes() {
             <Route path="search" element={<Search />} />
             <Route path="item/:itemId" element={<Item />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="about" element={<About />} />
             <Route index element={<Navigate to="home" replace />} />
             <Route path="libraries" element={<Navigate to="../home" replace />} />
           </Route>
@@ -67,6 +71,14 @@ export function AppRoutes() {
             element={
               <main className="mx-auto w-full max-w-3xl p-6">
                 <Settings />
+              </main>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <main className="mx-auto w-full max-w-3xl p-6">
+                <About />
               </main>
             }
           />

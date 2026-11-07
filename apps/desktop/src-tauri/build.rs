@@ -4,6 +4,11 @@ use std::path::{Path, PathBuf};
 
 const COMMANDS: &[&str] = &[
     "app_info",
+    "app_ready",
+    "about_info",
+    "open_link",
+    "logs_tail",
+    "logs_export",
     "servers_list",
     "servers_probe",
     "servers_add",

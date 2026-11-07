@@ -1,4 +1,4 @@
-import { Clapperboard, Folder, Home, Search, Server, Settings, Tv, UserRound } from "lucide-react";
+import { Clapperboard, Folder, Home, Info, Search, Server, Settings, Tv, UserRound } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate, useParams } from "react-router";
@@ -142,6 +142,7 @@ export function Shell() {
             icon={<Settings className="size-[18px] shrink-0" />}
             label={t("shell.settings")}
           />
+          <Item to={`${base}/about`} icon={<Info className="size-[18px] shrink-0" />} label={t("shell.about")} />
         </ul>
       </nav>
       <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto focus:outline-none">

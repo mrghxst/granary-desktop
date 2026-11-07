@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { Alert, Button, Card } from "../components/ui";
 import { errorMessage } from "../lib/errors";
-import { appInfo, type AppInfo } from "../lib/host";
+import { appInfo, signalReady, type AppInfo } from "../lib/host";
 import { silo, type ServerView } from "../lib/silo";
 
 function serverPath(s: ServerView): string {
@@ -17,6 +17,8 @@ export function Home() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [servers, setServers] = useState<ServerView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Removing a server also deletes its stored session, so it takes a second, explicit click.
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     silo
@@ -42,6 +44,11 @@ export function Home() {
       alive = false;
     };
   }, [reload]);
+
+  // The first interactive screen once the server list is known (cold-start measurement, docs/perf.md).
+  useEffect(() => {
+    if (servers !== null) signalReady();
+  }, [servers]);
 
   async function act(f: () => Promise<unknown>) {
     setError(null);
@@ -82,9 +89,36 @@ export function Home() {
                       {t("home.signOut")}
                     </Button>
                   ) : null}
-                  <Button variant="danger" onClick={() => void act(() => silo.serversRemove(s.serverId))}>
-                    {t("home.remove")}
-                  </Button>
+                  {confirmRemove === s.serverId ? (
+                    <>
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          setConfirmRemove(null);
+                          void act(() => silo.serversRemove(s.serverId));
+                        }}
+                      >
+                        {t("home.confirmRemove")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setConfirmRemove(null);
+                        }}
+                      >
+                        {t("home.cancel")}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="danger"
+                      onClick={() => {
+                        setConfirmRemove(s.serverId);
+                      }}
+                    >
+                      {t("home.remove")}
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -94,7 +128,23 @@ export function Home() {
           </>
         ) : (
           <>
-            <p className="text-muted-foreground">{t("home.notConnected")}</p>
+            {servers === null ? (
+              <p className="text-muted-foreground" role="status">
+                {t("status.loading")}
+              </p>
+            ) : (
+              <section aria-labelledby="onboarding-title" className="flex flex-col gap-3" data-testid="onboarding">
+                <h2 id="onboarding-title" className="text-lg font-semibold">
+                  {t("home.onboarding.title")}
+                </h2>
+                <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm text-muted-foreground">
+                  <li>{t("home.onboarding.step1")}</li>
+                  <li>{t("home.onboarding.step2")}</li>
+                  <li>{t("home.onboarding.step3")}</li>
+                </ol>
+                <p className="text-xs text-muted-foreground">{t("home.onboarding.privacy")}</p>
+              </section>
+            )}
             <Button className="w-full" disabled={servers === null} onClick={() => void navigate("/servers/add")}>
               {t("home.connect")}
             </Button>
@@ -107,6 +157,12 @@ export function Home() {
         className="text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
       >
         {t("shell.settings")}
+      </Link>
+      <Link
+        to="/about"
+        className="text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {t("shell.about")}
       </Link>
       <footer className="text-sm text-muted-foreground" data-testid="status">
         {info === null

@@ -6,7 +6,6 @@
   "home": {
     "title": "Welcome to Granary",
     "connect": "Connect to a server",
-    "notConnected": "No server connected yet.",
     "servers": "Servers",
     "addServer": "Add server",
     "signedInAs": "Signed in as {{username}}",
@@ -16,7 +15,16 @@
     "signOut": "Sign out",
     "remove": "Remove",
     "untested": "Untested server version",
-    "insecure": "Unencrypted (http)"
+    "insecure": "Unencrypted (http)",
+    "onboarding": {
+      "title": "Welcome to Granary",
+      "step1": "Add your Silo server by its address (for example https://media.example.com).",
+      "step2": "Sign in and pick your profile.",
+      "step3": "Browse your libraries and play: video runs in the native player with HDR and refresh-rate matching for your monitor.",
+      "privacy": "Your password is never stored; Granary keeps only the server's session token in Windows Credential Manager."
+    },
+    "confirmRemove": "Remove and forget sign-in",
+    "cancel": "Cancel"
   },
   "addServer": {
     "title": "Add a server",
@@ -61,7 +69,8 @@
     "playerReady": "libmpv ready (client API {{version}})",
     "playerMissing": "libmpv not available: {{error}}",
     "version": "Version {{version}}",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "offline": "You are offline. Granary will reconnect when the network is back."
   },
   "shell": {
     "skip": "Skip to content",
@@ -71,7 +80,8 @@
     "libraries": "Libraries",
     "profile": "Switch profile",
     "servers": "Servers",
-    "settings": "Settings"
+    "settings": "Settings",
+    "about": "About"
   },
   "browse": {
     "watched": "Watched",
@@ -300,5 +310,26 @@
     "installation_changed": "The server was reconfigured; progress may not be saved for this playback.",
     "stream_failed": "The stream could not be recovered.",
     "reconnecting": "Connection lost. Reconnecting…"
+  },
+  "about": {
+    "title": "About Granary",
+    "version": "Version",
+    "player": "Player",
+    "license": "Licence",
+    "compatible": "Granary is an independent desktop client compatible with Silo media servers. It is not affiliated with or endorsed by the Silo project.",
+    "sourceOffer": "Granary is free software under the GNU Affero General Public License v3 or later. Its complete source code is available from the repository.",
+    "checkUpdates": "Check for updates",
+    "source": "Source code",
+    "licenseText": "Licence text",
+    "updatesHint": "Opens the releases page in your browser. Granary never updates itself.",
+    "logs": "Logs",
+    "logsHint": "Logs stay on this PC. Tokens, passwords and signed URLs are removed before they are written and again when shown or exported.",
+    "showLogs": "Show recent log",
+    "refreshLogs": "Refresh",
+    "exportLogs": "Export logs",
+    "openLogFolder": "Open log folder",
+    "exported": "Logs saved to {{path}}",
+    "noLogs": "No log entries yet.",
+    "notices": "Third-party notices"
   }
 }

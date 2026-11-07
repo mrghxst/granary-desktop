@@ -198,6 +198,9 @@ vi.mock("@tauri-apps/api/core", () => ({
           { id: "l1", name: "Movies", kind: "movie" },
           { id: "l2", name: "Shows", kind: "show" },
         ]);
+      case "servers_remove":
+        host.servers = host.servers.filter((x) => x.serverId !== args?.serverId);
+        return Promise.resolve(null);
       default:
         return Promise.reject(fail("internal"));
     }
@@ -322,6 +325,15 @@ describe("connect flow", () => {
     expect(screen.getByText(/Signed in as alice/)).toBeTruthy();
     expect(screen.getByText(/Unencrypted/)).toBeTruthy();
     expect(screen.getByTestId("status").textContent).toContain("libmpv ready");
+
+    // Removing asks for a second click; Cancel keeps the server.
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(host.calls.some((c) => c.cmd === "servers_remove")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove and forget sign-in" }));
+    expect(await screen.findByTestId("onboarding")).toBeTruthy();
+    expect(host.calls.filter((c) => c.cmd === "servers_remove")).toHaveLength(1);
   });
 
   it("browses a library, opens details and hands the chosen file to the native player", async () => {

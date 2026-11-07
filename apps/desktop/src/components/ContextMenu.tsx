@@ -48,6 +48,7 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
+      tabIndex={-1}
       aria-label={label}
       className="fixed z-50 min-w-48 rounded-lg border border-border bg-popover p-1 shadow-2xl"
       style={{ left, top }}

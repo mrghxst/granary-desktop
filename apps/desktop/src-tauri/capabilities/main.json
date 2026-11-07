@@ -5,6 +5,11 @@
   "windows": ["main"],
   "permissions": [
     "allow-app-info",
+    "allow-app-ready",
+    "allow-about-info",
+    "allow-open-link",
+    "allow-logs-tail",
+    "allow-logs-export",
     "allow-servers-list",
     "allow-servers-probe",
     "allow-servers-add",

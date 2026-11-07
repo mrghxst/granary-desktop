@@ -124,3 +124,20 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
        restored after stopping.
 6. [ ] Receiver switched off during playback (device disappears): playback continues silently
        (`audio-fallback-to-null`), no crash; switching it on and re-selecting the device restores sound.
+
+## Polish (Phase 8)
+- [ ] First run on a clean user profile (no `%APPDATA%\Granary`): the start screen shows the three onboarding steps
+      and "Connect to a server"; nothing else asks for input.
+- [ ] About (sidebar → About, or the link on the start screen): version matches the installer, "Check for updates"
+      opens https://github.com/mrghxst/granary-desktop/releases in the default browser, "Source code" opens the
+      repository, the third-party notices list mpv/FFmpeg/libplacebo with source links.
+- [ ] Logs: "Show recent log" lists the latest lines; "Export logs" writes `Downloads\granary-logs-<UTC stamp>.txt`;
+      open it and search for your password, `access_token`, `Bearer` and `sig=` — none may show a value.
+- [ ] Offline: disable the network adapter; an amber "You are offline" banner appears at the top; re-enable it and
+      the banner goes away; the library reloads on the next navigation.
+- [ ] Keyboard only: Tab from the start screen through add server → sign in → profile → library → item → play
+      without a mouse; every focused control has a visible focus ring; "Skip to content" appears on the first Tab.
+- [ ] Screen reader (Narrator, Win+Ctrl+Enter): page headings, buttons in the player bar and the settings toggles are
+      announced with their labels in the chosen language (English/German).
+- [ ] Cold start on the target PC: start Granary from the Start menu 3 times; the start screen is usable in under
+      ~2 s each time (`ready cold_start_ms=` in the log, About → Show recent log).

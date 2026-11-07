@@ -7,6 +7,7 @@ import { Row } from "../components/Row";
 import { Alert, Button } from "../components/ui";
 import { artwork, catalog, type CatalogItem, type Section } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
+import { signalReady } from "../lib/host";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
 
 import { useRefreshTick } from "../lib/events";
@@ -52,6 +53,10 @@ export function ServerHome() {
   const { serverId = "" } = useParams();
   const [sections, setSections] = useState<Section[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Started straight into a server: interactive once the home rows (or their error) are in.
+  useEffect(() => {
+    if (sections !== null || error !== null) signalReady();
+  }, [sections, error]);
   const { play, error: playError } = usePlay(serverId);
   const refresh = useRefreshTick();
 

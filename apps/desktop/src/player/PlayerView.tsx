@@ -99,6 +99,7 @@ function IconButton({
 }
 
 function Popover({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const { t } = useTranslation();
   return (
     <div
       role="dialog"
@@ -107,7 +108,12 @@ function Popover({ title, onClose, children }: { title: string; onClose: () => v
     >
       <div className="flex items-center justify-between px-2 pt-1 pb-2">
         <span className="font-semibold">{title}</span>
-        <button type="button" aria-label="close" className="rounded p-1 hover:bg-white/15" onClick={onClose}>
+        <button
+          type="button"
+          aria-label={t("player.close")}
+          className="rounded p-1 hover:bg-white/15"
+          onClick={onClose}
+        >
           <X className="size-4" />
         </button>
       </div>
@@ -816,8 +822,10 @@ function PlayerControls() {
         setContextMenu({ x: e.clientX, y: e.clientY });
       }}
     >
-      {/* Click-through area: click toggles pause, double-click fullscreen, wheel volume. */}
+      {/* Click-through area: click toggles pause, double-click fullscreen, wheel volume. Every action has a keyboard
+          equivalent in the global key map (Space, f, arrow keys), so this mouse-only surface is hidden from AT. */}
       <div
+        aria-hidden="true"
         className="absolute inset-0"
         onClick={() => {
           if (menu) setMenu(null);

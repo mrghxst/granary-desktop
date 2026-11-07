@@ -39,6 +39,16 @@ pub struct AppInfo {
     pub libmpv: LibmpvStatus,
 }
 
+/// The UI calls this once its first screen is interactive: logs `ready` with the cold-start time (Phase 8/9 checks).
+#[tauri::command]
+pub fn app_ready() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let ms = crate::STARTED.get().map_or(0, |t| t.elapsed().as_millis() as u64);
+        tracing::info!(cold_start_ms = ms, "ready");
+    });
+}
+
 #[tauri::command]
 pub fn app_info(info: tauri::State<'_, AppInfo>) -> AppInfo {
     info.inner().clone()

@@ -71,7 +71,22 @@ export function Profiles() {
 
   return (
     <Page title={t("profiles.title")}>
-      {profiles === null && !error ? <p className="text-muted-foreground">{t("status.loading")}</p> : null}
+      <div>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            void navigate("/");
+          }}
+        >
+          <span aria-hidden="true">← </span>
+          {t("libraries.back")}
+        </Button>
+      </div>
+      {profiles === null && !error ? (
+        <p className="text-muted-foreground" role="status">
+          {t("status.loading")}
+        </p>
+      ) : null}
       {profiles ? (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           {profiles.map((p) => (
@@ -79,6 +94,7 @@ export function Profiles() {
               <button
                 type="button"
                 disabled={busy}
+                aria-pressed={pinFor?.id === p.id}
                 onClick={() => {
                   onPick(p);
                 }}

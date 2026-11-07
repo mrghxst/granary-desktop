@@ -252,6 +252,8 @@ struct Runner {
     last_emit: Instant,
     last_emitted: UiState,
     hwdec_logged: Option<String>,
+    /// When the current play request arrived (time-to-first-frame, docs/perf.md).
+    play_started: Option<Instant>,
     /// The player went idle at this moment (display changes are released after [`RELEASE_GRACE`]).
     idle_since: Option<Instant>,
     /// Re-check the window's monitor at this moment (coalesced move events).
@@ -281,6 +283,7 @@ impl PlayerHost {
             last_emit: Instant::now(),
             last_emitted: UiState::default(),
             hwdec_logged: None,
+            play_started: None,
             idle_since: None,
             move_check_at: None,
         };
@@ -524,6 +527,7 @@ impl Runner {
     }
 
     async fn play(&mut self, session: Arc<Session>, args: StartArgs, item: MediaItem) -> Result<(), (String, String)> {
+        self.play_started = Some(Instant::now());
         // Stop the previous attempt but keep its display changes: the new plan reuses them when it has the same needs.
         if let Some(mut c) = self.controller.take() {
             c.stop().await;
@@ -627,6 +631,11 @@ impl Runner {
                 }
             }
             MpvEvent::FileLoaded | MpvEvent::VideoReconfig => {
+                if matches!(ev, MpvEvent::FileLoaded)
+                    && let Some(t) = self.play_started
+                {
+                    tracing::info!(since_play_ms = t.elapsed().as_millis() as u64, "file loaded");
+                }
                 #[cfg(windows)]
                 {
                     let n = super::video::disable_mpv_children();
@@ -645,6 +654,9 @@ impl Runner {
                     .and_then(|v| v.as_str())
                     .unwrap_or("no");
                 tracing::info!(hwdec_current = %hw, "mpv hardware decoding");
+                if let Some(t) = self.play_started.take() {
+                    tracing::info!(time_to_first_frame_ms = t.elapsed().as_millis() as u64, "first frame");
+                }
                 self.hwdec_logged = Some(hw.to_owned());
             }
             _ => {}

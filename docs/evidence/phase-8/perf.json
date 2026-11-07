@@ -1,0 +1,55 @@
+﻿{
+    "exe":  "target/release/granary.exe",
+    "measuredAt":  "2026-11-07T15:21:52",
+    "runs":  [
+                 {
+                     "run":  1,
+                     "readyWallMs":  779,
+                     "coldStartMs":  721,
+                     "processes":  7,
+                     "workingSetMiB":  456.7,
+                     "privateMiB":  228.5,
+                     "hostWorkingSetMiB":  57.8
+                 },
+                 {
+                     "run":  2,
+                     "readyWallMs":  566,
+                     "coldStartMs":  465,
+                     "processes":  7,
+                     "workingSetMiB":  457.7,
+                     "privateMiB":  227,
+                     "hostWorkingSetMiB":  58
+                 },
+                 {
+                     "run":  3,
+                     "readyWallMs":  913,
+                     "coldStartMs":  889,
+                     "processes":  7,
+                     "workingSetMiB":  452.8,
+                     "privateMiB":  223.6,
+                     "hostWorkingSetMiB":  57.7
+                 },
+                 {
+                     "run":  4,
+                     "readyWallMs":  778,
+                     "coldStartMs":  730,
+                     "processes":  7,
+                     "workingSetMiB":  454.4,
+                     "privateMiB":  225.9,
+                     "hostWorkingSetMiB":  57.8
+                 },
+                 {
+                     "run":  5,
+                     "readyWallMs":  727,
+                     "coldStartMs":  679,
+                     "processes":  7,
+                     "workingSetMiB":  454.7,
+                     "privateMiB":  228.6,
+                     "hostWorkingSetMiB":  57.9
+                 }
+             ],
+    "medianReadyWallMs":  778,
+    "medianColdStartMs":  721,
+    "medianWorkingSetMiB":  454.7,
+    "medianPrivateMiB":  227
+}
