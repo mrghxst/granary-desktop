@@ -76,4 +76,51 @@ server over WebView2 DevTools: 2160p HDR10 HEVC and 1080p H.264 fixtures, direct
 - [ ] Window background: with a slow-starting stream, the area behind the overlay is #141417 before the first frame,
       never white or a stale frame (Design A re-check, phase-3 review L2).
 
-(Extended in Phase 7.)
+## Display & audio output (Phase 7, ADR-0006 amendment 1)
+Automated evidence: `docs/evidence/phase-7/` (unit tests for mode selection and restore in `crates/display` and
+`playback/output.rs`; `display_roundtrip` on this laptop; `scripts/output-evidence.mjs` 17/17 in the real app).
+Before each block: note every monitor's HDR state and refresh rate (Settings → System → Display → Advanced display),
+so you can confirm they are back afterwards. Run on AC power: Windows will not enable HDR on battery.
+
+### A. OLED desktop monitor (primary target), Windows HDR normally ON
+1. [ ] Settings → Display: HDR mode "HDR content only", refresh "Automatic"; your monitor is listed with its current
+       refresh, HDR state and DXGI peak. If the monitor runs VRR (G-SYNC/FreeSync) for video, tick "Uses VRR (G-SYNC/FreeSync) for video".
+2. [ ] Play an HDR10 title. Press `i`: "output dynamic range" HDR, "target peak" ≈ the monitor's peak (or your
+       override), "source dynamic range" hdr10. Windows HDR was already on, so it is **not** toggled (no black flash).
+3. [ ] Highlights: compare a bright scene with the Windows HDR Calibration result; if clipped or dim, set the
+       per-monitor peak override (e.g. the calibrated max nits), stop, play again; `target-peak` follows.
+4. [ ] Play an SDR title with HDR on: whites match the desktop's SDR whites side by side (windowed);
+       `hdr-reference-white` in the stats equals Windows "SDR content brightness".
+5. [ ] Dolby Vision title (profile 5 or 8): stats show "Dolby Vision P5/P8" and "dolby-vision-rpu active"; colours
+       are not green/purple (P5) and not washed out.
+6. [ ] 23.976 fps title on a 120/144/165/240 Hz monitor with VRR **off**: the log line "display output decided" shows
+       whether the current rate already fits or an exact multiple (e.g. 119.88 Hz) was chosen; no stutter in a slow
+       pan (`frame-drop-count` stays 0 in the stats over 60 s).
+7. [ ] Same with VRR ticked: no refresh change at all; stats show `video-sync=audio`.
+8. [ ] Stop playback: settings stay for 10 s (start the next episode within that time: no second black flash), then
+       the monitor returns to its original refresh/HDR state.
+9. [ ] HDR off in Windows, mode "HDR content only": HDR10 title switches HDR on **before** the first frame (no SDR
+       flash of the first picture), and HDR is off again 10 s after stopping. Mode "Off": HDR is never touched and the
+       title is tone-mapped to SDR.
+10. [ ] Two monitors (one SDR, one HDR): drag the playing window to the other monitor; within ~1 s the log shows the
+        old monitor restored and a new decision for the new one; the picture adapts (tone-mapping target changes).
+11. [ ] Quit Granary while a switched refresh/HDR state is active (close the window): the monitor is restored
+        immediately. Kill it instead (Task Manager → End task): on the next start the log says "restored display
+        state left over by a previous run" and the monitor is back before the window appears.
+12. [ ] Audio: device list shows your outputs; switching device or channels in Settings during playback applies
+        without restarting the file (Settings hint: "Audio settings apply immediately").
+
+### B. TV / AV receiver (HTPC, opt-in features)
+1. [ ] Settings → Display: refresh "Match content" (or per-monitor override for the TV only). Play 23.976, 25, 29.97
+       and 50 fps clips: the TV's info banner shows 23.976/24, 25, 29.97/30 and 50 Hz respectively; the original mode
+       comes back 10 s after stopping.
+2. [ ] Passthrough on, codecs AC-3/E-AC-3/DTS (and TrueHD/DTS-HD only with exclusive mode on): the receiver display
+       shows "Dolby Digital"/"DTS"/"Atmos" instead of PCM; stats show `audio-spdif` with the codec list. With an
+       unsupported codec (e.g. AAC) playback falls back to PCM without silence.
+3. [ ] Exclusive mode on: other apps' sounds are muted during playback; after stopping they play again.
+4. [ ] Channels "5.1" / "7.1" with PCM: the receiver shows multichannel PCM; with stereo speakers on "Stereo" a 5.1
+       title downmixes with dialogue audible (normalise downmix on) and without clipping.
+5. [ ] HDR TV with Windows HDR off: an HDR title switches HDR on before the first frame; the TV shows its HDR badge;
+       restored after stopping.
+6. [ ] Receiver switched off during playback (device disappears): playback continues silently
+       (`audio-fallback-to-null`), no crash; switching it on and re-selecting the device restores sound.

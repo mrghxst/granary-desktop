@@ -97,3 +97,51 @@ k = 1: 23.976/24/25/29.97/50/59.94), `video-sync=audio`. `Never switch`: steps 1
 - **Restore marker identity (review H2):** entries also store the monitor device interface path, which survives
   reboots (the adapter LUID does not); a marker that cannot be parsed is kept, never deleted; refresh restore is
   verified by re-query.
+
+## Amendment 1 (Phase 7 implementation, 2026-11-07)
+
+### Where the policy runs
+- `apps/desktop/src-tauri/src/playback/output.rs` applies the policy for the monitor that holds the main window (`gdi_name_for_window`).
+- The playback controller calls `Sink::before_load` once per negotiated plan, before `loadfile`. The HDR switch, the refresh change, the wait for HDR to read back and the 1.5 s luminance settle all happen there, on the host task (`block_in_place`).
+- Because mpv has not opened the file yet, no `pause=yes` / unpause dance is needed: the first frame is already rendered with the final output state.
+
+### Content facts
+- Content comes from the plan's `source`:
+  - dynamic range: the server's `dynamic_range`, or DV when a Dolby Vision profile is present;
+  - frame rate: kept only if it is finite and within (1, 500);
+  - passthrough: only when the audio codec is in the passthrough list.
+
+### When output is reused, released and restored
+- **Reuse:** output is reused when the next plan has the same needs on the same monitor (next episode). Otherwise the old state is restored first.
+- **Idle grace:** after playback stops, changes are held for **10 s**, so autoplay or a quick re-open does not flash the screen twice. After that they are restored.
+- **Monitor move:** a move to another monitor (`WindowMoved`, settled for 400 ms) restores the old monitor and decides again for the new one.
+- **App exit:** restores at once (`Cmd::Shutdown`, 5 s budget).
+- **Panic:** the panic hook restores from the marker (best effort).
+- **Session end:** `WM_ENDSESSION` is not handled separately. An unfinished restore (log-off, power loss) is repaired from the marker at the next start, as before.
+
+### Per-monitor settings
+- Settings are keyed by the monitor device interface path: VRR (user-declared, no Windows API), peak and black-level overrides in nits, and a refresh strategy override.
+- Global settings:
+  - `hdrMode`: off | content | always;
+  - `refresh`: auto | match | never.
+
+### mpv options applied per plan
+- `target-peak`: the override, or DXGI `MaxLuminance` read after the settle.
+- `target-contrast`: from the black override, `inf` for HDR targets, otherwise `auto`.
+- `hdr-reference-white`: set explicitly to Windows SDR white when HDR is on, otherwise `auto`.
+- `video-sync`: `audio` for VRR or passthrough, `display-resample` otherwise.
+- `video-sync-max-factor`: `max(5, ceil(R/f)+1)`.
+
+### Neutral options and audio
+- **Neutral reset:** when nothing is decided (no display controller, or HDR off), these are reset so that a reused mpv core never keeps the previous file's state: `target-peak=auto`, `target-contrast=auto`, `hdr-reference-white=auto`, `display-fps-override=0`, `video-sync=display-resample`.
+- **Audio options** apply live on settings change: `audio-device`, `audio-exclusive`, `audio-spdif`, `audio-channels` (`auto-safe`, or a layout list with a stereo fallback), `audio-normalize-downmix` and `audio-fallback-to-null=yes`.
+
+### Dolby Vision
+- mpv defaults are kept (R4): the RPU is applied by libplacebo.
+- Stats show the plan's DV profile, the container DV profile and level, and "dolby-vision-rpu active" when mpv reports `colormatrix=dolbyvision`.
+
+### Verified on this machine
+Intel Arc 140V internal panel; modes 30/48/60/75/100/120 Hz.
+- `display_roundtrip` exit 0: HDR on → off restored, 60 → 120 → 60 Hz restored. Evidence: `docs/evidence/phase-7/display-roundtrip.txt`.
+- In-app evidence 17/17: `scripts/output-evidence.mjs`.
+- **Windows battery HDR policy:** on battery power, Windows refuses to enable HDR (the packet call succeeds but HDR never reads back). Earlier "HDR did not read back" results were taken on battery. On AC power, the switch works. Granary logs the failed read-back, leaves HDR off, tone-maps to SDR and restores nothing that was not changed.

@@ -19,6 +19,27 @@ use commands::{AppInfo, LibmpvStatus};
 use tauri::{Manager, RunEvent};
 use tauri_plugin_window_state::StateFlags;
 
+/// Panic path (ADR-0006 restore guarantee): put back whatever this process changed, from the restore marker, before
+/// the process dies. Best effort; a marker that is not fully restored stays for the startup repair.
+#[cfg(windows)]
+fn restore_displays_now() {
+    use granary_display::marker::{self, RestoreMarker};
+    use granary_display::win::WindowsDisplayController;
+    let path = paths::local_dir().join(marker::FILE_NAME);
+    if let Ok(Some(m)) = RestoreMarker::load(&path) {
+        let report = marker::restore(&WindowsDisplayController, &m, std::time::Duration::from_secs(3));
+        if report.all_ok() {
+            let _ = RestoreMarker::remove(&path);
+            tracing::warn!("display state restored after a panic");
+        } else {
+            tracing::error!(?report, "display state not fully restored after a panic; marker kept");
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn restore_displays_now() {}
+
 /// Restore any display state a previous (crashed) run left changed; a marker owned by a still-running process is
 /// left alone. Never blocks startup on failure.
 #[cfg(windows)]
@@ -151,7 +172,11 @@ pub fn run() {
     unsafe { std::env::set_var("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000") };
 
     logging::init(&paths::log_dir());
-    std::panic::set_hook(Box::new(|p| tracing::error!(panic = %p, "panic")));
+    std::panic::set_hook(Box::new(|p| {
+        tracing::error!(panic = %p, "panic");
+        restore_displays_now();
+        logging::flush();
+    }));
 
     let libmpv = LibmpvStatus::from_probe(probe_libmpv());
     match &libmpv.error {

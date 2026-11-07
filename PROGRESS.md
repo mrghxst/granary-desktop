@@ -19,8 +19,8 @@ Phase 7: display & audio. Done: `crates/display` policy + session (restore marke
 output decided before `loadfile`, held 10 s idle for the next episode, restored at idle/monitor move/exit), settings
 UI (HDR mode, refresh strategy, per-monitor VRR/peak/black/refresh, audio device/channels/passthrough/exclusive/
 normalise), DV/HDR stats, in-app evidence 17/17 and hardware round trip exit 0 (`docs/evidence/phase-7/`).
-Earlier HDR toggle failures were Windows' battery HDR policy (works on AC power). Remaining: ADR-0006 amendment,
-MANUAL_TEST_CHECKLIST Phase 7 section, Gate 7 review + gate block.
+Earlier HDR toggle failures were Windows' battery HDR policy (works on AC power). ADR-0006 amendment 1, panic-hook
+restore and MANUAL_TEST_CHECKLIST Phase 7 section (OLED desktop, then TV/receiver) done. Next: Gate 7 review + gate block.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
