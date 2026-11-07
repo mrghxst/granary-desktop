@@ -101,10 +101,22 @@ fn mpv_factory(app_version: String, hwdec: String) -> BackendFactory {
             ),
             ("network-timeout", "30"),
             ("idle", "yes"),
+            ("gpu-shader-cache", "yes"),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .chain([("user-agent".to_owned(), format!("Granary/{app_version}"))])
+        .chain([
+            ("user-agent".to_owned(), format!("Granary/{app_version}")),
+            // `config=no` leaves mpv without a cache directory, so libplacebo compiled every D3D11 shader again on
+            // each playback (about 1.4 s before the first frame, docs/perf.md). Keep the compiled shaders per user.
+            (
+                "gpu-shader-cache-dir".to_owned(),
+                crate::paths::local_dir()
+                    .join("shader-cache")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        ])
         .collect();
         let opts = options::merge(options::forced(wid), &[options::desktop_baseline(), extra]);
         let mpv = Mpv::new(&opts).map_err(|e| e.to_string())?;

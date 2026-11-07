@@ -156,3 +156,6 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
       announced with their labels in the chosen language (English/German).
 - [ ] Cold start on the target PC: start Granary from the Start menu 3 times; the start screen is usable in under
       ~2 s each time (`ready cold_start_ms=` in the log, About → Show recent log).
+- [ ] Time to first frame against your real server (installed release build): play a 1080p SDR and a 4K HDR title
+      twice each with HDR already on; `first frame time_to_first_frame_ms=` in the log stays near the debug-build
+      numbers in `docs/perf.md` (about 1.5 s; the very first play after install compiles shaders and is slower).

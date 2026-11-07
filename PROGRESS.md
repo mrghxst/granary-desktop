@@ -15,9 +15,10 @@ Last updated: 2026-11-07T20:30:00+01:00 | Current phase: 8 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 8: polish. Done: About screen, log viewer, onboarding, offline banner, jsx-a11y lint, Profiles back button /
-aria-pressed / Remove confirmation, cold start + idle memory measured (`scripts/measure-perf.ps1`,
-`docs/evidence/phase-8/perf.json`). Next: time-to-first-frame, `docs/perf.md`, Gate 8 review.
+Phase 8: polish. Done: About screen + update link (ADR-0005), log viewer/export, onboarding, offline banner,
+jsx-a11y lint, Profiles back button / aria-pressed / Remove confirmation, performance in `docs/perf.md` (cold start
+778 ms, idle 455 MiB/7 processes, TTFF 1.46 s SDR / 1.61 s HDR10 4K after the persistent shader cache). Next: Gate 8
+review.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -52,6 +53,8 @@ aria-pressed / Remove confirmation, cold start + idle memory measured (`scripts/
 - Distribution to third parties requires a complete libmpv dependency source set (ADR-0005 known gap).
 
 ## Known issues
+- One `cargo test --workspace` run inside verify.ps1 exited 101 on 2026-11-07 (right after `cargo fmt`); it was not
+  reproduced in 7 later runs (5 × cargo test, 2 × verify.ps1). Watch for a flaky test; CI runs the same suite.
 - Phase 7 accepted risk (review L7): `WM_ENDSESSION` (log-off/shutdown during playback) is not handled; the marker
   repairs HDR/refresh at the next start, so a switched monitor can stay in HDR until Granary runs again.
 - Phase 7 review lows deferred: L2 reuse key is the content, not the decision (HDR10 → HDR10+ episode re-switches);
@@ -90,6 +93,7 @@ aria-pressed / Remove confirmation, cold start + idle memory measured (`scripts/
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-07 Phase 8: docs/perf.md, `scripts/measure-ttff.mjs`, persistent libplacebo shader cache (TTFF −12 %/−22 %), release-build TTFF checklist item; verify.ps1 exit 0.
 - 2026-11-07 Gate 7 PASSED: review M1 (delivered range from `effective_recipe`, HDR declared when switchable), M2 (exit restores before the server stop), M3 (leftover marker entries kept), M4 (`panic = "abort"`), M5 (policy in reuse key, live retune), M6 (5 s HDR wait, refused switch remembered per power state, monitor move off the host task), M7 (checklist HDR10+/near-black/windowed+fullscreen); L1, L3, L6, L7; verify.ps1 exit 0, round trip + evidence 17/17 on battery.
 - 2026-11-07 Phase 8 (part): About, log viewer, onboarding, offline banner, a11y lint, perf measurement (median ready 778 ms, idle 455 MiB working set over 7 processes).
 - 2026-11-07 Gate 6 PASSED: review M1 (resume position from the requested start until playback), M2 (progress from a spawned task, one in flight; Stop unloads mpv first, server stop bounded to 4 s then background), M3 (`track_change` replan on non-direct plans), M4 (mini player lifts min size, positions by actual size, keeps geometry until restored), M5 (player error codes + notices translated en/de); L1 ADR-0008 amendment, L2 connectEventsSocket in §13 + subset (30 ops), L3, L7, L8, L9; verify.ps1 exit 0.

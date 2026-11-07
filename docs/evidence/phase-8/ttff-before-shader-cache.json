@@ -1,0 +1,80 @@
+{
+  "build": "debug (tauri dev), in-process mock server, loopback relay",
+  "measuredAt": "2026-11-07T19:04:05.023Z",
+  "runs": [
+    {
+      "clip": "SDR H.264 1080p25",
+      "run": 1,
+      "fileLoadedMs": 191,
+      "firstFrameMs": 1653
+    },
+    {
+      "clip": "SDR H.264 1080p25",
+      "run": 2,
+      "fileLoadedMs": 271,
+      "firstFrameMs": 1663
+    },
+    {
+      "clip": "SDR H.264 1080p25",
+      "run": 3,
+      "fileLoadedMs": 250,
+      "firstFrameMs": 1652
+    },
+    {
+      "clip": "SDR H.264 1080p25",
+      "run": 4,
+      "fileLoadedMs": 278,
+      "firstFrameMs": 1680
+    },
+    {
+      "clip": "SDR H.264 1080p25",
+      "run": 5,
+      "fileLoadedMs": 290,
+      "firstFrameMs": 1847
+    },
+    {
+      "clip": "HDR10 HEVC Main10 2160p23.976",
+      "run": 1,
+      "fileLoadedMs": 187,
+      "firstFrameMs": 1980
+    },
+    {
+      "clip": "HDR10 HEVC Main10 2160p23.976",
+      "run": 2,
+      "fileLoadedMs": 221,
+      "firstFrameMs": 2070
+    },
+    {
+      "clip": "HDR10 HEVC Main10 2160p23.976",
+      "run": 3,
+      "fileLoadedMs": 193,
+      "firstFrameMs": 2118
+    },
+    {
+      "clip": "HDR10 HEVC Main10 2160p23.976",
+      "run": 4,
+      "fileLoadedMs": 155,
+      "firstFrameMs": 2093
+    },
+    {
+      "clip": "HDR10 HEVC Main10 2160p23.976",
+      "run": 5,
+      "fileLoadedMs": 185,
+      "firstFrameMs": 1953
+    }
+  ],
+  "summary": {
+    "SDR H.264 1080p25": {
+      "firstPlayMs": 1653,
+      "medianFirstFrameMs": 1663,
+      "medianFileLoadedMs": 271,
+      "maxFirstFrameMs": 1847
+    },
+    "HDR10 HEVC Main10 2160p23.976": {
+      "firstPlayMs": 1980,
+      "medianFirstFrameMs": 2070,
+      "medianFileLoadedMs": 187,
+      "maxFirstFrameMs": 2118
+    }
+  }
+}
