@@ -111,5 +111,6 @@ $summary = [ordered]@{
   medianPrivateMiB = & $median ($results | ForEach-Object { $_.privateMiB })
 }
 New-Item -ItemType Directory -Force (Split-Path $Out) | Out-Null
-($summary | ConvertTo-Json -Depth 4) | Out-File -Encoding utf8 $Out
+# No BOM: Windows PowerShell 5.1 "Out-File -Encoding utf8" writes one, and JSON.parse rejects it (phase-8 review L6).
+[IO.File]::WriteAllText((Join-Path (Resolve-Path (Split-Path $Out)) (Split-Path -Leaf $Out)), ($summary | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding $false))
 Write-Host ("PERF: median ready {0} ms wall ({1} ms host), idle {2} MiB working set, {3} MiB private -> {4}" -f $summary.medianReadyWallMs, $summary.medianColdStartMs, $summary.medianWorkingSetMiB, $summary.medianPrivateMiB, $Out)

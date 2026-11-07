@@ -14,8 +14,10 @@ results are in `docs/evidence/phase-8/`.
 | Time to first frame, HDR10 HEVC Main10 2160p23.976 | — | **1607 ms** median (first play 2160 ms) | same run |
 
 ### Definitions
-- **Cold start:** from process start to the `ready cold_start_ms=…` log line. The UI emits it once the first
-  screen (home or onboarding) has rendered and accepts input.
+- **Cold start:** the wall-clock column runs from launching the process to the `ready cold_start_ms=…` log line
+  (`measure-perf.ps1`). The host number inside that line starts at the host's `run()`, so it leaves out process
+  creation and DLL loading. The UI signals ready once the first screen (home or onboarding) has rendered and accepts
+  input. Cold start and idle memory were measured on the `9bdbb5c` tree; later Phase 8 commits only touched playback.
 - **Time to first frame:** from the play request reaching the host to mpv's first `playback-restart`. It includes
   plan negotiation with the server, the loopback relay, `loadfile`, demuxer probing and decoder/renderer start.
   - The host logs it as `first frame time_to_first_frame_ms=…`.
@@ -23,6 +25,9 @@ results are in `docs/evidence/phase-8/`.
 - The TTFF run uses the debug build against the in-process mock server, because release builds have no mock. Two
   settings isolate the player: HDR mode "off" and refresh "never". Display switching is a separate cost (below).
 - The machine was on battery during the TTFF runs; the power state during the cold-start runs was not recorded.
+- The HDR10 clip was also played with HDR mode "off", so its number is SDR output of an HDR source (tone mapping on
+  the GPU). With HDR on, add the display switch below.
+- Idle memory is measured on the start screen, a best case; a library page with artwork holds more.
 
 ## Display switching (part of the first frame when it happens)
 Granary changes the display before `loadfile`, so the first frame is already in the final mode (ADR-0006). These
@@ -48,13 +53,15 @@ nothing.
 3. **Cold start: no change needed.** At 0.78 s it is well under the 2 s budget. The frontend is a single 440 kB JS
    chunk; route splitting would save little at this size and would add a loading state to every first navigation.
 4. **Idle memory: dominated by WebView2.** Six of the seven processes belong to WebView2 (browser, GPU, network,
-   storage, utility, renderer), which is the cost of ADR-0001/0003. The Rust host is 58 MiB. mpv is created lazily
-   at the first playback, so it adds nothing at idle.
+   storage, utility, renderer), which is the cost of ADR-0001/0003. The Rust host is 58 MiB. `libmpv-2.dll` is loaded at start (the
+   start-up probe reads its version), but the mpv instance, its decoder and renderer are only created at the first
+   playback.
 
 ## Remaining time to first frame
-About 1.2 s of the remaining TTFF falls between mpv choosing the decoder (`Using hardware decoding (d3d11va)`) and
+Roughly 1.2 s of the remaining TTFF falls between mpv choosing the decoder (`Using hardware decoding (d3d11va)`) and
 the first `playback-restart`. That window is renderer and swapchain setup for the child window, audio-output start
-and the first decoded frame. Keeping the VO alive between files (`force-window`) could remove part of it. It would
+and the first decoded frame. The figure is read from the log timestamps of single runs, not a separate measurement.
+Keeping the VO alive between files (`force-window`) could remove part of it. It would
 also leave a black mpv surface behind the UI while idle, and it changes the overlay design (ADR-0003). So it is not
 done for 0.1. Release-build numbers against a real server go in `MANUAL_TEST_CHECKLIST.md` (Polish).
 

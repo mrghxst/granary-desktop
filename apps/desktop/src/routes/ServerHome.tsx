@@ -10,7 +10,7 @@ import { errorMessage } from "../lib/errors";
 import { signalReady } from "../lib/host";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
 
-import { useRefreshTick } from "../lib/events";
+import { retryLoads, useRefreshTick, useRetryTick } from "../lib/events";
 import { usePlay } from "../lib/usePlay";
 
 const WIDE_SECTIONS = new Set(["continue_watching", "next_up", "in_progress"]);
@@ -59,13 +59,16 @@ export function ServerHome() {
   }, [sections, error]);
   const { play, error: playError } = usePlay(serverId);
   const refresh = useRefreshTick();
+  const retry = useRetryTick();
 
   useEffect(() => {
     let alive = true;
     catalog
       .homeSections(serverId)
       .then((s) => {
-        if (alive) setSections(s.filter((x) => x.items.length > 0));
+        if (!alive) return;
+        setSections(s.filter((x) => x.items.length > 0));
+        setError(null);
       })
       .catch((e: unknown) => {
         if (!alive) return;
@@ -75,14 +78,14 @@ export function ServerHome() {
     return () => {
       alive = false;
     };
-  }, [serverId, navigate, t, refresh]);
+  }, [serverId, navigate, t, refresh, retry]);
 
   const onPlay = (item: CatalogItem) => void play(item.play_content_id ?? item.content_id);
   const featured = sections?.find((s) => s.featured)?.items[0];
 
   return (
     <div className="flex flex-col gap-10">
-      {error ? <Alert>{error}</Alert> : null}
+      {error ? <Alert onRetry={retryLoads}>{error}</Alert> : null}
       {playError ? <Alert>{playError}</Alert> : null}
       {sections === null && !error ? <p className="text-muted-foreground">{t("status.loading")}</p> : null}
       {featured ? (

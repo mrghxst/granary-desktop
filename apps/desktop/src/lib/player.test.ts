@@ -7,6 +7,8 @@ import {
   chapterTarget,
   clampSpeed,
   clampVolume,
+  episodesAround,
+  keyFromActivity,
   keyFromVk,
   keyName,
   mediaLines,
@@ -62,6 +64,19 @@ describe("keyboard map", () => {
     expect(keyFromVk(0xbf, true)).toBe("?");
     expect(keyFromVk(0x07, false)).toBeUndefined();
     expect(actionFor(keyFromVk(0x4d, false) ?? "")).toBe("mute");
+  });
+
+  it("uses the layout character from the video window first (German keyboard)", () => {
+    // QWERTZ: the # key is VK_OEM_2 (0xBF), which the US map reads as "/" (volume down).
+    expect(actionFor(keyFromActivity({ vk: 0xbf, ch: "#", shift: false }) ?? "")).toBe("audio-cycle");
+    // Shift+ß gives "?" on QWERTZ.
+    expect(actionFor(keyFromActivity({ vk: 0xdb, ch: "?", shift: true }) ?? "")).toBe("help");
+    // Shift+3 gives "§", which is unbound, not "#".
+    expect(keyFromActivity({ vk: 0x33, ch: "§", shift: true })).toBe("§");
+    expect(keyFromActivity({ vk: 0x20, ch: " ", shift: false })).toBe("Space");
+    // Named keys have no character and use the virtual-key map.
+    expect(keyFromActivity({ vk: 0x25, ch: null, shift: true })).toBe("Shift+ArrowLeft");
+    expect(keyFromActivity({ vk: 0x0d, shift: false })).toBe("Enter");
   });
 });
 
@@ -188,5 +203,49 @@ describe("clamps", () => {
     expect(clampVolume(-3)).toBe(0);
     expect(clampSpeed(9)).toBe(4);
     expect(clampSpeed(0.1)).toBe(0.25);
+  });
+});
+
+describe("episodesAround", () => {
+  const ep = (season: number, n: number) =>
+    ({ content_id: `s${String(season)}e${String(n)}`, title: "", season_number: season, episode_number: n }) as Episode;
+  const data: Record<number, Episode[]> = {
+    0: [ep(0, 1)],
+    1: [ep(1, 1), ep(1, 2)],
+    2: [ep(2, 1), ep(2, 2), ep(2, 3)],
+    3: [ep(3, 1)],
+  };
+  const seasons = () => Promise.resolve([1, 2, 3]);
+  const episodesOf = (s: number) => Promise.resolve(data[s] ?? []);
+  const ids = (xs: Episode[]) => xs.map((e) => e.content_id);
+
+  it("adds the next season's first episode after the last one", async () => {
+    expect(ids(await episodesAround("s1e2", 1, seasons, episodesOf))).toEqual(["s1e1", "s1e2", "s2e1"]);
+  });
+
+  it("adds the previous season's last episode before the first one", async () => {
+    expect(ids(await episodesAround("s2e1", 2, seasons, episodesOf))).toEqual(["s1e2", "s2e1", "s2e2", "s2e3"]);
+  });
+
+  it("does not fetch seasons in the middle of a season", async () => {
+    let asked = false;
+    const spy = () => {
+      asked = true;
+      return seasons();
+    };
+    expect(ids(await episodesAround("s2e2", 2, spy, episodesOf))).toEqual(["s2e1", "s2e2", "s2e3"]);
+    expect(asked).toBe(false);
+  });
+
+  it("never crosses out of specials or past the last season", async () => {
+    expect(ids(await episodesAround("s0e1", 0, seasons, episodesOf))).toEqual(["s0e1"]);
+    expect(ids(await episodesAround("s3e1", 3, seasons, episodesOf))).toEqual(["s2e3", "s3e1"]);
+  });
+
+  it("keeps the season when the season list fails", async () => {
+    expect(ids(await episodesAround("s1e2", 1, () => Promise.reject(new Error("x")), episodesOf))).toEqual([
+      "s1e1",
+      "s1e2",
+    ]);
   });
 });

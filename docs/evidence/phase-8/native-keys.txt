@@ -1,0 +1,20 @@
+Gate 8 review M2 / phase-6 L6: keys pressed while the native video window has focus follow the keyboard layout.
+2026-11-07, debug app (tauri dev, mock server, real libmpv), keyboard layout HKL 0x04070807 (German QWERTZ keys,
+de-CH language). VkKeyScanW: "?" = Shift+VK_OEM_4 (0xDB), "#" = VK_OEM_2 (0xBF).
+Old mapping (US layout): 0xBF -> "/" (volume down), Shift+0xDB -> "{" (unbound).
+
+node scripts/native-keys-evidence.mjs   (after measure-ttff.mjs signed in), exit 0:
+page before key: visible/focus=false        <- overlay auto-hidden, WebView not focused, video window has focus
+sent vk=0x49 shift=False foreground=True
+PASS i from the video window reaches the UI (control) (stats shown)
+sent vk=0x49 shift=False foreground=True
+page before key: visible/focus=false
+sent vk=0xbf shift=False foreground=True
+PASS # from the video window does not change the volume (volume 100 -> 100)
+page before key: visible/focus=false
+sent vk=0xdb shift=True foreground=True
+PASS ? from the video window opens the shortcuts help (dialog shown)
+KEYTEST PASSED
+
+A first run failed the "?" check because the test's own Alt tap (used to take the foreground) put the already
+foreground window into keyboard menu mode; send-key.ps1 now taps Alt only when Granary is not in front.

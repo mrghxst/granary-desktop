@@ -70,7 +70,8 @@
     "playerMissing": "libmpv not available: {{error}}",
     "version": "Version {{version}}",
     "loading": "Loading…",
-    "offline": "You are offline. Granary will reconnect when the network is back."
+    "offline": "You are offline. Pages reload by themselves when the network is back.",
+    "retry": "Retry"
   },
   "shell": {
     "skip": "Skip to content",

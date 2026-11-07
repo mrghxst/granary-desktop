@@ -71,6 +71,8 @@ export type PlayerNotice =
 export interface VideoActivity {
   kind: "mousemove" | "click" | "dblclick" | "contextmenu" | "wheel" | "key";
   vk?: number | null;
+  /** The character in the active keyboard layout (like a DOM `KeyboardEvent.key`), when the key has one. */
+  ch?: string | null;
   shift: boolean;
   ctrl: boolean;
   delta: number;
@@ -142,7 +144,7 @@ export interface PlaybackContext {
   version: FileVersion;
   audioIndex: number | null;
   subtitleIndex: number | null;
-  /** Episodes of the season, in order (series only). */
+  /** Episodes of the season in order, plus the edge episode of the neighbouring season at a boundary (series only). */
   episodes: Episode[];
 }
 
@@ -154,6 +156,32 @@ export function neighbours(ctx: PlaybackContext | null): {
   const i = ctx.episodes.findIndex((e) => e.content_id === ctx.watch.content_id);
   if (i < 0) return {};
   return { previous: ctx.episodes[i - 1], next: ctx.episodes[i + 1] };
+}
+
+/**
+ * Episodes around the one playing: its season, plus the last episode of the previous regular season when it is the
+ * first, and the first episode of the next regular season when it is the last. There is no next-up endpoint upstream
+ * (silo-api.md open question 9), so next/previous across a season boundary is built from listSeasons and
+ * listSeasonEpisodes. `regularSeasons` returns the season numbers without specials, in order; specials never cross.
+ */
+export async function episodesAround(
+  contentId: string,
+  season: number,
+  regularSeasons: () => Promise<number[]>,
+  episodesOf: (season: number) => Promise<Episode[]>,
+): Promise<Episode[]> {
+  const none = (): Episode[] => [];
+  const here = await episodesOf(season).catch(none);
+  const i = here.findIndex((e) => e.content_id === contentId);
+  if (i < 0 || (i > 0 && i < here.length - 1)) return here;
+  const seasons = await regularSeasons().catch((): number[] => []);
+  const k = seasons.indexOf(season);
+  if (k < 0) return here;
+  const prevSeason = i === 0 ? seasons[k - 1] : undefined;
+  const nextSeason = i === here.length - 1 ? seasons[k + 1] : undefined;
+  const before = prevSeason === undefined ? [] : (await episodesOf(prevSeason).catch(none)).slice(-1);
+  const after = nextSeason === undefined ? [] : (await episodesOf(nextSeason).catch(none)).slice(0, 1);
+  return [...before, ...here, ...after];
 }
 
 export function chapterAt(chapters: Chapter[], position: number): Chapter | undefined {
@@ -279,7 +307,17 @@ export function actionFor(name: string): PlayerAction | undefined {
   return KEYMAP.find((b) => b.keys.includes(name))?.action;
 }
 
-/** Key name for a virtual-key code forwarded from the native video window (US layout for punctuation). */
+/**
+ * Key name for a key press forwarded from the native video window. The layout character from the host wins, so `#` on
+ * a German keyboard is `#` as it is in the webview; the virtual-key map covers named keys (arrows, Enter, F1 ...).
+ */
+export function keyFromActivity(a: Pick<VideoActivity, "vk" | "ch" | "shift">): string | undefined {
+  // The host sends exactly one character (video.rs `layout_char`).
+  if (a.ch) return a.ch === " " ? "Space" : a.ch;
+  return a.vk != null ? keyFromVk(a.vk, a.shift) : undefined;
+}
+
+/** Key name for a virtual-key code (US layout for punctuation): the fallback when the host sends no character. */
 export function keyFromVk(vk: number, shift: boolean): string | undefined {
   const named: Record<number, string> = {
     0x08: "Backspace",

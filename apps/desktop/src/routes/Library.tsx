@@ -7,6 +7,7 @@ import { catalog, type CatalogItem, type CatalogQuery } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { goReauth, needsReauth } from "../lib/nav";
 import { silo } from "../lib/silo";
+import { retryLoads } from "../lib/events";
 import { useLoad } from "../lib/useLoad";
 import { usePlay } from "../lib/usePlay";
 
@@ -73,7 +74,19 @@ export function ItemGrid({
 
   return (
     <div className="flex flex-col gap-6">
-      {error ? <Alert>{error}</Alert> : null}
+      {error ? (
+        <Alert
+          onRetry={
+            first.error
+              ? retryLoads
+              : () => {
+                  void loadMore();
+                }
+          }
+        >
+          {error}
+        </Alert>
+      ) : null}
       {playError ? <Alert>{playError}</Alert> : null}
       {items === undefined && query && !error ? <p className="text-muted-foreground">{t("status.loading")}</p> : null}
       {items?.length === 0 ? <p className="text-muted-foreground">{emptyText}</p> : null}

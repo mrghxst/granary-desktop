@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-/** A thin banner while Windows reports no network; pages keep what they loaded and retry on their own. */
+/** A thin banner while Windows reports no network; pages keep what they loaded and reload when it is back (retryLoads). */
 export function OfflineBanner() {
   const { t } = useTranslation();
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));

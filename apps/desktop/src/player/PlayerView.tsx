@@ -34,7 +34,7 @@ import {
   chapterTarget,
   clampSpeed,
   clampVolume,
-  keyFromVk,
+  keyFromActivity,
   keyName,
   mediaLines,
   neighbours,
@@ -728,7 +728,7 @@ function PlayerControls() {
       player.onActivity((a) => {
         switch (a.kind) {
           case "key": {
-            const name = a.vk != null ? keyFromVk(a.vk, a.shift) : undefined;
+            const name = keyFromActivity(a);
             const action = name ? actionFor(a.ctrl ? `Ctrl+${name}` : name) : undefined;
             if (!action) return;
             if (action !== "fullscreen" && action !== "mini" && action !== "escape") pokeRef.current();

@@ -16,7 +16,7 @@ import { errorMessage } from "../lib/errors";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
 import { defaultAudio, defaultChoice, defaultSubtitle, formatTime, resumePosition, type PlayChoice } from "../lib/play";
 
-import { useRefreshTick } from "../lib/events";
+import { retryLoads, useRefreshTick } from "../lib/events";
 import { useLoad } from "../lib/useLoad";
 import { usePlay } from "../lib/usePlay";
 
@@ -89,7 +89,7 @@ function PlayPanel({ serverId, itemId }: { serverId: string; itemId: string }) {
   const [picked, setPicked] = useState<{ itemId: string; choice: PlayChoice } | null>(null);
   const { play, busy, error: playError } = usePlay(serverId);
 
-  if (loadError) return <Alert>{errorMessage(t, loadError)}</Alert>;
+  if (loadError) return <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>;
   if (!watch) return <p className="text-sm text-muted-foreground">{t("status.loading")}</p>;
   const choice = picked?.itemId === itemId ? picked.choice : defaultChoice(watch);
   if (!choice) return <Alert tone="warning">{t("item.noVersions")}</Alert>;
@@ -231,7 +231,7 @@ function EpisodeList({
   const { play, busy, error: playError } = usePlay(serverId);
 
   const loadError = seasonsLoad.error ?? episodesLoad.error;
-  if (loadError) return <Alert>{errorMessage(t, loadError)}</Alert>;
+  if (loadError) return <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>;
   if (!seasons) return <p className="text-sm text-muted-foreground">{t("status.loading")}</p>;
 
   return (
@@ -328,7 +328,7 @@ export function Item() {
       .join(" · ");
   }, [item, t]);
 
-  if (error) return <Alert>{errorMessage(t, error)}</Alert>;
+  if (error) return <Alert onRetry={retryLoads}>{errorMessage(t, error)}</Alert>;
   if (!item) return <p className="text-muted-foreground">{t("status.loading")}</p>;
 
   const backdrop = artwork(serverId, item.backdrop_url);

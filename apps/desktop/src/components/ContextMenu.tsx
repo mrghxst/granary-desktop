@@ -21,24 +21,37 @@ export function ContextMenu({
   label: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Parents pass an inline onClose; read it through a ref so a parent re-render neither re-subscribes the listeners
+  // nor moves focus back to the first item (phase-5 review L11).
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
+  // Focus the first item once, when the menu opens.
   useEffect(() => {
     ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, []);
+
+  useEffect(() => {
+    const close = () => {
+      closeRef.current();
+    };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      if (!ref.current?.contains(e.target as Node)) close();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
-    window.addEventListener("blur", onClose);
+    window.addEventListener("blur", close);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("blur", onClose);
+      window.removeEventListener("blur", close);
     };
-  }, [onClose]);
+  }, []);
 
   // Keep the menu inside the viewport.
   const left = Math.min(x, window.innerWidth - 220);

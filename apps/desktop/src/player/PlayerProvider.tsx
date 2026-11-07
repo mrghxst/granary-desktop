@@ -7,6 +7,7 @@ import { defaultChoice, playRequest } from "../lib/play";
 import {
   IDLE_STATE,
   mediaLines,
+  episodesAround,
   neighbours,
   player,
   type PlanInfo,
@@ -39,7 +40,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!choice) return false;
     let episodes: Episode[] = [];
     if (w.series_id && w.season_number != null) {
-      episodes = await catalog.episodes(serverId, w.series_id, w.season_number).catch(() => []);
+      const seriesId = w.series_id;
+      episodes = await episodesAround(
+        w.content_id,
+        w.season_number,
+        async () =>
+          (await catalog.seasons(serverId, seriesId))
+            .filter((x) => !x.is_specials)
+            .map((x) => x.season_number)
+            .sort((a, b) => a - b),
+        (season) => catalog.episodes(serverId, seriesId, season),
+      );
     }
     const next: PlaybackContext = {
       serverId,

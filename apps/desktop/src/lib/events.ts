@@ -55,3 +55,36 @@ export function useRefreshTick(): number {
     () => tick,
   );
 }
+
+/*
+ * A retry counter: bumped when Windows reports the network is back and by the Retry button of a load error. Every
+ * `useLoad` and the home rows reload on it, so a page that failed while offline recovers without navigating away.
+ */
+let retryTick = 0;
+const retrySubscribers = new Set<() => void>();
+
+export function retryLoads(): void {
+  retryTick += 1;
+  retrySubscribers.forEach((f) => {
+    f();
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", retryLoads);
+}
+
+function subscribeRetry(f: () => void): () => void {
+  retrySubscribers.add(f);
+  return () => {
+    retrySubscribers.delete(f);
+  };
+}
+
+export function useRetryTick(): number {
+  return useSyncExternalStore(
+    subscribeRetry,
+    () => retryTick,
+    () => retryTick,
+  );
+}

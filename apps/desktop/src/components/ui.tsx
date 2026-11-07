@@ -1,4 +1,5 @@
 import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 /* Small primitives in the Silo web-app look (tokens from styles/tokens.css). */
 
@@ -52,7 +53,17 @@ export function Field({
   );
 }
 
-export function Alert({ tone = "error", children }: { tone?: "error" | "warning" | "info"; children: ReactNode }) {
+export function Alert({
+  tone = "error",
+  onRetry,
+  children,
+}: {
+  tone?: "error" | "warning" | "info";
+  /** Shows a Retry button (load errors). */
+  onRetry?: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
   const toneClass =
     tone === "error"
       ? "border-destructive/50 text-destructive"
@@ -60,9 +71,21 @@ export function Alert({ tone = "error", children }: { tone?: "error" | "warning"
         ? "border-amber-400/40 text-amber-200"
         : "border-border text-muted-foreground";
   return (
-    <p role={tone === "error" ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-sm ${toneClass}`}>
-      {children}
-    </p>
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${toneClass}`}
+    >
+      <p>{children}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="shrink-0 rounded-md border border-current px-2 py-0.5 text-xs font-medium hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {t("status.retry")}
+        </button>
+      ) : null}
+    </div>
   );
 }
 

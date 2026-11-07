@@ -102,8 +102,14 @@ export function Home() {
                       </Button>
                       <Button
                         variant="ghost"
+                        // The confirmation replaces the focused Remove button: keep keyboard focus on the safe choice.
+                        autoFocus
                         onClick={() => {
                           setConfirmRemove(null);
+                          // Back on the Remove button that comes back in its place (phase-8 review L1).
+                          requestAnimationFrame(() => {
+                            document.querySelector<HTMLButtonElement>(`[data-remove="${s.serverId}"]`)?.focus();
+                          });
                         }}
                       >
                         {t("home.cancel")}
@@ -112,6 +118,7 @@ export function Home() {
                   ) : (
                     <Button
                       variant="danger"
+                      data-remove={s.serverId}
                       onClick={() => {
                         setConfirmRemove(s.serverId);
                       }}

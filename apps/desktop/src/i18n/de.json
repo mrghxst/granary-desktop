@@ -70,7 +70,8 @@
     "playerMissing": "libmpv nicht verfügbar: {{error}}",
     "version": "Version {{version}}",
     "loading": "Lädt…",
-    "offline": "Du bist offline. Granary verbindet sich wieder, sobald das Netzwerk zurück ist."
+    "offline": "Du bist offline. Seiten laden von selbst neu, sobald das Netzwerk zurück ist.",
+    "retry": "Erneut versuchen"
   },
   "shell": {
     "skip": "Zum Inhalt springen",

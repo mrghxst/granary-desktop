@@ -1,5 +1,5 @@
 # PROGRESS
-Last updated: 2026-11-07T20:30:00+01:00 | Current phase: 8 | Last commit: (see git log)
+Last updated: 2026-11-07T21:10:00+01:00 | Current phase: 9 | Last commit: (see git log)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
@@ -10,15 +10,14 @@ Last updated: 2026-11-07T20:30:00+01:00 | Current phase: 8 | Last commit: (see g
 - [x] 5 UI (web-app parity) — DONE (commit bd2369b + review fixes) — gate: verify.ps1 exit 0, CI green, vitest flow + host E2E test, ui-evidence.mjs 13/13 checks with 14 screenshots (docs/evidence/phase-5), reviewer docs/reviews/phase-5.md PASS WITH FINDINGS → 5 medium + 3 low resolved
 - [x] 6 Native playback & progress sync — DONE — gate: verify.ps1 exit 0 (11 steps), playback evidence 17/17 (docs/evidence/phase-6, mock server + ffmpeg clips, d3d11va), progress/stop/recovery controller tests, reviewer docs/reviews/phase-6.md PASS WITH FINDINGS → 5 medium + 6 low resolved (L1–L3, L7–L9), L4–L6/L10 deferred below
 - [x] 7 Display & audio (auto-HDR, refresh match, passthrough) — DONE — gate: verify.ps1 exit 0, display crate 36 + app 56 tests (mode selection, restore, leftover marker, refused HDR, live retune), display_roundtrip exit 0 (mains: HDR + refresh; battery: HDR refusal + refresh), output-evidence 17/17 (mains and battery runs), MANUAL_TEST_CHECKLIST A.1–A.15 / B.1–B.6, reviewer docs/reviews/phase-7.md PASS WITH FINDINGS → 7 medium + L1/L3/L6/L7 resolved, L2/L4/L5/L8 deferred below
-- [ ] 8 Polish
+- [x] 8 Polish — DONE — gate: verify.ps1 exit 0 (11 steps, vitest 47), docs/perf.md (cold start 778 ms median, idle 455 MiB / 7 processes, TTFF 1.46 s SDR / 1.61 s HDR10 4K), native-keys evidence 3/3 (German layout), reviewer docs/reviews/phase-8.md PASS WITH FINDINGS → 2 medium + L1/L5/L6 resolved, other lows re-targeted or accepted below
 - [ ] 9 Packaging & release workflow
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 8: polish. Done: About screen + update link (ADR-0005), log viewer/export, onboarding, offline banner,
-jsx-a11y lint, Profiles back button / aria-pressed / Remove confirmation, performance in `docs/perf.md` (cold start
-778 ms, idle 455 MiB/7 processes, TTFF 1.46 s SDR / 1.61 s HDR10 4K after the persistent shader cache). Next: Gate 8
-review.
+Phase 9: packaging. In progress: bundled + user mpv.conf layering (ADR-0002 L2), NSIS uninstall hook for the
+"delete app data" box, docs/signing.md, scripts/install-test.ps1. Next: local install test, CI installer, v0.1.0 draft
+release, Gate 9 review.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -73,26 +72,34 @@ review.
   scheme, L8 unused getCurrentUser / servers_activate surface, L9 Profiles back button / aria-pressed / live region /
   Remove confirmation (Phase 5 shell + Phase 8 polish), L10 Rust-side auth://revoked emit test, L11 request_origin
   mismatch as warning tone + ADR note.
-- Phase 5 review lows deferred: L1 ItemGrid key omits serverId / unkeyed load-more state, L2 sub-loader errors skip
-  needsReauth, L4 video_with_episodes without getCatalogSearchCapabilities, L6 unserialised settings saves / seekStep
-  options / preferSdh unused / settings read errors treated as missing, L7 Profiles back button (also phase-4 L9),
-  L8 IPC/capability-level test (tauri::test get_ipc_response), L11 ContextMenu refocus on re-render, L12 artwork host
-  allow-list — Phase 8 polish; L3 player_play validation → Phase 6 controller.
+- Phase 5 review lows: L7 done in Phase 8, L11 (ContextMenu refocus) fixed at Gate 8, L3 done in Phase 6.
+  → Phase 10 security review: L8 IPC/capability-level test, L12 artwork host allow-list.
+  Accepted for 0.1 (Gate 8 review M2): L1 ItemGrid key omits serverId (a server switch remounts the route anyway);
+  L2 sub-loader errors skip needsReauth (the session refreshes tokens itself; a revoked session is caught by the item
+  load and the next navigation); L4 video_with_episodes without getCatalogSearchCapabilities (the server ignores an
+  unsupported filter); L6 unserialised settings saves / seekStep options / preferSdh unused / unreadable settings read
+  as defaults (single window, saves are tiny and last-write-wins is the intended result).
 - Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2): playback works with
   it in the Phase 6 evidence; the pre-first-frame look on a slow stream is a manual check (MANUAL_TEST_CHECKLIST.md).
 - Events socket against the in-process mock is unreachable by design (backoff warnings in the dev log).
-- Next episode does not cross a season boundary (neighbours come from `listSeasonEpisodes` of the current season;
-  no next-up endpoint upstream, silo-api.md open question 9) — Phase 8 polish.
-- Phase 6 review lows deferred: L4 more controller tests (installation_changed retry, seek_reanchor, stop retry
-  reusing stop_id, 409 not retried, BackendGone, shutdown mid-attempt); L5 evidence tightening (mock resume point
-  beyond clip length made "N → e3" pass via instant EOF, overlay auto-hide measured by CSS opacity, hwdec `.some()`);
-  L6 punctuation keys from the native video window assume a US layout (send translated chars via ToUnicode);
+- Next/previous episode across a season boundary: fixed at Gate 8 (`episodesAround`, listSeasons +
+  listSeasonEpisodes; specials never cross; still no next-up endpoint upstream, silo-api.md open question 9).
+- Phase 6 review lows: L6 (US layout for keys from the video window) fixed at Gate 8 (ToUnicode layout character).
+  Accepted for 0.1 (Gate 8 review M2): L4 more controller tests (installation_changed retry, seek_reanchor, stop
+  retry reusing stop_id, 409 not retried, BackendGone, shutdown mid-attempt; the paths exist and are exercised by the
+  evidence runs); L5 evidence tightening (instant-EOF resume in the mock, auto-hide by CSS opacity, hwdec `.some()`);
   L10 duplicate sidecar on re-selecting the same external subtitle, events back-off reset on every connect,
-  `Ended` while an up-next start is in flight — Phase 8 polish.
+  `Ended` while an up-next start is in flight (rare, harmless: mpv ignores the duplicate, the next start wins).
+- Phase 8 review lows: L1, L5, L6 fixed at Gate 8. → Phase 10: L4 relay-route token redaction (security review),
+  L9 About source link with the build commit (docs/release). Accepted for 0.1: L2 About shows CARGO_PKG_VERSION
+  (verify.ps1 fails when it differs from the bundle version); L3 standalone /about and /settings have no back link
+  (reached from the start screen only; a back link is a 0.2 item); L7 loading texts without role="status"; L8 log export to %USERPROFILE%\Downloads
+  rather than the known folder; L10 onboarding shown when the server list fails to load.
 - Track change on remux/transcode plans (`track_change` replan) is covered by controller tests against the mock only;
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-07 Gate 8: review M1 (retry tick on `online` + Retry button, ServerHome clears its error), M2 (ToUnicode layout characters from the video window, ContextMenu focus, next/previous episode across seasons, deferred items re-targeted), L1/L5/L6; verify.ps1 exit 0; GATE 8 PASSED.
 - 2026-11-07 Phase 8: docs/perf.md, `scripts/measure-ttff.mjs`, persistent libplacebo shader cache (TTFF −12 %/−22 %), release-build TTFF checklist item; verify.ps1 exit 0.
 - 2026-11-07 Gate 7 PASSED: review M1 (delivered range from `effective_recipe`, HDR declared when switchable), M2 (exit restores before the server stop), M3 (leftover marker entries kept), M4 (`panic = "abort"`), M5 (policy in reuse key, live retune), M6 (5 s HDR wait, refused switch remembered per power state, monitor move off the host task), M7 (checklist HDR10+/near-black/windowed+fullscreen); L1, L3, L6, L7; verify.ps1 exit 0, round trip + evidence 17/17 on battery.
 - 2026-11-07 Phase 8 (part): About, log viewer, onboarding, offline banner, a11y lint, perf measurement (median ready 778 ms, idle 455 MiB working set over 7 processes).

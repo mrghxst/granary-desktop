@@ -14,7 +14,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    EnableWindow, GetKeyState, IsWindowEnabled, SetFocus, VK_CONTROL, VK_SHIFT,
+    EnableWindow, GetKeyState, GetKeyboardState, IsWindowEnabled, SetFocus, ToUnicode, VK_CONTROL, VK_SHIFT,
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -39,6 +39,9 @@ pub struct Activity {
     pub kind: &'static str,
     /// Virtual-key code for `key`.
     pub vk: Option<u32>,
+    /// The character this key produces in the active keyboard layout (`#` on a German keyboard is VK_OEM_2), like
+    /// a DOM `KeyboardEvent.key`. `None` for keys without a printable character, dead keys and Ctrl chords.
+    pub ch: Option<String>,
     pub shift: bool,
     pub ctrl: bool,
     /// Wheel delta (120 per notch, positive = away from the user).
@@ -77,6 +80,22 @@ pub fn set_playing(playing: bool) {
     }
 }
 
+/// The printable character for a key press in the thread's keyboard layout, without changing dead-key state.
+fn layout_char(vk: u32, lp: LPARAM) -> Option<String> {
+    let mut state = [0u8; 256];
+    // SAFETY: fills our own 256-byte buffer with the calling thread's key state.
+    unsafe { GetKeyboardState(&mut state) }.ok()?;
+    let mut buf = [0u16; 8];
+    let scan = ((lp.0 >> 16) & 0xff) as u32;
+    // SAFETY: valid buffers; flag 0x4 keeps the kernel keyboard state (dead keys) unchanged (Windows 10 1607+).
+    let n = unsafe { ToUnicode(vk, scan, Some(&state), &mut buf, 0x4) };
+    if n != 1 {
+        return None; // dead key (-1), nothing (0) or a ligature
+    }
+    let c = char::from_u32(u32::from(buf[0]))?;
+    (!c.is_control()).then(|| c.to_string())
+}
+
 fn key_down(vk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY) -> bool {
     // SAFETY: read-only query of the calling thread's key state.
     unsafe { GetKeyState(i32::from(vk.0)) < 0 }
@@ -113,6 +132,7 @@ unsafe extern "system" fn video_proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         f(Activity {
             kind,
             vk: is_key.then_some(wp.0 as u32),
+            ch: if is_key { layout_char(wp.0 as u32, lp) } else { None },
             shift: key_down(VK_SHIFT),
             ctrl: key_down(VK_CONTROL),
             delta: if msg == WM_MOUSEWHEEL {
