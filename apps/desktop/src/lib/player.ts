@@ -349,3 +349,23 @@ export function mediaLines(w: WatchDetail): { title: string; subtitle?: string }
   }
   return { title: w.title };
 }
+
+/** Where the up-next countdown is anchored: the first position seen while eligible; cleared on a seek back before the
+ *  window. Anchoring (instead of counting from the window start) gives a file that starts inside the window the full
+ *  countdown rather than an instant jump to the next episode. */
+export function upNextAnchorFor(
+  anchor: number | null,
+  eligible: boolean,
+  position: number,
+  from: number,
+): number | null {
+  if (anchor !== null && position < from) return null;
+  if (anchor === null && eligible) return position;
+  return anchor;
+}
+
+/** Whole seconds left on the up-next countdown, in media time (so it pauses with the video). */
+export function upNextRemaining(anchor: number | null, position: number): number {
+  if (anchor === null) return UP_NEXT_SECONDS;
+  return Math.max(0, Math.min(UP_NEXT_SECONDS, Math.ceil(UP_NEXT_SECONDS - (position - anchor))));
+}

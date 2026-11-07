@@ -28,7 +28,9 @@ pub trait PlayerBackend: Send + Sync {
         if !seconds.is_finite() {
             return Err(PlayerError::InvalidArgument("non-finite seek target".into()));
         }
-        self.command(&["seek", &format!("{:.3}", seconds.max(0.0)), "absolute+keyframes"])
+        // Precise (hr-seek default for absolute seeks): `+keyframes` snaps back to the previous keyframe, so with long
+        // GOPs a relative +10 s from the UI could land seconds behind where it started.
+        self.command(&["seek", &format!("{:.3}", seconds.max(0.0)), "absolute"])
     }
 
     fn stop(&self) -> Result<(), PlayerError> {
@@ -109,10 +111,7 @@ mod tests {
         m.seek_absolute(-3.0)?;
         m.stop()?;
         assert!(m.seek_absolute(f64::INFINITY).is_err());
-        assert_eq!(
-            m.calls(),
-            ["set pause=yes", "cmd seek 0.000 absolute+keyframes", "cmd stop"]
-        );
+        assert_eq!(m.calls(), ["set pause=yes", "cmd seek 0.000 absolute", "cmd stop"]);
         assert_eq!(m.get_property("pause").as_deref(), Some("yes"));
         Ok(())
     }

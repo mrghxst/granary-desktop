@@ -69,6 +69,11 @@ fn validate_property(name: &str, value: &str) -> Result<String, String> {
 
 /// Stats overlay (`i`): mpv properties read on demand.
 const STATS: &[&str] = &[
+    "time-pos",
+    "audio-pts",
+    "core-idle",
+    "estimated-frame-number",
+    "audio-device",
     "file-format",
     "video-codec",
     "video-params/w",
@@ -415,6 +420,7 @@ impl Runner {
         match Controller::begin(session, backend, relay, sink, env, args).await {
             Ok(c) => {
                 self.controller = Some(c);
+                self.hwdec_logged = None;
                 Ok(())
             }
             Err(e) => {
@@ -476,9 +482,9 @@ impl Runner {
                     };
                     if name == "hwdec-current"
                         && let PropValue::Str(s) = value
-                        && self.hwdec_logged.as_deref() != Some(s)
+                        && self.hwdec_logged.as_deref().is_some_and(|l| l != s)
                     {
-                        tracing::info!(hwdec_current = %s, "mpv hardware decoding");
+                        tracing::info!(hwdec_current = %s, "mpv hardware decoding changed");
                         self.hwdec_logged = Some(s.clone());
                     }
                     self.state.props.insert(name.clone(), v);
@@ -492,6 +498,18 @@ impl Runner {
                         tracing::debug!(n, "mpv child windows disabled for input routing");
                     }
                 }
+            }
+            // Once per session, at the first frame: the decoder of this file (a reused core keeps the property
+            // value, so a change notification may never come).
+            MpvEvent::PlaybackRestart if self.hwdec_logged.is_none() && self.controller.is_some() => {
+                let hw = self
+                    .state
+                    .props
+                    .get("hwdec-current")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("no");
+                tracing::info!(hwdec_current = %hw, "mpv hardware decoding");
+                self.hwdec_logged = Some(hw.to_owned());
             }
             _ => {}
         }

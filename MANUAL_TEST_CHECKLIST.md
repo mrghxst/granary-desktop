@@ -43,4 +43,28 @@ reduced motion, true-black). The items below still need human eyes or a live ser
       only Tab/Shift+Tab/Enter/Space/arrow keys/Esc; every focused control shows a ring; the skip link works.
 - [ ] True-black theme on the OLED panel: background and sidebar are #000 (no grey glow in a dark room).
 
+## Native playback (Phase 6, ADR-0008)
+Automated evidence: `docs/evidence/phase-6/` (`scripts/playback-evidence.mjs` drives the real app against the mock
+server over WebView2 DevTools: 2160p HDR10 HEVC and 1080p H.264 fixtures, direct play through the loopback relay,
+`hwdec-current=d3d11va`, `gpu-next`, pause/seek/stop, next episode, progress acknowledged, one stop per session).
+- [ ] Live server (needs `.env.local`): play a real library movie and an episode; the log line "playback plan
+      accepted" shows `direct_play=true` and a stream path without transcode parameters; "mpv hardware decoding"
+      shows `d3d11va`; stop half-way and check the resume point on the Silo web UI matches within 10 s.
+- [ ] Live server: change a watched flag or resume point in the web UI while Granary shows the item; Granary's page
+      updates within a few seconds (events socket).
+- [ ] Transcode / HLS on a live server (pick a file the server will not direct-play, or cap the bitrate): the "Not
+      direct play" notice names the reason, playback starts, seeking works, subtitles load.
+- [ ] Idle cursor over the video (unlocked session): controls and cursor hide after ~2.5 s while playing; moving the
+      mouse brings both back; keys act while hidden (Space pauses) without showing the controls.
+- [ ] Paused: controls dim after 8 s and hide after 30 s.
+- [ ] Media keys on a keyboard and the Windows media flyout (Win+A volume panel): play/pause, next/previous episode,
+      title and series lines shown.
+- [ ] Mini player (T) and fullscreen (f, double-click) round-trips keep the video aligned with the overlay.
+- [ ] Up next on a real episode with a credits marker: the card appears at the marker, counts down 10 s and starts the
+      next episode; Cancel keeps playing to the end; with autoplay off nothing happens.
+- [ ] Trickplay previews on a server with trickplay generated: hover the seek bar; the thumbnail matches the frame
+      after seeking there (tile arithmetic is UNVERIFIED, silo-api.md open question 10).
+- [ ] Window background: with a slow-starting stream, the area behind the overlay is #141417 before the first frame,
+      never white or a stale frame (Design A re-check, phase-3 review L2).
+
 (Extended in Phase 7.)

@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-  Generate synthetic test fixtures into test-media/ (gitignored) with ffmpeg. Idempotent: existing files are
+  Generate synthetic test fixtures into test-media/ (gitignored) with ffmpeg, -Duration seconds long (default 60:
+  long enough for periodic progress samples and seeking). Idempotent: existing files are
   kept unless -Force. If TEST_MEDIA_DIR is set (env or .env.local), its files are probed (never copied).
 #>
 [CmdletBinding()]
-param([switch]$Force)
+param([switch]$Force, [int]$Duration = 60)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root 'test-media'
@@ -44,7 +45,7 @@ Dialogue: 0,0:00:06.50,0:00:09.50,Sign,,0,0,0,,{\pos(960,120)}Positioned sign (A
   Write-Host 'make  subs.en.ass'
 }
 
-$dur = '10'
+$dur = [string]$Duration
 
 # 1. SDR H.264 1080p at 25 fps (23.976 is a separate clip).
 #    Audio: AAC stereo + AC3 5.1 + E-AC3 5.1; ASS muxed.

@@ -225,6 +225,11 @@ impl Controller {
             retry_at: None,
             started_reported: false,
         };
+        // `pause` is global in mpv and keep-open pauses at EOF: a reused core would start the next file paused while
+        // the state machine (and the UI) believe it plays.
+        if let Err(e) = c.backend.set_pause(false) {
+            tracing::warn!(error = %e, "could not clear pause before loading");
+        }
         let start = c.args.start_seconds;
         c.negotiate(start).await?;
         Ok(c)
@@ -296,8 +301,10 @@ impl Controller {
     }
 
     /// Resolve the stream URL (relay for the server origin, direct otherwise) and hand it to mpv.
+    /// The log shows the plan URL's path and query *names* only (evidence of direct play without signatures).
     fn load_plan(&mut self) -> Result<(), ControllerError> {
-        let (url, relayed) = self.media_url(&self.plan.stream.url.clone())?;
+        let server_url = self.plan.stream.url.clone();
+        let (url, relayed) = self.media_url(&server_url)?;
         if !self.plan.stream.headers.is_empty() {
             // Upstream always sends an empty map today (plan_v3.go@6791aac); nothing else would forward them.
             tracing::warn!(count = self.plan.stream.headers.len(), "plan stream headers ignored");
@@ -311,6 +318,7 @@ impl Controller {
             reason = %info.decision_reason,
             direct_play = info.direct_play,
             relayed,
+            stream = %url_shape(&server_url),
             "playback plan accepted"
         );
         self.sink.notice(Notice::Plan(Box::new(info)));
@@ -762,6 +770,25 @@ impl Controller {
     }
 }
 
+/// `/path?exp&sig`: the path and the query parameter names of a URL, never the values (signatures, tokens).
+fn url_shape(raw: &str) -> String {
+    let without_origin = raw.find("://").map_or(raw, |i| {
+        let rest = &raw[i + 3..];
+        rest.find('/').map_or("/", |p| &rest[p..])
+    });
+    let (path, query) = without_origin.split_once('?').unwrap_or((without_origin, ""));
+    let names: Vec<&str> = query
+        .split('&')
+        .filter(|kv| !kv.is_empty())
+        .map(|kv| kv.split_once('=').map_or(kv, |(k, _)| k))
+        .collect();
+    if names.is_empty() {
+        path.to_owned()
+    } else {
+        format!("{path}?{}", names.join("&"))
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)] // test code
 mod tests {
@@ -771,6 +798,16 @@ mod tests {
     use granary_silo_api::credentials::MemoryStore;
     use granary_silo_api::mock::MockSiloApi;
     use std::sync::Mutex;
+
+    #[test]
+    fn url_shape_keeps_path_and_query_names_only() {
+        assert_eq!(
+            url_shape("https://h.example/api/v3/playback/media/f1?exp=1&sig=secret"),
+            "/api/v3/playback/media/f1?exp&sig"
+        );
+        assert_eq!(url_shape("/media/x"), "/media/x");
+        assert_eq!(url_shape("http://h"), "/");
+    }
 
     #[derive(Default)]
     struct Notices(Mutex<Vec<Notice>>);
@@ -861,6 +898,10 @@ mod tests {
         let mut r = rig(args()).await;
         let calls = r.backend.calls();
         let load = calls.iter().find(|c| c.starts_with("cmd loadfile")).unwrap();
+        // A reused core may still be paused from keep-open at the previous EOF: unpause before loading.
+        let unpause = calls.iter().position(|c| c == "set pause=no");
+        let load_at = calls.iter().position(|c| c.starts_with("cmd loadfile"));
+        assert!(unpause.is_some() && unpause < load_at, "{calls:?}");
         assert!(
             load.contains(&format!("http://127.0.0.1:{}/r/", r.relay.port())),
             "{load}"

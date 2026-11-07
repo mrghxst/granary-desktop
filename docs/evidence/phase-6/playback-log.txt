@@ -1,0 +1,32 @@
+2026-11-07T12:15:31.520088Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T12:15:31.833487Z  INFO granary_lib::playback::commands: play requested item_id=m1 file_id=m1-f1 start=0.0 audio=Some(0) subtitle=None
+2026-11-07T12:15:31.863738Z  INFO granary_lib::playback::controller: playback plan accepted session=ps-5 delivery=original_http reason=direct_play direct_play=true relayed=true stream=/api/v2/stream/ps-5
+2026-11-07T12:15:34.013222Z  INFO granary_lib::playback::host: mpv hardware decoding hwdec_current=d3d11va
+2026-11-07T12:15:34.014292Z  INFO granary_lib::playback::controller: progress acknowledged sequence=1 position="0.0" paused=false outcome=applied
+2026-11-07T12:15:35.524898Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=8
+2026-11-07T12:15:43.530537Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=16
+2026-11-07T12:15:44.106114Z  INFO granary_lib::playback::controller: progress acknowledged sequence=2 position="10.1" paused=false outcome=applied
+2026-11-07T12:15:44.491725Z  INFO granary_lib::playback::controller: progress acknowledged sequence=3 position="10.5" paused=true outcome=applied
+2026-11-07T12:15:46.779675Z  INFO granary_lib::playback::controller: progress acknowledged sequence=4 position="10.5" paused=false outcome=applied
+2026-11-07T12:15:47.700558Z  INFO granary_lib::playback::controller: progress acknowledged sequence=5 position="20.8" paused=false outcome=applied
+2026-11-07T12:15:56.139769Z  INFO granary_lib::playback::controller: playback stopped on the server outcome=stopped position=Some("29.2")
+2026-11-07T12:15:56.469807Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T12:15:56.852510Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T12:15:57.174956Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T12:15:57.450816Z  INFO granary_lib::playback::commands: play requested item_id=e1 file_id=e1-f1 start=0.0 audio=Some(0) subtitle=None
+2026-11-07T12:15:57.458577Z  INFO granary_lib::playback::controller: playback plan accepted session=ps-6 delivery=original_http reason=direct_play direct_play=true relayed=true stream=/api/v2/stream/ps-6
+2026-11-07T12:15:59.038930Z  INFO granary_lib::playback::host: mpv hardware decoding hwdec_current=d3d11va
+2026-11-07T12:15:59.039645Z  INFO granary_lib::playback::controller: progress acknowledged sequence=1 position="0.0" paused=false outcome=applied
+2026-11-07T12:16:01.182923Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=8
+2026-11-07T12:16:02.848663Z  INFO granary_lib::playback::commands: play requested item_id=e2 file_id=e2-f1 start=600.0 audio=Some(0) subtitle=None
+2026-11-07T12:16:02.848992Z  INFO granary_lib::playback::controller: playback stopped on the server outcome=stopped position=Some("3.8")
+2026-11-07T12:16:02.906739Z  INFO granary_lib::playback::controller: playback plan accepted session=ps-7 delivery=original_http reason=direct_play direct_play=true relayed=true stream=/api/v2/stream/ps-7
+2026-11-07T12:16:03.081193Z  INFO granary_lib::playback::host: mpv hardware decoding hwdec_current=d3d11va
+2026-11-07T12:16:03.081432Z  INFO granary_lib::playback::controller: progress acknowledged sequence=1 position="60.0" paused=false outcome=applied
+2026-11-07T12:16:03.082711Z  INFO granary_lib::playback::controller: progress acknowledged sequence=2 position="60.0" paused=true outcome=applied
+2026-11-07T12:16:03.083851Z  INFO granary_lib::playback::controller: playback stopped on the server outcome=stopped position=Some("60.0")
+2026-11-07T12:16:03.140806Z  INFO granary_lib::playback::commands: play requested item_id=e3 file_id=e3-f1 start=0.0 audio=Some(0) subtitle=None
+2026-11-07T12:16:03.200857Z  INFO granary_lib::playback::controller: playback plan accepted session=ps-8 delivery=original_http reason=direct_play direct_play=true relayed=true stream=/api/v2/stream/ps-8
+2026-11-07T12:16:05.221945Z  INFO granary_lib::playback::host: mpv hardware decoding hwdec_current=d3d11va
+2026-11-07T12:16:05.222795Z  INFO granary_lib::playback::controller: progress acknowledged sequence=1 position="0.0" paused=false outcome=applied
+2026-11-07T12:16:06.526452Z  INFO granary_lib::playback::controller: playback stopped on the server outcome=stopped position=Some("1.3")

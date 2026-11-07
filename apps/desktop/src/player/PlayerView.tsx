@@ -39,6 +39,8 @@ import {
   neighbours,
   player,
   trickplayTile,
+  upNextAnchorFor,
+  upNextRemaining,
   upNextStart,
   UP_NEXT_SECONDS,
   type PlayerAction,
@@ -50,6 +52,8 @@ import { usePlayer } from "./context";
 const HIDE_PLAYING_MS = 2500;
 /** OLED: static controls do not stay on a paused picture for long either. */
 const HIDE_PAUSED_MS = 30000;
+/** A paused picture dims the controls first. */
+const DIM_PAUSED_MS = 8000;
 type MenuName = "audio" | "subtitles" | "speed" | "picture";
 
 interface SubtitleOption {
@@ -286,6 +290,8 @@ function PlayerControls() {
   const p = usePlayer();
   const { state, ctx, plan, settings, window: win, setWindow, showToast } = p;
   const [visible, setVisible] = useState(true);
+  const [dimmed, setDimmed] = useState(false);
+  const dimTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [menu, setMenu] = useState<MenuName | null>(null);
   const [help, setHelp] = useState(false);
   const [stats, setStats] = useState<Record<string, string> | null>(null);
@@ -378,7 +384,14 @@ function PlayerControls() {
   const schedule = useCallback(() => {
     if (hideTimer.current !== undefined) clearTimeout(hideTimer.current);
     hideTimer.current = undefined;
+    if (dimTimer.current !== undefined) clearTimeout(dimTimer.current);
+    dimTimer.current = undefined;
     if (keepVisible) return;
+    if (paused) {
+      dimTimer.current = setTimeout(() => {
+        setDimmed(true);
+      }, DIM_PAUSED_MS);
+    }
     hideTimer.current = setTimeout(
       () => {
         setVisible(false);
@@ -393,6 +406,7 @@ function PlayerControls() {
       setVisible(true);
       void player.overlay(true).catch(() => undefined);
     }
+    setDimmed(false);
     schedule();
   }, [schedule]);
 
@@ -401,6 +415,7 @@ function PlayerControls() {
     schedule();
     return () => {
       if (hideTimer.current !== undefined) clearTimeout(hideTimer.current);
+      if (dimTimer.current !== undefined) clearTimeout(dimTimer.current);
     };
   }, [active, schedule]);
 
@@ -459,14 +474,23 @@ function PlayerControls() {
 
   // Up next: from the credits marker (or 20 s before the end) a countdown in media time starts the next episode, so
   // it pauses with the video. It always ends at least 2 s before the file does.
+  // The countdown is anchored where it was first seen while playing, so a file that starts inside the window (a
+  // resume point in the credits, a stale position right after a file switch) still gets the full countdown.
   const upNextFrom = upNextStart(markers, duration);
-  const counting =
+  const inWindow = position >= upNextFrom && position < duration;
+  const eligible =
     near.next !== undefined &&
     settings.player.autoplayNext &&
     !upNextCancelled &&
     duration > 60 &&
-    position >= upNextFrom;
-  const remaining = counting ? Math.max(0, Math.ceil(UP_NEXT_SECONDS - (position - upNextFrom))) : UP_NEXT_SECONDS;
+    state.phase === "playing" &&
+    inWindow;
+  const [upNextAnchor, setUpNextAnchor] = useState<number | null>(null);
+  const anchorNow = upNextAnchorFor(upNextAnchor, eligible, position, upNextFrom);
+  if (anchorNow !== upNextAnchor) setUpNextAnchor(anchorNow);
+  const counting =
+    anchorNow !== null && settings.player.autoplayNext && !upNextCancelled && near.next !== undefined && inWindow;
+  const remaining = counting ? upNextRemaining(anchorNow, position) : UP_NEXT_SECONDS;
   useEffect(() => {
     if (!counting || remaining > 0 || !near.next || upNextFired.current) return;
     upNextFired.current = true;
@@ -809,7 +833,7 @@ function PlayerControls() {
 
       <div
         className={`pointer-events-none relative flex flex-1 flex-col justify-between transition-opacity duration-300 ${
-          visible ? "opacity-100" : "opacity-0"
+          visible ? (dimmed && paused ? "opacity-40" : "opacity-100") : "opacity-0"
         }`}
       >
         {/* Top bar */}

@@ -12,6 +12,8 @@ import {
   mediaLines,
   neighbours,
   trickplayTile,
+  upNextAnchorFor,
+  upNextRemaining,
   upNextStart,
   type PlaybackContext,
   type Trickplay,
@@ -98,6 +100,22 @@ describe("chapters and markers", () => {
     expect(upNextStart([{ kind: "credits", start_seconds: 1200, end_seconds: 1300 }], 1320)).toBe(1200);
     expect(upNextStart([{ kind: "credits", start_seconds: 1315, end_seconds: 1320 }], 1320)).toBe(1308);
     expect(upNextStart([], 1320)).toBe(1300);
+  });
+
+  it("anchors the up-next countdown where it is first seen, so a resume inside the window gets the full countdown", () => {
+    // Resumed at 1310 with the window from 1300: counting starts at 1310, not already 10 s in.
+    const a = upNextAnchorFor(null, true, 1310, 1300);
+    expect(a).toBe(1310);
+    expect(upNextRemaining(a, 1310)).toBe(10);
+    expect(upNextRemaining(a, 1315.5)).toBe(5);
+    expect(upNextRemaining(a, 1320)).toBe(0);
+    // Not eligible (paused, loading, cancelled): no anchor yet; a later position keeps the first anchor.
+    expect(upNextAnchorFor(null, false, 1310, 1300)).toBeNull();
+    expect(upNextAnchorFor(1310, true, 1312, 1300)).toBe(1310);
+    // A seek back before the window clears it; never more than the full countdown.
+    expect(upNextAnchorFor(1310, true, 1200, 1300)).toBeNull();
+    expect(upNextRemaining(1310, 1305)).toBe(10);
+    expect(upNextRemaining(null, 1305)).toBe(10);
   });
 });
 

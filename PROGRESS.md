@@ -1,5 +1,5 @@
 # PROGRESS
-Last updated: 2026-11-07T01:10:00+01:00 | Current phase: 6 | Last commit: (see git log)
+Last updated: 2026-11-07T13:40:00+01:00 | Current phase: 6 | Last commit: (see git log)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
@@ -15,9 +15,8 @@ Last updated: 2026-11-07T01:10:00+01:00 | Current phase: 6 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 6: native playback & progress sync. Next: silo-api playback protocol v3 module (capabilities, start,
-progress, stop, replan, trickplay, events ticket) + mock + contract fixtures, then the host playback controller,
-media relay, video window and player overlay.
+Phase 6: native playback & progress sync — implementation, docs (ADR-0008) and real-playback evidence done
+(`docs/evidence/phase-6/`, 17/17 checks). Next: Gate 6 review (`docs/reviews/phase-6.md`), fixes, gate block.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -27,6 +26,7 @@ media relay, video window and player overlay.
 - [ADR-0005](docs/adr/0005-packaging-licensing-updates.md) shinchiro v3 libmpv pinned + private mirror, NSIS per-user, no auto-update.
 - [ADR-0006](docs/adr/0006-display-refresh-hdr-restore-policy.md) Refresh/HDR policy and restore marker.
 - [ADR-0007](docs/adr/0007-workspace-toolchain-ci.md) Workspaces, frontend toolchain (TS 6.0.3 for typescript-eslint), Rust 1.99.1 pin, CI/release workflows.
+- [ADR-0008](docs/adr/0008-native-playback-pipeline.md) Playback: loopback media relay (no credentials in mpv), one controller per attempt, single-task player host, overlay hiding, up-next anchoring, events socket.
 - pnpm 12.18.0 via corepack shim installed to `%APPDATA%\npm` (corepack enable into Program Files needs admin).
 - Toolchain (Phase 0): git 2.53.0, node v24.18.0, pnpm 12.18.0, rustc 1.99.1 (host x86_64-pc-windows-msvc),
   VS Build Tools 2022 17.14 (MSVC 14.44.35207, Windows SDK 10.0.26100), gh 2.103.3, 7-Zip 26.01, ffmpeg 8.1.2,
@@ -42,6 +42,9 @@ media relay, video window and player overlay.
   blocked, with mocked coverage (contract tests against the OAS subset, wiremock HTTP tests, MockSiloApi session and
   UI flow tests). To run it later: create `.env.local` (SILO_URL, SILO_USERNAME, SILO_PASSWORD), then
   `cargo test -p granary-silo-api --test live -- --ignored`.
+- Gate 6 "real library item" playback is not applicable without `.env.local` (prompt: "if credentials exist"); real
+  playback evidence uses the ffmpeg test clips served by the in-process mock (direct play, `hwdec-current=d3d11va`,
+  progress acknowledged). Live checks are listed in MANUAL_TEST_CHECKLIST.md (Native playback).
 - Test machine is a laptop (Intel Arc 140V, one HDR-capable internal panel 60/120 Hz): multi-monitor, VRR, OLED
   desktop monitor and AV-receiver checks go to MANUAL_TEST_CHECKLIST.md. PresentMon not installed (independent flip
   cannot be measured automatically).
@@ -65,9 +68,14 @@ media relay, video window and player overlay.
   options / preferSdh unused / settings read errors treated as missing, L7 Profiles back button (also phase-4 L9),
   L8 IPC/capability-level test (tauri::test get_ipc_response), L11 ContextMenu refocus on re-render, L12 artwork host
   allow-list — Phase 8 polish; L3 player_play validation → Phase 6 controller.
-- Phase 6: re-verify Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2).
+- Design A with window `backgroundColor #141417` (spike used `#00000000`; phase-3 review L2): playback works with
+  it in the Phase 6 evidence; the pre-first-frame look on a slow stream is a manual check (MANUAL_TEST_CHECKLIST.md).
+- Events socket against the in-process mock is unreachable by design (backoff warnings in the dev log).
+- Next episode does not cross a season boundary (neighbours come from `listSeasonEpisodes` of the current season;
+  no next-up endpoint upstream, silo-api.md open question 9) — Phase 8 polish.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-07 Phase 6: player overlay (keyboard map, menus, stats, trickplay, up next, media keys), events socket live refresh, precise seeks + unpause on reused core, per-session hwdec log, ADR-0008, playback evidence 17/17 (`scripts/playback-evidence.mjs`); verify.ps1 exit 0.
 - 2026-11-07 Gate 5: review fixes M1–M5 (web-app subtitle/resume/version rules, raster-only sandboxed artwork scheme + navigation guard, streamed 16 MiB cap, UI evidence via WebView2 DevTools), L5/L9/L10; verify.ps1 exit 0.
 - 2026-11-06 Phase 5: UI web-app parity screens, catalog commands + mock catalog, granary-img scheme, settings store, contract tests for 6 new operations, vitest browse → details → play flow + host-side E2E test; verify.ps1 exit 0.
 - 2026-11-06 Gate 4: review fixes (H1 credential never follows a server id to a new origin, M1 account-level calls without profile headers, M2 re-login ends previous session, L2, L3); verify.ps1 exit 0.

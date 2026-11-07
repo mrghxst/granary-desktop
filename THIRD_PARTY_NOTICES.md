@@ -37,7 +37,9 @@ Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-w
 (Microsoft), `libmpv2-sys` (LGPL-2.1), `serde`, `serde_json`, `thiserror`, `tracing`, `tracing-subscriber`,
 `tracing-appender`, `tokio`, `reqwest` (with `rustls`, `rustls-platform-verifier`, `aws-lc-rs`: Apache-2.0 / ISC / MIT;
 `aws-lc-sys` also OpenSSL-style licences), `keyring-core` and `windows-native-keyring-store`, `url`, `uuid`,
-`async-trait`, `bytes`, `futures-core`, `futures-util`. Test-only (not shipped): `wiremock`, `rcgen`, `tokio-rustls`.
+`async-trait`, `bytes`, `futures-core`, `futures-util`, `hyper`, `hyper-util`, `http-body-util` (loopback media relay),
+`tokio-tungstenite` (events socket, MIT), `rustls`.
+Test-only (not shipped): `wiremock`, `rcgen`, `tokio-rustls`.
 
 JavaScript packages (see `pnpm-lock.yaml`; MIT unless noted): React, React DOM, React Router, i18next,
 react-i18next, `@tauri-apps/api` (MIT/Apache-2.0), Tailwind CSS, lucide-react (icons, ISC).
