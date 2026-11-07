@@ -16,7 +16,12 @@ Last updated: 2026-11-07T13:40:00+01:00 | Current phase: 6 | Last commit: (see g
 
 ## Current step
 Phase 6: native playback & progress sync — implementation, docs (ADR-0008) and real-playback evidence done
-(`docs/evidence/phase-6/`, 17/17 checks). Next: Gate 6 review (`docs/reviews/phase-6.md`), fixes, gate block.
+(`docs/evidence/phase-6/`, 17/17 checks). Next: Gate 6 review (`docs/reviews/phase-6.md`, reviewer subagent was running when the session hit its usage limit; re-run if the file is missing), fixes, gate block.
+Phase 7 started early (WIP, not wired into the app yet): `crates/display` policy.rs (HDR/refresh/tone-mapping decisions) and session.rs
+(apply + restore marker), packets 16→10 HDR set, rational SetDisplayConfig refresh, mode list; round trip
+`docs/evidence/phase-7/display-roundtrip.txt` (refresh 60→120→60 Hz restored; HDR switch did not read back on this
+laptop in this session, neither packet 16 nor 10; possibly power policy, unverified). Remaining Phase 7: host wiring (prepare before load,
+restore on stop/move/exit), settings + UI, audio options, DV stats, ADR amendment, checklist.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).

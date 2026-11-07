@@ -6,7 +6,9 @@
 
 pub mod marker;
 pub mod mock;
+pub mod policy;
 pub mod process;
+pub mod session;
 pub mod types;
 #[cfg(windows)]
 pub mod win;
@@ -38,6 +40,10 @@ pub trait DisplayController {
     fn set_refresh(&self, id: &DisplayId, gdi_name: &str, refresh: Rational) -> Result<(), DisplayError>;
     /// Restore the persisted (registry) mode of one display after a temporary refresh change.
     fn restore_mode(&self, gdi_name: &str) -> Result<(), DisplayError>;
+    /// Refresh rates available at the display's current resolution (rational where the driver reports them).
+    fn modes(&self, _display: &DisplayInfo) -> Result<Vec<Rational>, DisplayError> {
+        Ok(Vec::new())
+    }
 
     /// Convenience: the display with this id.
     fn display(&self, id: &DisplayId) -> Result<DisplayInfo, DisplayError> {

@@ -9,6 +9,8 @@ pub struct MockDisplayController {
     state: Mutex<Vec<DisplayInfo>>,
     registry_refresh: Mutex<Vec<(String, Rational)>>,
     fail_set_hdr: Mutex<bool>,
+    fail_set_refresh: Mutex<bool>,
+    modes: Mutex<Vec<Rational>>,
 }
 
 impl MockDisplayController {
@@ -44,6 +46,8 @@ impl MockDisplayController {
             state: Mutex::new(displays),
             registry_refresh: Mutex::new(reg),
             fail_set_hdr: Mutex::new(false),
+            fail_set_refresh: Mutex::new(false),
+            modes: Mutex::new(Vec::new()),
         }
     }
 
@@ -77,6 +81,19 @@ impl MockDisplayController {
         }
     }
 
+    pub fn fail_set_refresh(&self, fail: bool) {
+        if let Ok(mut f) = self.fail_set_refresh.lock() {
+            *f = fail;
+        }
+    }
+
+    /// Refresh rates offered by `DisplayController::modes`.
+    pub fn set_modes(&self, modes: Vec<Rational>) {
+        if let Ok(mut m) = self.modes.lock() {
+            *m = modes;
+        }
+    }
+
     fn lock_state(&self) -> std::sync::MutexGuard<'_, Vec<DisplayInfo>> {
         // A poisoned lock only happens after a panic in another test thread; recover the data.
         self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -104,6 +121,9 @@ impl DisplayController for MockDisplayController {
     }
 
     fn set_refresh(&self, id: &DisplayId, _gdi_name: &str, refresh: Rational) -> Result<(), DisplayError> {
+        if self.fail_set_refresh.lock().map(|f| *f).unwrap_or(false) {
+            return Err(DisplayError::ModeRejected("mock: refresh rejected".into()));
+        }
         let mut s = self.lock_state();
         let d = s
             .iter_mut()
@@ -126,5 +146,9 @@ impl DisplayController for MockDisplayController {
             d.refresh = reg;
         }
         Ok(())
+    }
+
+    fn modes(&self, _display: &DisplayInfo) -> Result<Vec<Rational>, DisplayError> {
+        Ok(self.modes.lock().map(|m| m.clone()).unwrap_or_default())
     }
 }
