@@ -1,9 +1,18 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Alert } from "../components/ui";
 import { errorMessage } from "../lib/errors";
-import { useSettings, type Settings as SettingsModel } from "../lib/settings";
+import {
+  DEFAULT_MONITOR,
+  listAudioDevices,
+  listMonitors,
+  useSettings,
+  type AudioDevice,
+  type MonitorSettings,
+  type MonitorView,
+  type Settings as SettingsModel,
+} from "../lib/settings";
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -96,13 +105,107 @@ function Choice<T extends string>({
   );
 }
 
+/** Optional number with an automatic default; committed on blur/Enter, empty = automatic (null). */
+function NumberField({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  onCommit,
+}: {
+  label: string;
+  hint: string;
+  value: number | null;
+  min: number;
+  max: number;
+  step: number;
+  onCommit: (v: number | null) => void;
+}) {
+  const commit = (raw: string) => {
+    const text = raw.trim();
+    if (text === "") {
+      if (value !== null) onCommit(null);
+      return;
+    }
+    const n = Number(text.replace(",", "."));
+    if (Number.isFinite(n) && n >= min && n <= max && n !== value) onCommit(n);
+  };
+  return (
+    <RowLabel label={label} hint={hint}>
+      <input
+        key={String(value)}
+        type="number"
+        inputMode="decimal"
+        min={min}
+        max={max}
+        step={step}
+        aria-label={label}
+        defaultValue={value ?? ""}
+        onBlur={(e) => {
+          commit(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit(e.currentTarget.value);
+        }}
+        className="w-28 rounded-lg border border-border bg-background px-3 py-2 text-right text-sm tabular-nums focus:border-ring focus:outline-none"
+      />
+    </RowLabel>
+  );
+}
+
+/** Monitors and audio devices from the host (empty outside the app). */
+function useOutputs() {
+  const [monitors, setMonitors] = useState<MonitorView[] | null>(null);
+  const [devices, setDevices] = useState<AudioDevice[]>([]);
+  useEffect(() => {
+    let alive = true;
+    listMonitors()
+      .then((m) => {
+        if (alive) setMonitors(m);
+      })
+      .catch(() => {
+        if (alive) setMonitors([]);
+      });
+    listAudioDevices()
+      .then((d) => {
+        if (alive) setDevices(d);
+      })
+      .catch(() => {
+        /* no devices: only "Windows default" is offered */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return { monitors, devices };
+}
+
 const CODECS = ["ac3", "eac3", "dts", "dts-hd", "truehd"] as const;
 
 export function Settings() {
   const { t } = useTranslation();
   const { settings: s, update, error } = useSettings();
+  const { monitors, devices } = useOutputs();
   if (!s) return <p className="text-muted-foreground">{t("status.loading")}</p>;
   const set = (patch: (draft: SettingsModel) => SettingsModel) => void update(patch(s));
+  const setMonitor = (m: MonitorView, patch: Partial<MonitorSettings>) => {
+    set((d) => {
+      const prev = d.display.monitors[m.key] ?? DEFAULT_MONITOR;
+      return {
+        ...d,
+        display: { ...d.display, monitors: { ...d.display.monitors, [m.key]: { ...prev, ...patch, name: m.name } } },
+      };
+    });
+  };
+  const deviceOptions = [
+    { value: "auto", label: t("settings.audioDeviceAuto") },
+    ...devices.filter((d) => d.name !== "auto").map((d) => ({ value: d.name, label: d.description || d.name })),
+  ];
+  if (!deviceOptions.some((o) => o.value === s.audio.device)) {
+    deviceOptions.push({ value: s.audio.device, label: s.audio.device });
+  }
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -182,25 +285,124 @@ export function Settings() {
       </Section>
 
       <Section id="s-display" title={t("settings.display")}>
-        <Toggle
-          label={t("settings.autoHdr")}
-          hint={t("settings.autoHdrHint")}
-          checked={s.display.autoHdr}
-          onChange={(autoHdr) => {
-            set((d) => ({ ...d, display: { ...d.display, autoHdr } }));
+        <Choice
+          label={t("settings.hdrMode")}
+          hint={t("settings.hdrModeHint")}
+          value={s.display.hdrMode}
+          onChange={(hdrMode) => {
+            set((d) => ({ ...d, display: { ...d.display, hdrMode } }));
           }}
+          options={[
+            { value: "off", label: t("settings.hdrOff") },
+            { value: "content", label: t("settings.hdrContent") },
+            { value: "always", label: t("settings.hdrAlways") },
+          ]}
         />
-        <Toggle
-          label={t("settings.matchRefresh")}
-          hint={t("settings.matchRefreshHint")}
-          checked={s.display.matchRefreshRate}
-          onChange={(matchRefreshRate) => {
-            set((d) => ({ ...d, display: { ...d.display, matchRefreshRate } }));
+        <Choice
+          label={t("settings.refresh")}
+          hint={t("settings.refreshHint")}
+          value={s.display.refresh}
+          onChange={(refresh) => {
+            set((d) => ({ ...d, display: { ...d.display, refresh } }));
           }}
+          options={[
+            { value: "auto", label: t("settings.refreshAuto") },
+            { value: "match", label: t("settings.refreshMatch") },
+            { value: "never", label: t("settings.refreshNever") },
+          ]}
         />
+        <h3 className="mt-4 text-sm font-semibold">{t("settings.monitors")}</h3>
+        <p className="text-xs text-muted-foreground">{t("settings.monitorsHint")}</p>
+        {monitors === null ? (
+          <p className="py-2 text-sm text-muted-foreground">{t("status.loading")}</p>
+        ) : monitors.length === 0 ? (
+          <p className="py-2 text-sm text-muted-foreground">{t("settings.monitorNone")}</p>
+        ) : (
+          monitors.map((m) => {
+            const prefs = s.display.monitors[m.key] ?? DEFAULT_MONITOR;
+            return (
+              <fieldset key={m.key} className="mt-3 rounded-lg border border-border/60 px-4 py-2">
+                <legend className="px-1 text-sm font-medium">
+                  {m.name || m.key}
+                  {m.current ? (
+                    <span className="ml-2 text-xs text-primary">({t("settings.monitorCurrent")})</span>
+                  ) : null}
+                </legend>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.monitorFacts", {
+                    refresh: m.refreshHz.toFixed(m.refreshHz % 1 === 0 ? 0 : 3),
+                    peak: Math.round(m.peakNits),
+                    white: Math.round(m.sdrWhiteNits),
+                    hdr: m.hdrSupported
+                      ? m.hdrEnabled
+                        ? t("settings.monitorHdrOn")
+                        : t("settings.monitorHdrOff")
+                      : t("settings.monitorNoHdr"),
+                  })}
+                </p>
+                <Toggle
+                  label={t("settings.vrr")}
+                  hint={t("settings.vrrHint")}
+                  checked={prefs.vrr}
+                  onChange={(vrr) => {
+                    setMonitor(m, { vrr });
+                  }}
+                />
+                <Choice
+                  label={t("settings.refresh")}
+                  value={prefs.refresh}
+                  onChange={(refresh) => {
+                    setMonitor(m, { refresh });
+                  }}
+                  options={[
+                    { value: "default", label: t("settings.refreshDefault") },
+                    { value: "auto", label: t("settings.refreshAuto") },
+                    { value: "match", label: t("settings.refreshMatch") },
+                    { value: "never", label: t("settings.refreshNever") },
+                  ]}
+                />
+                {m.hdrSupported ? (
+                  <>
+                    <NumberField
+                      label={t("settings.peakNits")}
+                      hint={t("settings.overrideHint", { value: Math.round(m.peakNits) })}
+                      value={prefs.peakNits}
+                      min={80}
+                      max={10000}
+                      step={10}
+                      onCommit={(peakNits) => {
+                        setMonitor(m, { peakNits });
+                      }}
+                    />
+                    <NumberField
+                      label={t("settings.blackNits")}
+                      hint={t("settings.overrideHint", { value: m.blackNits.toFixed(4) })}
+                      value={prefs.blackNits}
+                      min={0}
+                      max={5}
+                      step={0.0001}
+                      onCommit={(blackNits) => {
+                        setMonitor(m, { blackNits });
+                      }}
+                    />
+                  </>
+                ) : null}
+              </fieldset>
+            );
+          })
+        )}
       </Section>
 
       <Section id="s-audio" title={t("settings.audio")}>
+        <p className="text-xs text-muted-foreground">{t("settings.audioLiveHint")}</p>
+        <Choice
+          label={t("settings.audioDevice")}
+          value={s.audio.device}
+          onChange={(device) => {
+            set((d) => ({ ...d, audio: { ...d.audio, device } }));
+          }}
+          options={deviceOptions}
+        />
         <Choice
           label={t("settings.channels")}
           value={s.audio.channels}
@@ -213,6 +415,14 @@ export function Settings() {
             { value: "5.1", label: "5.1" },
             { value: "7.1", label: "7.1" },
           ]}
+        />
+        <Toggle
+          label={t("settings.normalizeDownmix")}
+          hint={t("settings.normalizeDownmixHint")}
+          checked={s.audio.normalizeDownmix}
+          onChange={(normalizeDownmix) => {
+            set((d) => ({ ...d, audio: { ...d.audio, normalizeDownmix } }));
+          }}
         />
         <Toggle
           label={t("settings.passthrough")}

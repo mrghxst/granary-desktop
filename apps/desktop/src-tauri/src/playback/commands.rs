@@ -192,10 +192,112 @@ pub fn install(app: &tauri::App, app_version: String, hwdec: String, libmpv_ok: 
             }
         }
     });
-    let host = tauri::async_runtime::block_on(async move { PlayerHost::start(ui, factory, env) });
+    let output = Arc::new(display_output(app));
+    let host = tauri::async_runtime::block_on(async move { PlayerHost::start(ui, factory, env, output) });
     app.manage(host);
     app.manage(WindowModes::default());
     Ok(())
+}
+
+/// The display/audio output of the player (Phase 7): the Windows display controller, the monitor of the main window
+/// and the current settings; the restore marker is the one startup repair reads.
+fn display_output(app: &tauri::App) -> super::output::Output {
+    use granary_display::session::Timing;
+    let marker = crate::paths::local_dir().join(granary_display::marker::FILE_NAME);
+    let handle = app.handle().clone();
+    let settings: super::output::SettingsOf = Box::new(move || {
+        handle
+            .try_state::<crate::settings::SettingsStore>()
+            .map(|s| s.current())
+            .unwrap_or_default()
+    });
+    #[cfg(windows)]
+    {
+        use granary_display::win::{WindowsDisplayController, gdi_name_for_window};
+        let main = app
+            .get_webview_window("main")
+            .and_then(|w| w.hwnd().ok())
+            .map_or(0, |h| h.0 as isize);
+        super::output::Output::new(
+            Some(Arc::new(WindowsDisplayController)),
+            marker,
+            Timing::default(),
+            Box::new(move || gdi_name_for_window(main)),
+            settings,
+        )
+    }
+    #[cfg(not(windows))]
+    {
+        super::output::Output::new(None, marker, Timing::default(), Box::new(|| None), settings)
+    }
+}
+
+/// One monitor for the per-monitor display settings.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorView {
+    /// Settings key (reboot-stable monitor device path).
+    pub key: String,
+    pub name: String,
+    pub hdr_supported: bool,
+    pub hdr_enabled: bool,
+    pub refresh_hz: f64,
+    /// Refresh rates at the current resolution.
+    pub modes_hz: Vec<f64>,
+    /// DXGI peak / black luminance (nits); unstable for ~1.5 s after an HDR toggle.
+    pub peak_nits: f32,
+    pub black_nits: f32,
+    pub sdr_white_nits: f64,
+    /// The player window is on this monitor.
+    pub current: bool,
+}
+
+#[tauri::command]
+pub async fn display_list(app: AppHandle) -> CmdResult<Vec<MonitorView>> {
+    #[cfg(windows)]
+    {
+        use granary_display::DisplayController;
+        use granary_display::win::{WindowsDisplayController, gdi_name_for_window};
+        let main = app
+            .get_webview_window("main")
+            .and_then(|w| w.hwnd().ok())
+            .map(|h| h.0 as isize);
+        let list = tauri::async_runtime::spawn_blocking(move || {
+            let current = main.and_then(gdi_name_for_window);
+            WindowsDisplayController.displays().map(|ds| {
+                ds.into_iter()
+                    .map(|d| MonitorView {
+                        modes_hz: WindowsDisplayController::refresh_rates(&d.gdi_name)
+                            .into_iter()
+                            .map(|r| (r.hz() * 1000.0).round() / 1000.0)
+                            .collect(),
+                        current: current.as_deref().is_some_and(|c| c.eq_ignore_ascii_case(&d.gdi_name)),
+                        key: d.monitor_path,
+                        name: d.friendly_name,
+                        hdr_supported: d.hdr_supported,
+                        hdr_enabled: d.hdr_enabled,
+                        refresh_hz: (d.refresh.hz() * 1000.0).round() / 1000.0,
+                        peak_nits: d.max_luminance,
+                        black_nits: d.min_luminance,
+                        sdr_white_nits: d.sdr_white_nits,
+                    })
+                    .collect::<Vec<_>>()
+            })
+        })
+        .await
+        .map_err(|e| CommandError::plain("internal", e.to_string()))?;
+        list.map_err(|e| CommandError::plain("display_error", e.to_string()))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(Vec::new())
+    }
+}
+
+#[tauri::command]
+pub async fn player_audio_devices(host: State<'_, PlayerHost>) -> CmdResult<Vec<super::host::AudioDevice>> {
+    Ok(host.ask(Cmd::AudioDevices).await.unwrap_or_default())
 }
 
 fn host_error(e: String) -> CommandError {

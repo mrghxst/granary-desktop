@@ -34,6 +34,8 @@ const COMMANDS: &[&str] = &[
     "player_fullscreen",
     "player_mini",
     "player_window",
+    "player_audio_devices",
+    "display_list",
     "events_connect",
     "events_disconnect",
     "settings_get",

@@ -185,6 +185,18 @@ pub fn run() {
             });
         })
         .setup(move |app| setup(app, libmpv))
+        // The display policy follows the monitor the player window is on (R4 §8.5).
+        .on_window_event(|window, event| {
+            if window.label() == "main"
+                && matches!(
+                    event,
+                    tauri::WindowEvent::Moved(_) | tauri::WindowEvent::ScaleFactorChanged { .. }
+                )
+                && let Some(host) = window.app_handle().try_state::<playback::host::PlayerHost>()
+            {
+                host.send(playback::host::Cmd::WindowMoved);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             silo::servers_list,
@@ -217,6 +229,8 @@ pub fn run() {
             playback::commands::player_fullscreen,
             playback::commands::player_mini,
             playback::commands::player_window,
+            playback::commands::player_audio_devices,
+            playback::commands::display_list,
             playback::events::events_connect,
             playback::events::events_disconnect,
             settings::settings_get,
@@ -228,8 +242,9 @@ pub fn run() {
             if let RunEvent::ExitRequested { .. } = event
                 && let Some(host) = app.try_state::<playback::host::PlayerHost>()
             {
-                // Report the final position and release the server session before the process ends.
-                host.shutdown_blocking(std::time::Duration::from_secs(3));
+                // Report the final position, release the server session and restore the display state before the
+                // process ends (an unfinished restore is repaired from the marker at the next start).
+                host.shutdown_blocking(std::time::Duration::from_secs(5));
             }
             if let RunEvent::Exit = event {
                 tracing::info!("Granary exiting");

@@ -35,6 +35,8 @@
     "allow-player-fullscreen",
     "allow-player-mini",
     "allow-player-window",
+    "allow-player-audio-devices",
+    "allow-display-list",
     "allow-events-connect",
     "allow-events-disconnect",
     "allow-settings-get",

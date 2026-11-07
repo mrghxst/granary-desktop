@@ -2,9 +2,11 @@
 //! commands, mpv events (from the mpv event thread), media keys and a 2 Hz tick all arrive on one channel, so
 //! playback state is never shared between threads.
 use super::controller::{Controller, Environment, Notice, Sink, StartArgs, SubtitleChoice};
+use super::output::{Output, run_blocking};
 use super::relay::Relay;
 use granary_player::{MpvEvent, Phase, PlayerBackend, PropValue};
 use granary_silo_api::Session;
+use granary_silo_api::playback::PlaybackSource;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -17,6 +19,11 @@ pub const EVENT_MEDIA_KEY: &str = "player://media-key";
 const TICK: Duration = Duration::from_millis(500);
 /// Position updates to the UI at most this often (pause, phase and volume changes go out at once).
 const POSITION_EMIT: Duration = Duration::from_millis(250);
+/// Display changes made for playback are kept this long after the player goes idle, so the next episode (autoplay,
+/// up next) does not switch HDR/refresh off and on again; then they are restored (ADR-0006 amendment 1).
+const RELEASE_GRACE: Duration = Duration::from_secs(10);
+/// Window move events are coalesced; the owning monitor is checked this long after the last one.
+const MOVE_SETTLE: Duration = Duration::from_millis(400);
 
 /// Extra mpv properties observed for the UI and the logs (the state machine observes `OBSERVED`).
 pub const UI_PROPERTIES: &[(&str, granary_player::state::ObserveFormat)] = {
@@ -73,7 +80,6 @@ const STATS: &[&str] = &[
     "audio-pts",
     "core-idle",
     "estimated-frame-number",
-    "audio-device",
     "file-format",
     "video-codec",
     "video-params/w",
@@ -81,9 +87,21 @@ const STATS: &[&str] = &[
     "video-params/pixelformat",
     "video-params/primaries",
     "video-params/gamma",
+    "video-params/colormatrix",
     "video-params/sig-peak",
+    "video-params/max-cll",
+    "video-params/max-fall",
+    "current-tracks/video/dolby-vision-profile",
+    "current-tracks/video/dolby-vision-level",
     "video-out-params/primaries",
     "video-out-params/gamma",
+    "video-target-params/primaries",
+    "video-target-params/gamma",
+    "video-target-params/max-luma",
+    "target-peak",
+    "hdr-reference-white",
+    "video-sync",
+    "display-sync-active",
     "hwdec-current",
     "current-vo",
     "current-gpu-context",
@@ -99,6 +117,9 @@ const STATS: &[&str] = &[
     "audio-params/channel-count",
     "audio-params/hr-channels",
     "current-ao",
+    "audio-device",
+    "audio-exclusive",
+    "audio-spdif",
     "video-bitrate",
     "audio-bitrate",
     "demuxer-cache-duration",
@@ -179,6 +200,21 @@ pub enum Cmd {
     Event(MpvEvent),
     /// mpv's event thread ended (the core shut down).
     BackendGone,
+    /// Settings were saved: apply the audio options live.
+    SettingsChanged,
+    /// The main window moved or changed DPI: re-check the monitor it is on.
+    WindowMoved,
+    /// `audio-device-list` (name, description) for the settings page.
+    AudioDevices(oneshot::Sender<Vec<AudioDevice>>),
+    /// App exit: stop playback and restore the display state at once.
+    Shutdown(oneshot::Sender<()>),
+}
+
+/// One mpv audio output device.
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
+pub struct AudioDevice {
+    pub name: String,
+    pub description: String,
 }
 
 #[derive(Clone)]
@@ -186,12 +222,19 @@ pub struct PlayerHost {
     tx: mpsc::UnboundedSender<Cmd>,
 }
 
-struct UiSink(Arc<dyn Ui>);
+struct UiSink {
+    ui: Arc<dyn Ui>,
+    output: Arc<Output>,
+}
 
 impl Sink for UiSink {
     fn notice(&self, notice: Notice) {
-        self.0
+        self.ui
             .emit(EVENT_NOTICE, serde_json::to_value(&notice).unwrap_or_default());
+    }
+
+    fn before_load(&self, source: &PlaybackSource) -> Vec<(String, String)> {
+        self.output.prepare(source)
     }
 }
 
@@ -203,16 +246,26 @@ struct Runner {
     relay: Option<Arc<Relay>>,
     env: Arc<dyn Fn() -> Environment + Send + Sync>,
     controller: Option<Controller>,
+    output: Arc<Output>,
     item: MediaItem,
     state: UiState,
     last_emit: Instant,
     last_emitted: UiState,
     hwdec_logged: Option<String>,
+    /// The player went idle at this moment (display changes are released after [`RELEASE_GRACE`]).
+    idle_since: Option<Instant>,
+    /// Re-check the window's monitor at this moment (coalesced move events).
+    move_check_at: Option<Instant>,
 }
 
 impl PlayerHost {
     /// Start the host task on the current tokio runtime.
-    pub fn start(ui: Arc<dyn Ui>, factory: BackendFactory, env: Arc<dyn Fn() -> Environment + Send + Sync>) -> Self {
+    pub fn start(
+        ui: Arc<dyn Ui>,
+        factory: BackendFactory,
+        env: Arc<dyn Fn() -> Environment + Send + Sync>,
+        output: Arc<Output>,
+    ) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let runner = Runner {
             ui,
@@ -222,11 +275,14 @@ impl PlayerHost {
             relay: None,
             env,
             controller: None,
+            output,
             item: MediaItem::default(),
             state: UiState::default(),
             last_emit: Instant::now(),
             last_emitted: UiState::default(),
             hwdec_logged: None,
+            idle_since: None,
+            move_check_at: None,
         };
         tauri::async_runtime::spawn(runner.run(rx));
         Self { tx }
@@ -244,10 +300,11 @@ impl PlayerHost {
         rx.await.ok()
     }
 
-    /// Stop playback (server stop included) and wait for it, at most `timeout`. Used on exit.
+    /// Stop playback (server stop included), restore the display state and wait for it, at most `timeout`. Used on
+    /// exit; a restore that does not finish in time is repaired from the marker at the next start.
     pub fn shutdown_blocking(&self, timeout: Duration) {
         let (reply, rx) = oneshot::channel();
-        self.send(Cmd::Stop { reply: Some(reply) });
+        self.send(Cmd::Shutdown(reply));
         let done = tauri::async_runtime::block_on(async { tokio::time::timeout(timeout, rx).await.is_ok() });
         if !done {
             tracing::warn!("playback did not stop in time at exit");
@@ -270,6 +327,7 @@ impl Runner {
                         c.tick(Instant::now()).await;
                     }
                     self.after_controller();
+                    self.housekeeping(Instant::now());
                     self.emit_state(false);
                 }
             }
@@ -383,7 +441,67 @@ impl Runner {
                 self.after_controller();
                 self.emit_state(true);
             }
+            Cmd::SettingsChanged => {
+                if let Some(b) = self.active_backend() {
+                    for (name, value) in self.output.audio_now() {
+                        if let Err(e) = b.set_property(&name, &value) {
+                            tracing::warn!(option = %name, error = %e, "audio option not applied live");
+                        }
+                    }
+                }
+            }
+            Cmd::WindowMoved => {
+                if self.controller.is_some() {
+                    self.move_check_at = Some(Instant::now() + MOVE_SETTLE);
+                }
+            }
+            Cmd::AudioDevices(reply) => {
+                let _ = reply.send(self.audio_devices());
+            }
+            Cmd::Shutdown(reply) => {
+                self.stop().await;
+                self.idle_since = None;
+                let output = self.output.clone();
+                run_blocking(move || output.release());
+                let _ = reply.send(());
+            }
         }
+    }
+
+    /// Idle release of held display changes and coalesced monitor checks.
+    fn housekeeping(&mut self, now: Instant) {
+        if self.controller.is_none()
+            && let Some(since) = self.idle_since
+            && now.duration_since(since) >= RELEASE_GRACE
+        {
+            self.idle_since = None;
+            let output = self.output.clone();
+            run_blocking(move || output.release());
+        }
+        if let Some(at) = self.move_check_at
+            && now >= at
+        {
+            self.move_check_at = None;
+            if let Some(b) = self.active_backend() {
+                let output = self.output.clone();
+                if let Some(options) = run_blocking(move || output.monitor_moved()) {
+                    for (name, value) in options {
+                        if let Err(e) = b.set_property(&name, &value) {
+                            tracing::warn!(option = %name, error = %e, "display option not applied after move");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn audio_devices(&mut self) -> Vec<AudioDevice> {
+        let Ok(b) = self.backend() else {
+            return Vec::new();
+        };
+        b.get_property("audio-device-list")
+            .and_then(|json| serde_json::from_str::<Vec<AudioDevice>>(&json).ok())
+            .unwrap_or_default()
     }
 
     fn handle_pause(&mut self, paused: Option<bool>) {
@@ -397,7 +515,11 @@ impl Runner {
     }
 
     async fn play(&mut self, session: Arc<Session>, args: StartArgs, item: MediaItem) -> Result<(), (String, String)> {
-        self.stop().await;
+        // Stop the previous attempt but keep its display changes: the new plan reuses them when it has the same needs.
+        if let Some(mut c) = self.controller.take() {
+            c.stop().await;
+        }
+        self.idle_since = None;
         let fail = |code: &str, e: String| (code.to_owned(), e);
         let backend = self.backend().map_err(|e| fail("player_unavailable", e))?;
         let relay = self.relay().await.map_err(|e| fail("internal", e))?;
@@ -416,7 +538,10 @@ impl Runner {
         self.item = item;
         self.ui.playing_changed(true, false, Some(&self.item));
         self.emit_state(true);
-        let sink = Arc::new(UiSink(self.ui.clone()));
+        let sink = Arc::new(UiSink {
+            ui: self.ui.clone(),
+            output: self.output.clone(),
+        });
         match Controller::begin(session, backend, relay, sink, env, args).await {
             Ok(c) => {
                 self.controller = Some(c);
@@ -432,6 +557,7 @@ impl Runner {
                 };
                 self.ui.playing_changed(false, false, None);
                 self.emit_state(true);
+                self.idle_since = Some(Instant::now());
                 Err((e.code(), e.to_string()))
             }
         }
@@ -451,6 +577,7 @@ impl Runner {
         }
         if self.controller.is_none() && self.state.active {
             self.state.active = false;
+            self.idle_since = Some(Instant::now());
             self.state.phase = Some(Phase::Idle);
             self.ui.playing_changed(false, false, None);
             self.emit_state(true);
@@ -540,6 +667,23 @@ impl Runner {
         }
         if let Some(c) = &self.controller {
             m.insert("session".into(), serde_json::json!(c.session_id()));
+            let src = c.source();
+            if let Some(r) = &src.dynamic_range {
+                m.insert("source-dynamic-range".into(), serde_json::json!(r));
+            }
+            // Dolby Vision profile as the server probed it (container value from mpv is listed separately).
+            if let Some(p) = src.dolby_vision_profile {
+                m.insert("dolby-vision-profile".into(), serde_json::json!(format!("P{p}")));
+            }
+            if let Some(f) = src.frame_rate {
+                m.insert("source-frame-rate".into(), serde_json::json!(format!("{f:.3}")));
+            }
+        }
+        if m.get("video-params/colormatrix").and_then(|v| v.as_str()) == Some("dolbyvision") {
+            m.insert("dolby-vision-rpu".into(), serde_json::json!("active"));
+        }
+        for (k, v) in self.output.summary() {
+            m.insert(k, serde_json::json!(v));
         }
         serde_json::Value::Object(m)
     }
@@ -595,6 +739,97 @@ mod tests {
         }
     }
 
+    fn no_output() -> Arc<Output> {
+        Arc::new(Output::new(
+            None,
+            std::env::temp_dir().join(format!("granary-host-none-{}.json", std::process::id())),
+            granary_display::session::Timing::default(),
+            Box::new(|| None),
+            Box::new(crate::settings::Settings::default),
+        ))
+    }
+
+    async fn demo_session() -> Session {
+        let api = Arc::new(MockSiloApi::demo());
+        let (session, _) = Session::login(
+            api,
+            Arc::new(MemoryStore::default()),
+            "https://media.example.test",
+            "srv",
+            "alice",
+            &Secret::new("pw"),
+        )
+        .await
+        .unwrap();
+        session.select_profile("1", None).await.unwrap();
+        session
+    }
+
+    #[tokio::test]
+    async fn display_changes_are_held_after_stop_and_restored_at_shutdown() {
+        use granary_display::mock::MockDisplayController;
+        use granary_display::{DisplayController, Rational};
+        let ctrl = Arc::new(MockDisplayController::single(false, Rational::new(60, 1)));
+        let dir = std::env::temp_dir().join(format!("granary-host-display-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut settings = crate::settings::Settings::default();
+        settings.display.hdr_mode = "always".into(); // the demo plan is SDR
+        let output = Arc::new(Output::new(
+            Some(ctrl.clone() as super::super::output::Ctrl),
+            dir.join(granary_display::marker::FILE_NAME),
+            granary_display::session::Timing {
+                hdr_timeout: Duration::ZERO,
+                settle: Duration::ZERO,
+            },
+            Box::new(|| Some(r"\\.\DISPLAY1".to_owned())),
+            Box::new(move || settings.clone()),
+        ));
+        let backend = Arc::new(MockBackend::default());
+        let b2 = backend.clone();
+        let host = PlayerHost::start(
+            Arc::new(Recorder::default()),
+            Box::new(move |_tx| Ok(b2.clone() as Arc<dyn PlayerBackend>)),
+            Arc::new(Environment::default),
+            output,
+        );
+        let session = Arc::new(demo_session().await);
+        let args = StartArgs {
+            item_id: "m1".into(),
+            file_id: "m1-f1".into(),
+            profile_id: "1".into(),
+            start_seconds: 0.0,
+            audio_index: None,
+            subtitle_index: None,
+        };
+        let r = host
+            .ask(|reply| Cmd::Play {
+                session,
+                args,
+                item: MediaItem::default(),
+                reply,
+            })
+            .await
+            .unwrap();
+        assert!(r.is_ok(), "{r:?}");
+        assert!(
+            ctrl.display(&ctrl.id()).unwrap().hdr_enabled,
+            "HDR on before the first frame"
+        );
+        let calls = backend.calls();
+        let opt = calls.iter().position(|c| c.starts_with("set audio-channels=stereo"));
+        let load = calls.iter().position(|c| c.starts_with("cmd loadfile"));
+        assert!(opt.is_some() && opt < load, "{calls:?}");
+        host.ask(|r| Cmd::Stop { reply: Some(r) }).await.unwrap();
+        assert!(
+            ctrl.display(&ctrl.id()).unwrap().hdr_enabled,
+            "held during the idle grace (next episode)"
+        );
+        host.ask(Cmd::Shutdown).await.unwrap();
+        assert!(!ctrl.display(&ctrl.id()).unwrap().hdr_enabled, "restored at exit");
+        assert!(!dir.join(granary_display::marker::FILE_NAME).exists());
+    }
+
     #[test]
     fn only_whitelisted_properties_with_valid_values() {
         assert_eq!(validate_property("volume", "80").unwrap(), "80");
@@ -636,6 +871,7 @@ mod tests {
             ui.clone(),
             Box::new(move |_tx| Ok(b2.clone() as Arc<dyn PlayerBackend>)),
             Arc::new(Environment::default),
+            no_output(),
         );
         let args = StartArgs {
             item_id: "m1".into(),

@@ -99,6 +99,11 @@ pub enum Notice {
 
 pub trait Sink: Send + Sync {
     fn notice(&self, notice: Notice);
+    /// Called once per negotiated plan, before mpv loads it (Phase 7): apply the display/audio output policy for
+    /// this source and return the mpv options to set first. Blocking; the default sets nothing.
+    fn before_load(&self, _source: &PlaybackSource) -> Vec<(String, String)> {
+        Vec::new()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -297,7 +302,26 @@ impl Controller {
         self.stopped = false;
         self.server_ended = false;
         self.reloads = 0;
+        self.apply_output();
         self.load_plan()
+    }
+
+    /// Display and audio output for this source, decided before the first frame (HDR switched on, refresh set,
+    /// tone-mapping target and audio options in place before `loadfile`).
+    fn apply_output(&mut self) {
+        let sink = Arc::clone(&self.sink);
+        let source = self.plan.source.clone();
+        let options = super::output::run_blocking(move || sink.before_load(&source));
+        for (name, value) in options {
+            if let Err(e) = self.backend.set_property(&name, &value) {
+                tracing::warn!(option = %name, value = %value, error = %e, "output option not applied");
+            }
+        }
+    }
+
+    /// The negotiated source (stats overlay: dynamic range, Dolby Vision profile).
+    pub fn source(&self) -> &PlaybackSource {
+        &self.plan.source
     }
 
     /// Resolve the stream URL (relay for the server origin, direct otherwise) and hand it to mpv.
@@ -816,6 +840,9 @@ mod tests {
         fn notice(&self, n: Notice) {
             self.0.lock().unwrap().push(n);
         }
+        fn before_load(&self, source: &PlaybackSource) -> Vec<(String, String)> {
+            vec![("target-peak".into(), format!("src-{}", source.media_file_id.len()))]
+        }
     }
 
     impl Notices {
@@ -902,6 +929,9 @@ mod tests {
         let unpause = calls.iter().position(|c| c == "set pause=no");
         let load_at = calls.iter().position(|c| c.starts_with("cmd loadfile"));
         assert!(unpause.is_some() && unpause < load_at, "{calls:?}");
+        // The output policy (HDR, refresh, tone mapping, audio) is in place before the first frame.
+        let output = calls.iter().position(|c| c.starts_with("set target-peak=src-"));
+        assert!(output.is_some() && output < load_at, "{calls:?}");
         assert!(
             load.contains(&format!("http://127.0.0.1:{}/r/", r.relay.port())),
             "{load}"

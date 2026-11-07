@@ -15,10 +15,12 @@ export interface Settings {
     seekStep: number;
   };
   display: {
-    /** Switch Windows HDR on for HDR content when it is off, and back afterwards. */
-    autoHdr: boolean;
-    /** Match the display refresh rate to the video frame rate (skipped on VRR displays). */
-    matchRefreshRate: boolean;
+    /** Windows HDR switching: never, for HDR content only (default) or for all video. Always restored. */
+    hdrMode: "off" | "content" | "always";
+    /** Refresh strategy: VRR → fits → exact multiple → resample (default), match content exactly (TVs), never. */
+    refresh: RefreshStrategy;
+    /** Per-monitor preferences keyed by the monitor device path (`MonitorView.key`). */
+    monitors: Record<string, MonitorSettings>;
   };
   audio: {
     /** Bitstream compressed formats to an AV receiver (opt-in, HTPC setups). */
@@ -27,6 +29,10 @@ export interface Settings {
     channels: "auto" | "stereo" | "5.1" | "7.1";
     /** WASAPI exclusive mode. */
     exclusive: boolean;
+    /** mpv audio device name; `auto` follows the Windows default device. */
+    device: string;
+    /** Normalise downmix levels (5.1/7.1 → stereo). */
+    normalizeDownmix: boolean;
   };
   subtitles: {
     /** mpv `sub-scale`. */
@@ -36,12 +42,69 @@ export interface Settings {
   };
 }
 
+export type RefreshStrategy = "auto" | "match" | "never";
+
+export interface MonitorSettings {
+  /** Friendly name when saved (display only). */
+  name: string;
+  /** The monitor runs VRR for video: never switch its refresh rate. */
+  vrr: boolean;
+  /** Peak luminance override (nits, 80–10000); null = DXGI value. */
+  peakNits: number | null;
+  /** Black level override (nits, 0–5); null = automatic. */
+  blackNits: number | null;
+  refresh: "default" | RefreshStrategy;
+}
+
+export const DEFAULT_MONITOR: MonitorSettings = {
+  name: "",
+  vrr: false,
+  peakNits: null,
+  blackNits: null,
+  refresh: "default",
+};
+
+/** One monitor as the host reports it (`display_list`). */
+export interface MonitorView {
+  key: string;
+  name: string;
+  hdrSupported: boolean;
+  hdrEnabled: boolean;
+  refreshHz: number;
+  modesHz: number[];
+  peakNits: number;
+  blackNits: number;
+  sdrWhiteNits: number;
+  /** The player window is on this monitor. */
+  current: boolean;
+}
+
+export interface AudioDevice {
+  name: string;
+  description: string;
+}
+
+export async function listMonitors(): Promise<MonitorView[]> {
+  return isTauri() ? invoke<MonitorView[]>("display_list") : [];
+}
+
+export async function listAudioDevices(): Promise<AudioDevice[]> {
+  return isTauri() ? invoke<AudioDevice[]>("player_audio_devices") : [];
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   language: "system",
   theme: "midnight-cinema",
   player: { hwdec: "auto-safe", autoplayNext: true, seekStep: 10 },
-  display: { autoHdr: true, matchRefreshRate: true },
-  audio: { passthrough: false, passthroughCodecs: ["ac3", "eac3", "dts"], channels: "auto", exclusive: false },
+  display: { hdrMode: "content", refresh: "auto", monitors: {} },
+  audio: {
+    passthrough: false,
+    passthroughCodecs: ["ac3", "eac3", "dts"],
+    channels: "stereo",
+    exclusive: false,
+    device: "auto",
+    normalizeDownmix: true,
+  },
   subtitles: { scale: 1, preferSdh: false },
 };
 

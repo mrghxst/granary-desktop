@@ -4,6 +4,7 @@ pub mod commands;
 pub mod controller;
 pub mod events;
 pub mod host;
+pub mod output;
 #[cfg(windows)]
 pub mod platform;
 pub mod relay;
