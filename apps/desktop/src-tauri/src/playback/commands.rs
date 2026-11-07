@@ -118,8 +118,25 @@ fn mpv_factory(app_version: String, hwdec: String) -> BackendFactory {
             ),
         ])
         .collect();
-        let opts = options::merge(options::forced(wid), &[options::desktop_baseline(), extra]);
-        let mpv = Mpv::new(&opts).map_err(|e| e.to_string())?;
+        // ADR-0002 L2: the bundled mpv.conf ships next to the executable (installer and `tauri dev` alike); the
+        // optional power-user file is mpv.conf in the config directory (%APPDATA%, folder Granary).
+        let bundled = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|d| d.join("mpv.conf")))
+            .filter(|p| p.is_file());
+        let user = Some(crate::paths::config_dir().join("mpv.conf")).filter(|p| p.is_file());
+        tracing::info!(bundled = bundled.is_some(), user = user.is_some(), "mpv config files");
+        let opts = options::layered(wid, extra.clone(), bundled.as_deref(), user.as_deref());
+        let mpv = match Mpv::new(&opts) {
+            Ok(mpv) => mpv,
+            // A broken power-user file must not stop playback: start again without it and say so in the log.
+            Err(e) if user.is_some() => {
+                tracing::warn!(error = %e, "mpv did not start with the user mpv.conf; ignoring that file");
+                let opts = options::layered(wid, extra, bundled.as_deref(), None);
+                Mpv::new(&opts).map_err(|e| e.to_string())?
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         for (name, format) in granary_player::state::OBSERVED.iter().chain(super::host::UI_PROPERTIES) {
             mpv.observe(name, *format).map_err(|e| e.to_string())?;
         }

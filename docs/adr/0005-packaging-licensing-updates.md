@@ -63,3 +63,16 @@
 - The installer is unsigned: SmartScreen/Smart App Control warnings are expected (documented).
 - Users on pre-Haswell / Atom-class CPUs cannot run the v3 build (documented in README requirements).
 - THIRD_PARTY_NOTICES must be updated on every pin bump.
+
+## Amendment 1 (2026-11-07, Phase 9): install folder and app data
+- Tauri's per-user NSIS installer always installs to `%LOCALAPPDATA%\<productName>`, which is `%LOCALAPPDATA%\Granary`,
+  the folder Granary already uses for logs, the shader cache and the display restore marker. We keep both in one
+  folder rather than moving user data. The uninstaller deletes only the files it installed and removes the folder only
+  if it is empty (generated `installer.nsi`), so a plain uninstall keeps user data. Checked with
+  `scripts/install-test.ps1` (`docs/evidence/phase-9/install-test.txt`).
+- Tauri's "Delete the application data" box removes the bundle-identifier folders (WebView2 data, window state).
+  `apps/desktop/src-tauri/windows/hooks.nsh` (`NSIS_HOOK_POSTUNINSTALL`, `bundle.windows.nsis.installerHooks`) also
+  removes `%APPDATA%\Granary` and the logs and shader cache when the box is ticked. The display restore marker stays,
+  because it only exists while a display change still needs repairing. Refresh tokens in Credential Manager are
+  removed by "Remove" in the app, not by the uninstaller.
+- The installer bundles `mpv.conf` (ADR-0002 Amendment 1) next to `granary.exe`.

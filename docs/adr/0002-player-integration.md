@@ -58,3 +58,14 @@ that we control threading, the property-observer model and the event loop precis
   refresh state is repaired at next start.
 - Unit tests run against a `MockBackend` that replays mpv events; real-mpv tests are tagged and run locally.
 - libmpv's GPLv3 licence applies to the combined binary distribution (compatible with AGPL, ADR-0005).
+
+## Amendment 1 (2026-11-07, Phase 9): configuration layering as implemented
+- The bundled defaults file is `crates/player/mpv.conf`, installed next to `granary.exe` (a bundle resource, also
+  copied next to the debug exe by `tauri dev`). `options::desktop_baseline()` holds the same options and a unit test
+  keeps them equal, so a missing file changes nothing.
+- Order at `mpv_create` (`options::layered`): code baseline → `include=<exe dir>\mpv.conf` → settings-driven options →
+  `include=%APPDATA%\Granary\mpv.conf` (only if it exists) → forced options (`wid`, `config=no`, input, OSC,
+  terminal, media controls, screensaver). mpv parses an `include` as soon as it is set, so each step overrides the
+  earlier ones and the forced options always win.
+- mpv skips invalid lines of an included file and keeps the valid ones. If mpv still refuses to start with the user
+  file, the host logs a warning and starts again without it. Evidence: `docs/evidence/phase-9/mpv-conf.txt`.

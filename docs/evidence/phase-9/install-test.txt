@@ -1,0 +1,38 @@
+installer: C:\Users\mr\Documents\ACLAUDE\granary\target\release\bundle\nsis\Granary_0.1.0_x64-setup.exe
+sha256   : 07b4f972a98146640aa4463d02d02e8761dc43b7e149278983a0aa30247c6c7d
+PASS silent install exits 0 (exit 0)
+PASS uninstall entry registered under HKCU
+install dir: C:\Users\mr\AppData\Local\Granary
+PASS per-user install location (no admin) (C:\Users\mr\AppData\Local\Granary)
+PASS installed granary.exe
+PASS installed libmpv-2.dll
+PASS installed mpv.conf
+PASS installed LICENSE.txt
+PASS installed THIRD_PARTY_NOTICES.md
+installed files: 6 (granary.exe, libmpv-2.dll, LICENSE.txt, mpv.conf, THIRD_PARTY_NOTICES.md, uninstall.exe)
+PASS start menu shortcut
+PASS app starts and logs ready (2026-11-07T19:47:54.676611Z  INFO granary_lib::commands: ready cold_start_ms=515)
+PASS window title has no trademark (title 'Granary')
+PASS app closes on window close
+PASS silent uninstall starts (exit 0)
+PASS uninstall entry and program removed
+PASS no installed file left behind (6 files removed)
+PASS start menu shortcut removed
+PASS desktop shortcut absent
+user data kept: C:\Users\mr\AppData\Roaming\Granary (2 of 2 earlier entries, 2 now)
+user data kept: C:\Users\mr\AppData\Local\Granary (28 of 28 earlier entries, 28 now)
+
+INSTALL TEST PASSED
+
+Runs (2026-11-07, Windows 11 26200, per-user, no admin), installer built by scripts/release-build.ps1 at the Gate 8
+commit plus the Phase 9 changes (mpv.conf layering, uninstall hook):
+- Run 1 (earlier script version): FAIL. Two causes were bugs in the test, not the installer:
+  - it filtered log files by LastWriteTime, which Windows updates lazily while the app holds the log open, so the
+    "ready" line was missed;
+  - it counted pre-existing user data as installed files, because the per-user install dir is also the app's local
+    data folder.
+  The silent uninstall in that run left the program in place. Running it again by hand right afterwards (in place,
+  `_?=`) and in the normal mode both removed it at once. Not reproduced since; recorded as unexplained.
+- Run 2 (this file, above) and run 3: INSTALL TEST PASSED, exit 0.
+Not covered by the silent test: the uninstaller's "Delete the application data" box (hooks.nsh), which needs the
+interactive uninstaller. See MANUAL_TEST_CHECKLIST.md (Packaging).

@@ -141,6 +141,8 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
        (`audio-fallback-to-null`), no crash; switching it on and re-selecting the device restores sound.
 
 ## Polish (Phase 8)
+- [ ] German keyboard during playback with the controls hidden: `#` cycles the audio track, Shift+ß (`?`) opens the
+      shortcuts help (automated on the dev PC: `scripts/native-keys-evidence.mjs`).
 - [ ] First run on a clean user profile (no `%APPDATA%\Granary`): the start screen shows the three onboarding steps
       and "Connect to a server"; nothing else asks for input.
 - [ ] About (sidebar → About, or the link on the start screen): version matches the installer, "Check for updates"
@@ -149,7 +151,7 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
 - [ ] Logs: "Show recent log" lists the latest lines; "Export logs" writes `Downloads\granary-logs-<UTC stamp>.txt`;
       open it and search for your password, `access_token`, `Bearer` and `sig=` — none may show a value.
 - [ ] Offline: disable the network adapter; an amber "You are offline" banner appears at the top; re-enable it and
-      the banner goes away; the library reloads on the next navigation.
+      the banner goes away and the page reloads by itself; an error that appeared while offline has a Retry button.
 - [ ] Keyboard only: Tab from the start screen through add server → sign in → profile → library → item → play
       without a mouse; every focused control has a visible focus ring; "Skip to content" appears on the first Tab.
 - [ ] Screen reader (Narrator, Win+Ctrl+Enter): page headings, buttons in the player bar and the settings toggles are
@@ -159,3 +161,14 @@ so you can confirm they are back afterwards. Run on AC power: Windows will not e
 - [ ] Time to first frame against your real server (installed release build): play a 1080p SDR and a 4K HDR title
       twice each with HDR already on; `first frame time_to_first_frame_ms=` in the log stays near the debug-build
       numbers in `docs/perf.md` (about 1.5 s; the very first play after install compiles shaders and is slower).
+
+## Packaging (Phase 9)
+- [ ] Download the installer from the draft release; `Get-FileHash -Algorithm SHA256` matches the `.sha256` asset.
+- [ ] Run it normally (not /S): SmartScreen shows "Windows protected your PC" (unsigned, docs/signing.md); More info →
+      Run anyway; no administrator prompt; Granary starts from the Start menu entry.
+- [ ] On a PC without the WebView2 runtime (rare on Windows 11): the installer downloads it, then Granary starts.
+- [ ] Power-user mpv.conf: create `%APPDATA%\Granary\mpv.conf` with `deband=no`, start Granary, play a title; the log
+      shows `mpv config files bundled=true user=true` and the statistics overlay still works. Delete the file again.
+- [ ] Uninstall from Settings → Apps with "Delete the application data" ticked: `%APPDATA%\Granary`,
+      `%LOCALAPPDATA%\Granary\logs` and `shader-cache` are gone; unticked (or `uninstall.exe /S`): they stay.
+      Saved sign-ins (Credential Manager, "Granary") are removed by "Remove" on the start screen, not by the uninstaller.

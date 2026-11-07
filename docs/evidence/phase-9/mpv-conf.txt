@@ -1,0 +1,25 @@
+Phase 9: mpv.conf layering (ADR-0002 L2), checked 2026-11-07 with the debug app (tauri dev, mock server, real
+libmpv, test clips). mpv is created once per app run, so each case is a fresh app start.
+
+Unit tests (crates/player/src/options.rs):
+  cargo test -p granary-player options -> 4 passed, exit 0
+  - bundled_conf_matches_the_code_baseline: crates/player/mpv.conf == options::desktop_baseline()
+  - layering_order_is_baseline_bundled_settings_user_forced
+  - missing_files_are_not_included
+
+Case 1: no user file (target/debug/mpv.conf present, copied by tauri-build as a bundle resource)
+  log:  mpv config files bundled=true user=false
+  node scripts/measure-ttff.mjs <scratch> 9333 1 -> both clips played, PASS, exit 0
+
+Case 2: %APPDATA%\Granary\mpv.conf = "hwdec=no"
+  log:  mpv config files bundled=true user=true
+  player_stats during SDR playback: {"hwdec":"no","vo":"gpu-next","videoSync":"display-resample"}
+  -> the user file overrides the settings-driven hwdec (d3d11va otherwise), forced/host options still apply.
+
+Case 3: %APPDATA%\Granary\mpv.conf = "hwdec=no", "this-option-does-not-exist=1", "video-sync=not-a-mode"
+  log:  mpv config files bundled=true user=true
+  both clips played (measure-ttff PASS); player_stats: {"hwdec":"no","vo":"gpu-next","videoSync":"display-resample"}
+  -> mpv skips invalid lines of an included file and keeps the valid ones; start-up does not fail. The host's retry
+     without the user file (commands.rs) is a backstop for an include that mpv rejects outright.
+
+The test file was deleted afterwards (Test-Path -> False).
