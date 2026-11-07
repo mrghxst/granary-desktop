@@ -45,7 +45,9 @@ impl From<ApiError> for CommandError {
         };
         Self {
             code: e.code().to_owned(),
-            message: e.to_string(),
+            // Error texts can quote server data (a redirect location, a problem detail); the UI shows them and the
+            // log viewer may too, so they get the same redaction as log lines.
+            message: crate::redact::redact(&e.to_string()).into_owned(),
             status: e.status(),
             retry_after,
             problem: e.problem_id().map(str::to_owned),
@@ -57,7 +59,7 @@ impl CommandError {
     pub(crate) fn plain(code: &str, message: String) -> Self {
         Self {
             code: code.to_owned(),
-            message,
+            message: crate::redact::redact(&message).into_owned(),
             status: None,
             retry_after: None,
             problem: None,
@@ -551,6 +553,20 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let s = SiloState::new(api.clone(), store.clone(), path.clone());
         (api, store, s, path)
+    }
+
+    #[test]
+    fn command_errors_are_redacted() {
+        let e = CommandError::from(ApiError::Redirected {
+            location: "https://sso.example/cb?token=abc123&x=1".into(),
+        });
+        assert_eq!(e.code, "redirected");
+        assert!(!e.message.contains("abc123"), "{}", e.message);
+        assert!(
+            !CommandError::internal("loadfile http://127.0.0.1:1/r/0123456789abcdef0123456789abcdef/a".into())
+                .message
+                .contains("0123456789abcdef0123456789abcdef")
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

@@ -43,3 +43,38 @@ ID:        RUSTSEC-2024-0429
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0429
 
 warning: 5 allowed warnings found
+
+## Windows target check (cargo tree --target x86_64-pc-windows-msvc -e normal -i <crate>)
+$ cargo tree --target x86_64-pc-windows-msvc -e normal -i glib
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+exit 0
+$ cargo tree --target x86_64-pc-windows-msvc -e normal -i proc-macro-error
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+exit 0
+$ cargo tree --target x86_64-pc-windows-msvc -e normal -i zbus_names
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+exit 0
+$ cargo tree --target x86_64-pc-windows-msvc -e normal -i zvariant
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+exit 0
+$ cargo tree --target x86_64-pc-windows-msvc -e normal -i zvariant_derive
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+exit 0
+$ cargo tree --target x86_64-pc-windows-msvc -i proc-macro-error (all edge kinds)
+warning: nothing to print.
+
+$ cargo tree --target x86_64-unknown-linux-gnu -i glib (for contrast)
+glib v0.18.5
+├── atk v0.18.2
+│   └── gtk v0.18.2
+│       ├── muda v0.20.0

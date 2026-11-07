@@ -3,3 +3,6 @@ packages:
   - "packages/*"
 minimumReleaseAgeExclude:
   - i18next@26.7.2
+overrides:
+  # Dev-only (eslint toolchain): GHSA-g3hv-75wg-m249 is fixed in 11.0.1 (docs/security.md).
+  minimatch@>=7.0.0 <11.0.1: ^11.0.1
