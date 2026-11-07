@@ -14,6 +14,21 @@ use std::path::{Path, PathBuf};
 pub const SOURCE_URL: &str = "https://github.com/mrghxst/granary-desktop";
 pub const RELEASES_URL: &str = "https://github.com/mrghxst/granary-desktop/releases";
 pub const LICENSE_URL: &str = "https://www.gnu.org/licenses/agpl-3.0.html";
+/// The commit this binary was built from (build.rs), or `unknown`.
+pub const BUILD_COMMIT: &str = env!("GRANARY_COMMIT");
+
+/// The exact source tree of this build (AGPL source offer, ADR-0005); the repository root without a commit.
+pub fn source_url() -> String {
+    source_url_for(BUILD_COMMIT)
+}
+
+fn source_url_for(commit: &str) -> String {
+    if commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()) {
+        format!("{SOURCE_URL}/tree/{commit}")
+    } else {
+        SOURCE_URL.to_owned()
+    }
+}
 
 /// Third-party notices shipped with the build (also installed next to the exe by the installer).
 const NOTICES: &str = include_str!("../../../../THIRD_PARTY_NOTICES.md");
@@ -26,7 +41,8 @@ const MAX_VIEW_LINES: usize = 2000;
 pub struct AboutInfo {
     pub version: String,
     pub license: &'static str,
-    pub source_url: &'static str,
+    pub commit: &'static str,
+    pub source_url: String,
     pub releases_url: &'static str,
     pub notices: &'static str,
     pub log_dir: String,
@@ -37,7 +53,8 @@ pub fn about_info() -> AboutInfo {
     AboutInfo {
         version: env!("CARGO_PKG_VERSION").to_owned(),
         license: "AGPL-3.0-or-later",
-        source_url: SOURCE_URL,
+        commit: BUILD_COMMIT,
+        source_url: source_url(),
         releases_url: RELEASES_URL,
         notices: NOTICES,
         log_dir: paths::log_dir().display().to_string(),
@@ -57,7 +74,7 @@ pub enum Link {
 impl Link {
     fn target(self) -> String {
         match self {
-            Self::Source => SOURCE_URL.into(),
+            Self::Source => source_url(),
             Self::Releases => RELEASES_URL.into(),
             Self::License => LICENSE_URL.into(),
             Self::LogFolder => paths::log_dir().display().to_string(),
@@ -266,5 +283,16 @@ mod tests {
         );
         assert!(serde_json::from_str::<Link>("\"https://evil.example\"").is_err());
         assert!(NOTICES.contains("libmpv"));
+    }
+
+    #[test]
+    fn source_link_points_at_the_build_commit() {
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        assert_eq!(
+            source_url_for(sha),
+            format!("https://github.com/mrghxst/granary-desktop/tree/{sha}")
+        );
+        assert_eq!(source_url_for("unknown"), SOURCE_URL);
+        assert!(Link::Source.target().starts_with(SOURCE_URL));
     }
 }

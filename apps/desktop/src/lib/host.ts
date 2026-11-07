@@ -15,6 +15,8 @@ export async function appInfo(): Promise<AppInfo> {
 /** Mirrors `AboutInfo` in apps/desktop/src-tauri/src/about.rs. */
 export interface AboutInfo {
   version: string;
+  /** Commit the build was made from, or `unknown`. */
+  commit: string;
   license: string;
   sourceUrl: string;
   releasesUrl: string;
@@ -24,6 +26,7 @@ export interface AboutInfo {
 
 const NO_HOST_ABOUT: AboutInfo = {
   version: "dev",
+  commit: "unknown",
   license: "AGPL-3.0-or-later",
   sourceUrl: "",
   releasesUrl: "",

@@ -56,7 +56,12 @@ export function About() {
         ) : (
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
             <dt className="text-muted-foreground">{t("about.version")}</dt>
-            <dd data-testid="about-version">{about.version}</dd>
+            <dd data-testid="about-version">
+              {about.version}
+              {about.commit !== "unknown" ? (
+                <span className="ml-2 font-mono text-xs text-muted-foreground">{about.commit.slice(0, 12)}</span>
+              ) : null}
+            </dd>
             <dt className="text-muted-foreground">{t("about.player")}</dt>
             <dd>
               {app?.libmpv.ok

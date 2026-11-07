@@ -57,6 +57,15 @@ fn main() {
     println!("cargo:rustc-link-arg-bin=granary=/DELAYLOAD:libmpv-2.dll");
     println!("cargo:rustc-link-arg-bin=granary=delayimp.lib");
 
+    // The commit the binary was built from (About links the exact source tree, ADR-0005). Rebuilds when HEAD moves.
+    let git = manifest.join("../../../.git");
+    for f in ["HEAD", "refs/heads", "packed-refs"] {
+        if git.join(f).exists() {
+            println!("cargo:rerun-if-changed={}", git.join(f).display());
+        }
+    }
+    println!("cargo:rustc-env=GRANARY_COMMIT={}", build_commit(&manifest));
+
     if let Some(profile_dir) = profile_dir() {
         copy_if_newer(&dll, &profile_dir.join("libmpv-2.dll"));
     }
@@ -66,6 +75,20 @@ fn main() {
         println!("cargo:warning=tauri-build failed: {e:#}");
         std::process::exit(1);
     }
+}
+
+/// Full SHA of HEAD, or `unknown` outside a git checkout (for example a source tarball).
+fn build_commit(dir: &Path) -> String {
+    std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(dir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_owned())
+        .filter(|s| s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit()))
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 /// `target/<profile>` (OUT_DIR is `target/<profile>/build/<pkg>-<hash>/out`).
