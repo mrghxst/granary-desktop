@@ -44,6 +44,7 @@ if (-not $Installer) {
 }
 if (Get-Process granary -ErrorAction SilentlyContinue) { throw 'granary.exe is running; close it first' }
 if (UninstallEntry) { throw 'Granary is already installed for this user; uninstall it first so the test starts clean' }
+if (Test-Path 'HKCU:SoftwareGranary contributors') { throw 'HKCU:SoftwareGranary contributors exists from an earlier install; remove it so the test starts clean' }
 
 Say "installer: $Installer"
 Say "sha256   : $((Get-FileHash -Algorithm SHA256 $Installer).Hash.ToLowerInvariant())"
@@ -63,7 +64,7 @@ $uninstaller = ($entry.UninstallString -replace '"', '').Trim()
 $installDir = Split-Path -Parent $uninstaller
 Say "install dir: $installDir"
 Check 'per-user install location (no admin)' ($installDir.StartsWith($env:LOCALAPPDATA, [StringComparison]::OrdinalIgnoreCase)) $installDir
-$expected = @('granary.exe', 'libmpv-2.dll', 'mpv.conf', 'LICENSE.txt', 'THIRD_PARTY_NOTICES.md')
+$expected = @('granary.exe', 'libmpv-2.dll', 'mpv.conf', 'LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_LICENSES.txt')
 foreach ($f in $expected) { Check "installed $f" (Test-Path (Join-Path $installDir $f)) }
 # Only what the installer added: the per-user install dir is also the app's local data folder (logs, caches).
 $preexisting = @($before.Values | ForEach-Object { $_ })
@@ -83,7 +84,10 @@ $ready = WaitFor {
   $files = Get-ChildItem $logDir -Filter '*.log*' -ErrorAction SilentlyContinue
   foreach ($f in $files) {
     $hit = Select-String -Path $f.FullName -Pattern 'ready cold_start_ms=\d+' -ErrorAction SilentlyContinue |
-      Where-Object { $_.Line.Length -ge 27 -and [datetime]::Parse($_.Line.Substring(0, 27)).ToLocalTime() -ge $started.AddSeconds(-1) } |
+      Where-Object {
+        $t = [datetime]::MinValue
+        $_.Line.Length -ge 27 -and [datetime]::TryParse($_.Line.Substring(0, 27), [ref]$t) -and $t.ToLocalTime() -ge $started.AddSeconds(-1)
+      } |
       Select-Object -Last 1
     if ($hit) { $script:readyLine = $hit.Line; return $true }
   }
@@ -107,6 +111,7 @@ Start-Sleep -Seconds 2
 $left = @($installed | Where-Object { Test-Path $_ })
 Check 'no installed file left behind' ($left.Count -eq 0) $(if ($left.Count) { $left -join ', ' } else { "$($installed.Count) files removed" })
 Check 'start menu shortcut removed' (-not (Test-Path $shortcut))
+Check 'no registry key left under HKCUSoftwareGranary contributors' (-not (Test-Path 'HKCU:SoftwareGranary contributors'))
 Check 'desktop shortcut absent' (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Granary.lnk')))
 foreach ($d in $userData) {
   $now = @(if (Test-Path $d) { Get-ChildItem $d -Recurse -Force | ForEach-Object FullName })

@@ -59,7 +59,10 @@ export function About() {
             <dd data-testid="about-version">
               {about.version}
               {about.commit !== "unknown" ? (
-                <span className="ml-2 font-mono text-xs text-muted-foreground">{about.commit.slice(0, 12)}</span>
+                <span className="ml-2 font-mono text-xs text-muted-foreground">
+                  {about.commit.slice(0, 12)}
+                  {about.commit.endsWith("-dirty") ? "-dirty" : ""}
+                </span>
               ) : null}
             </dd>
             <dt className="text-muted-foreground">{t("about.player")}</dt>

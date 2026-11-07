@@ -59,7 +59,7 @@ fn main() {
 
     // The commit the binary was built from (About links the exact source tree, ADR-0005). Rebuilds when HEAD moves.
     let git = manifest.join("../../../.git");
-    for f in ["HEAD", "refs/heads", "packed-refs"] {
+    for f in ["HEAD", "refs/heads", "packed-refs", "index"] {
         if git.join(f).exists() {
             println!("cargo:rerun-if-changed={}", git.join(f).display());
         }
@@ -77,18 +77,29 @@ fn main() {
     }
 }
 
-/// Full SHA of HEAD, or `unknown` outside a git checkout (for example a source tarball).
+/// Full SHA of HEAD, `<sha>-dirty` when tracked files differ from it (About then links the repository root instead
+/// of a tree that is not the binary, phase-9 review L3), or `unknown` outside a git checkout. Release builds come from
+/// clean CI checkouts; locally the flag is refreshed when HEAD or the index changes.
 fn build_commit(dir: &Path) -> String {
+    let sha = git(dir, &["rev-parse", "HEAD"]).filter(|s| s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit()));
+    match sha {
+        Some(sha) => match git(dir, &["status", "--porcelain", "--untracked-files=no"]) {
+            Some(changes) if changes.is_empty() => sha,
+            _ => format!("{sha}-dirty"),
+        },
+        None => "unknown".to_owned(),
+    }
+}
+
+fn git(dir: &Path, args: &[&str]) -> Option<String> {
     std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
+        .args(args)
         .current_dir(dir)
         .output()
         .ok()
         .filter(|o| o.status.success())
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| s.trim().to_owned())
-        .filter(|s| s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit()))
-        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 /// `target/<profile>` (OUT_DIR is `target/<profile>/build/<pkg>-<hash>/out`).

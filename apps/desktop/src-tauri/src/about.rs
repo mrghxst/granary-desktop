@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 pub const SOURCE_URL: &str = "https://github.com/mrghxst/granary-desktop";
 pub const RELEASES_URL: &str = "https://github.com/mrghxst/granary-desktop/releases";
 pub const LICENSE_URL: &str = "https://www.gnu.org/licenses/agpl-3.0.html";
-/// The commit this binary was built from (build.rs), or `unknown`.
+/// The commit this binary was built from (build.rs): a full SHA, `<sha>-dirty`, or `unknown`.
 pub const BUILD_COMMIT: &str = env!("GRANARY_COMMIT");
 
 /// The exact source tree of this build (AGPL source offer, ADR-0005); the repository root without a commit.
@@ -293,6 +293,7 @@ mod tests {
             format!("https://github.com/mrghxst/granary-desktop/tree/{sha}")
         );
         assert_eq!(source_url_for("unknown"), SOURCE_URL);
+        assert_eq!(source_url_for(&format!("{sha}-dirty")), SOURCE_URL);
         assert!(Link::Source.target().starts_with(SOURCE_URL));
     }
 }

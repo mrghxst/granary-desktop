@@ -12,6 +12,14 @@ pub fn forced(wid: isize) -> Vec<(String, String)> {
         ("cursor-autohide", "no".into()),
         ("osc", "no".into()),
         ("terminal", "no".into()),
+        // mpv only opens loopback relay URLs: never start yt-dlp from PATH on a failed load, never auto-load scripts
+        // (docs/security.md §3). Forced, so a user mpv.conf cannot turn them back on.
+        ("ytdl", "no".into()),
+        // The host drives the playlist: mpv must stay alive between titles and keep the last frame at the end so the
+        // host decides what happens next (up next, back to details). A user mpv.conf cannot change this (phase-9 L1).
+        ("idle", "yes".into()),
+        ("keep-open", "yes".into()),
+        ("load-scripts", "no".into()),
         // The host owns SMTC and the screensaver policy (Phase 8).
         ("media-controls", "no".into()),
         ("stop-screensaver", "no".into()),
@@ -37,7 +45,6 @@ pub fn desktop_baseline() -> Vec<(String, String)> {
         ("dither-depth", "auto"),
         ("deband", "yes"),
         ("video-sync", "display-resample"),
-        ("keep-open", "yes"),
         ("audio-channels", "auto-safe"),
         ("cache", "yes"),
         ("demuxer-max-bytes", "256MiB"),
@@ -119,6 +126,10 @@ mod tests {
         let o = merge(forced(42), &[desktop_baseline(), user]);
         assert_eq!(get(&o, "config"), Some("no"));
         assert_eq!(get(&o, "wid"), Some("42"));
+        assert_eq!(get(&o, "ytdl"), Some("no"));
+        assert_eq!(get(&o, "load-scripts"), Some("no"));
+        assert_eq!(get(&o, "idle"), Some("yes"));
+        assert_eq!(get(&o, "keep-open"), Some("yes"));
         assert_eq!(get(&o, "video-sync"), Some("audio"));
         assert_eq!(get(&o, "vo"), Some("gpu-next"));
         assert_eq!(o.iter().filter(|(k, _)| k == "config").count(), 1);

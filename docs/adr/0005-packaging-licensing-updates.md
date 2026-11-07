@@ -76,3 +76,19 @@
   because it only exists while a display change still needs repairing. Refresh tokens in Credential Manager are
   removed by "Remove" in the app, not by the uninstaller.
 - The installer bundles `mpv.conf` (ADR-0002 Amendment 1) next to `granary.exe`.
+
+## Amendment 2 (2026-11-07, Gate 9 review): licence texts and a clean registry
+
+- `THIRD_PARTY_LICENSES.txt` is installed next to `granary.exe` (phase-9 review H1). It holds:
+  - the GPL-3.0 text for libmpv/FFmpeg and the LGPL-2.1 text, from `licenses/`;
+  - the published licence files of every Rust crate linked into the Windows binary;
+  - the licence files of every JavaScript package bundled into the UI.
+
+  `scripts/gen-licenses.mjs` generates it from `cargo metadata` (normal dependencies of `granary` for
+  `x86_64-pc-windows-msvc`, without proc-macros) and `node_modules`. `verify.ps1` (step `licenses`) fails when it is
+  out of date.
+- A real uninstall (not an update) also removes `HKCU\Software\Granary contributors\Granary`. Tauri's template writes
+  that key with the install folder and keeps it unless app data is deleted (phase-9 review M2). `install-test.ps1`
+  checks that no key is left.
+- The About build commit is `<sha>-dirty` for a build from a modified tree. "Source code" then opens the repository
+  root, not a tree that differs from the binary (phase-9 review L3).

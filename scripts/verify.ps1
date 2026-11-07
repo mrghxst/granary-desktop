@@ -54,6 +54,7 @@ Write-Host ""
 Write-Host "==> version sync : package.json $pkgVersion / Cargo.toml $cargoVersion -> exit $vcode" -ForegroundColor $(if ($vcode -eq 0) { 'Green' } else { 'Red' })
 $results.Add([pscustomobject]@{ Step = 'version sync'; Command = "package.json=$pkgVersion Cargo.toml=$cargoVersion"; Exit = $vcode })
 
+Step 'licenses' 'node' @('scripts/gen-licenses.mjs', '--check')
 Step 'rustfmt' 'cargo' @('fmt', '--all', '--', '--check')
 Step 'clippy' 'cargo' @('clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings')
 Step 'cargo test' 'cargo' @('test', '--workspace', '--locked')

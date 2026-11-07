@@ -56,6 +56,7 @@
       "../../../vendor-bin/libmpv/libmpv-2.dll": "libmpv-2.dll",
       "../../../crates/player/mpv.conf": "mpv.conf",
       "../../../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../../../THIRD_PARTY_LICENSES.txt": "THIRD_PARTY_LICENSES.txt",
       "../../../LICENSE": "LICENSE.txt"
     },
     "windows": {

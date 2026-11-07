@@ -15,7 +15,7 @@ export async function appInfo(): Promise<AppInfo> {
 /** Mirrors `AboutInfo` in apps/desktop/src-tauri/src/about.rs. */
 export interface AboutInfo {
   version: string;
-  /** Commit the build was made from, or `unknown`. */
+  /** Commit the build was made from: full SHA, `<sha>-dirty`, or `unknown`. */
   commit: string;
   license: string;
   sourceUrl: string;

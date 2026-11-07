@@ -69,3 +69,15 @@ that we control threading, the property-observer model and the event loop precis
   earlier ones and the forced options always win.
 - mpv skips invalid lines of an included file and keeps the valid ones. If mpv still refuses to start with the user
   file, the host logs a warning and starts again without it. Evidence: `docs/evidence/phase-9/mpv-conf.txt`.
+
+## Amendment 2 (2026-11-07, Gate 9 review): options the host depends on are forced
+
+- `idle=yes` and `keep-open=yes` moved from the baseline and the bundled `mpv.conf` into the forced options. The host
+  drives the playlist and decides what happens at the end of a title, so a user `mpv.conf` must not be able to stop
+  mpv between titles (`idle=no`) or unload the last frame (`keep-open=no`) (phase-9 review L1).
+- `ytdl=no` and `load-scripts=no` are forced as well. mpv only opens loopback relay URLs, so it must never start
+  `yt-dlp` from `PATH` or auto-load scripts (docs/security.md §3).
+- `crates/player/tests/libmpv_options.rs` creates a real mpv with the pinned DLL. It checks that every option is
+  accepted, and that a broken user `mpv.conf` (unknown options, bad values, garbage) never stops mpv. libmpv only
+  warns about errors inside an included file, so the host's retry without the user file covers only a failing
+  `mpv_initialize`.
