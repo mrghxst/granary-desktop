@@ -1616,6 +1616,9 @@ name = "granary-silo-api"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bytes",
+ "futures-core",
+ "futures-util",
  "keyring-core",
  "rcgen",
  "reqwest",

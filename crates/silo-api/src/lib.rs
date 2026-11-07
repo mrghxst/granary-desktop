@@ -2,12 +2,15 @@
 //! `docs/research/silo-api.md` with its upstream path@SHA; the HTTP implementation sits behind the [`SiloApi`] trait so
 //! tests and UI development can use [`mock::MockSiloApi`].
 pub mod api;
+pub mod caps;
 pub mod catalog;
 pub mod credentials;
 pub mod device;
 pub mod error;
+pub mod media;
 pub mod mock;
 pub mod models;
+pub mod playback;
 pub mod registry;
 pub mod secret;
 pub mod session;

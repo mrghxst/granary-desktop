@@ -3,7 +3,9 @@
 use crate::catalog::*;
 use crate::device::{CLIENT_FAMILY, CLIENT_NAME, DEVICE_PLATFORM, DeviceIdentity};
 use crate::error::{ApiError, Result};
+use crate::media::{FORWARDED_REQUEST_HEADERS, FORWARDED_RESPONSE_HEADERS, MediaRequest, MediaResponse};
 use crate::models::*;
+use crate::playback::*;
 use crate::secret::Secret;
 use async_trait::async_trait;
 use reqwest::{Method, RequestBuilder, StatusCode};
@@ -96,11 +98,50 @@ pub trait SiloApi: Send + Sync {
     /// Fetch an artwork URL (presigned `getArtwork` link or an absolute image URL) **without** any credential or
     /// device header: artwork links carry their own `exp`/`sig` (silo-api.md §5.3).
     async fn fetch_image(&self, url: &str) -> Result<ImageData>;
+
+    // Playback protocol v3 (Phase 6, silo-api.md §13, ADR-0008). All profile-scoped.
+    /// `getPlaybackCapabilities`.
+    async fn playback_capabilities(&self, origin: &str, auth: &Auth) -> Result<PlaybackCapabilities>;
+    /// `startPlayback` (201 `PlaybackDecision`).
+    async fn start_playback(&self, origin: &str, auth: &Auth, body: &PlaybackStartBody) -> Result<PlaybackDecision>;
+    /// `updatePlaybackProgress`.
+    async fn playback_progress(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackProgressBody,
+    ) -> Result<PlaybackMutation>;
+    /// `stopPlayback` (DELETE with a body).
+    async fn stop_playback(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackStopBody,
+    ) -> Result<PlaybackMutation>;
+    /// `replanPlayback`.
+    async fn replan_playback(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackReplanBody,
+    ) -> Result<PlaybackDecision>;
+    /// `getWatchTrickplay`.
+    async fn watch_trickplay(&self, origin: &str, auth: &Auth, id: &str, file_id: &str) -> Result<WatchTrickplay>;
+    /// `createEventsSocketTicket`.
+    async fn events_ticket(&self, origin: &str, auth: &Auth) -> Result<EventsSocketTicket>;
+    /// Stream a media URL from a playback plan (`getPlaybackMedia`/`Manifest`/`Segment`/`Subtitle`).
+    async fn fetch_media(&self, request: MediaRequest) -> Result<MediaResponse>;
 }
 
 /// `reqwest` + rustls with the platform verifier (Windows certificate store, ADR-0004 L3).
 pub struct HttpSiloApi {
     http: reqwest::Client,
+    /// Media client: no total timeout (a film streams for hours), but a read timeout so a stalled connection fails
+    /// and the player reconnects.
+    media: reqwest::Client,
     device: DeviceIdentity,
 }
 
@@ -116,15 +157,19 @@ impl HttpSiloApi {
             .timeout(Duration::from_secs(20))
             .build()
             .map_err(|e| ApiError::Internal(e.to_string()))?;
-        Ok(Self { http, device })
+        let media = reqwest::Client::builder()
+            .user_agent(format!("Granary/{} (Windows)", device.client_version))
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(6))
+            .read_timeout(Duration::from_secs(30))
+            .build()
+            .map_err(|e| ApiError::Internal(e.to_string()))?;
+        Ok(Self { http, media, device })
     }
 
-    fn request(&self, method: Method, origin: &str, path: &str) -> RequestBuilder {
+    fn device_headers(&self, rb: RequestBuilder) -> RequestBuilder {
         let d = &self.device;
-        self.http
-            .request(method, format!("{origin}{path}"))
-            .header("Accept", "application/json, application/problem+json")
-            .header("X-Silo-Device-Id", &d.id)
+        rb.header("X-Silo-Device-Id", &d.id)
             .header("X-Silo-Device-Name", &d.name)
             .header("X-Silo-Device-Platform", DEVICE_PLATFORM)
             .header("X-Silo-Client", CLIENT_NAME)
@@ -132,8 +177,8 @@ impl HttpSiloApi {
             .header("X-Silo-Client-Family", CLIENT_FAMILY)
     }
 
-    fn authed(&self, method: Method, origin: &str, path: &str, auth: &Auth) -> RequestBuilder {
-        let mut rb = self.request(method, origin, path).bearer_auth(auth.access.expose());
+    fn with_auth(rb: RequestBuilder, auth: &Auth) -> RequestBuilder {
+        let mut rb = rb.bearer_auth(auth.access.expose());
         if let Some(p) = &auth.profile {
             rb = rb.header("X-Profile-Id", &p.id);
             if let Some(t) = &p.token {
@@ -141,6 +186,18 @@ impl HttpSiloApi {
             }
         }
         rb
+    }
+
+    fn request(&self, method: Method, origin: &str, path: &str) -> RequestBuilder {
+        self.device_headers(
+            self.http
+                .request(method, format!("{origin}{path}"))
+                .header("Accept", "application/json, application/problem+json"),
+        )
+    }
+
+    fn authed(&self, method: Method, origin: &str, path: &str, auth: &Auth) -> RequestBuilder {
+        Self::with_auth(self.request(method, origin, path), auth)
     }
 }
 
@@ -323,6 +380,109 @@ impl SiloApi for HttpSiloApi {
         Ok(ImageData {
             content_type: content_type.to_owned(),
             bytes,
+        })
+    }
+
+    async fn playback_capabilities(&self, origin: &str, auth: &Auth) -> Result<PlaybackCapabilities> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/playback/capabilities", auth)).await
+    }
+
+    async fn start_playback(&self, origin: &str, auth: &Auth, body: &PlaybackStartBody) -> Result<PlaybackDecision> {
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/playback/start", auth)
+                .json(body),
+        )
+        .await
+    }
+
+    async fn playback_progress(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackProgressBody,
+    ) -> Result<PlaybackMutation> {
+        let path = format!("/api/v2/playback/{}/progress", url_segment(session_id));
+        send_json(self.authed(Method::POST, origin, &path, auth).json(body)).await
+    }
+
+    async fn stop_playback(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackStopBody,
+    ) -> Result<PlaybackMutation> {
+        let path = format!("/api/v2/playback/{}", url_segment(session_id));
+        send_json(self.authed(Method::DELETE, origin, &path, auth).json(body)).await
+    }
+
+    async fn replan_playback(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackReplanBody,
+    ) -> Result<PlaybackDecision> {
+        let path = format!("/api/v2/playback/{}/replan", url_segment(session_id));
+        send_json(self.authed(Method::POST, origin, &path, auth).json(body)).await
+    }
+
+    async fn watch_trickplay(&self, origin: &str, auth: &Auth, id: &str, file_id: &str) -> Result<WatchTrickplay> {
+        let path = format!("/api/v2/watch/{}/trickplay", url_segment(id));
+        send_json(
+            self.authed(Method::GET, origin, &path, auth)
+                .query(&[("file_id", file_id)]),
+        )
+        .await
+    }
+
+    async fn events_ticket(&self, origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
+        send_json(self.authed(Method::POST, origin, "/api/v2/events/ws-ticket", auth)).await
+    }
+
+    async fn fetch_media(&self, request: MediaRequest) -> Result<MediaResponse> {
+        use futures_util::TryStreamExt;
+        let method = if request.head { Method::HEAD } else { Method::GET };
+        let mut rb = self.media.request(method, &request.url);
+        if let Some(auth) = &request.auth {
+            rb = Self::with_auth(self.device_headers(rb), auth);
+        }
+        for (k, v) in &request.headers {
+            if FORWARDED_REQUEST_HEADERS.contains(&k.as_str()) {
+                rb = rb.header(k.as_str(), v.as_str());
+            }
+        }
+        let resp = rb
+            .send()
+            .await
+            .map_err(|e| ApiError::from_transport(&e.without_url()))?;
+        let status = resp.status();
+        if status.is_redirection() && status != StatusCode::NOT_MODIFIED {
+            let location = resp
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or_default()
+                .to_owned();
+            return Err(ApiError::Redirected { location });
+        }
+        let passthrough =
+            status.is_success() || status == StatusCode::NOT_MODIFIED || status == StatusCode::RANGE_NOT_SATISFIABLE;
+        if !passthrough {
+            return Err(error_from_response(resp).await);
+        }
+        let headers = resp
+            .headers()
+            .iter()
+            .filter(|(k, _)| FORWARDED_RESPONSE_HEADERS.contains(&k.as_str()))
+            .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.as_str().to_owned(), v.to_owned())))
+            .collect();
+        let body = resp.bytes_stream().map_err(|e| std::io::Error::other(e.without_url()));
+        Ok(MediaResponse {
+            status: status.as_u16(),
+            headers,
+            body: Box::pin(body),
         })
     }
 }

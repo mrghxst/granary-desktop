@@ -122,6 +122,41 @@ const RESPONSES: &[(&str, &str, &str)] = &[
     ("listSeriesSeasons", "200", "series_seasons.json"),
     ("listSeasonEpisodes", "200", "season_episodes.json"),
     ("getWatchState", "200", "watch_detail.json"),
+    // Phase 6: upstream's own playback fixtures (contracts/api/v2/fixtures@6791aac)
+    (
+        "getPlaybackCapabilities",
+        "200",
+        "upstream_playback_capability_available.json",
+    ),
+    ("startPlayback", "201", "upstream_playback_start_opaque_ids.json"),
+    ("startPlayback", "409", "upstream_playback_installation_changed.json"),
+    (
+        "updatePlaybackProgress",
+        "200",
+        "upstream_playback_progress_applied.json",
+    ),
+    ("updatePlaybackProgress", "200", "upstream_playback_progress_stale.json"),
+    (
+        "updatePlaybackProgress",
+        "409",
+        "upstream_playback_progress_conflict.json",
+    ),
+    ("stopPlayback", "200", "upstream_playback_stop_completed.json"),
+    ("stopPlayback", "200", "upstream_playback_stop_replayed.json"),
+    ("replanPlayback", "200", "upstream_playback_replan_reanchored.json"),
+    ("getWatchTrickplay", "200", "upstream_get_watch_trickplay_ok.json"),
+    ("createEventsSocketTicket", "200", "upstream_events_socket_ticket.json"),
+];
+
+/// Phase 6 operations, served by `http_client_speaks_the_playback_contract`.
+const PLAYBACK_OPS: &[&str] = &[
+    "getPlaybackCapabilities",
+    "startPlayback",
+    "updatePlaybackProgress",
+    "stopPlayback",
+    "replanPlayback",
+    "getWatchTrickplay",
+    "createEventsSocketTicket",
 ];
 
 /// Phase 5 operations served to the catalog contract test.
@@ -202,7 +237,10 @@ fn auth(profile: Option<(&str, Option<&str>)>) -> Auth {
 #[tokio::test]
 async fn http_client_speaks_the_contract() {
     let server = MockServer::start().await;
-    for (id, status, fixture) in RESPONSES.iter().filter(|r| r.1 == "200" && !CATALOG_OPS.contains(&r.0)) {
+    for (id, status, fixture) in RESPONSES
+        .iter()
+        .filter(|r| r.1 == "200" && !CATALOG_OPS.contains(&r.0) && !PLAYBACK_OPS.contains(&r.0))
+    {
         mount(&server, id, status.parse().unwrap(), fixture, &[("id", "2")]).await;
     }
     Mock::given(method("POST"))
@@ -562,4 +600,349 @@ async fn session_refreshes_on_401_and_retries_once() {
         .filter(|r| r.url.path() == "/api/v2/auth/refresh")
         .count();
     assert_eq!(refreshes, 1);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Phase 6: playback protocol v3 and the media relay
+
+use granary_silo_api::caps::{HardwareDecoders, OutputFacts, client_capabilities, client_features, playback_context};
+use granary_silo_api::media::MediaRequest;
+use granary_silo_api::playback::*;
+
+const SESSION: &str = "11111111-1111-4111-8111-111111111111";
+
+fn schema_of(name: &str) -> Value {
+    serde_json::json!({ "$ref": format!("#/components/schemas/{name}") })
+}
+
+fn granary_start_body(caps: &PlaybackCapabilities) -> PlaybackStartBody {
+    PlaybackStartBody {
+        installation_id: caps.installation_id.clone().unwrap(),
+        protocol_version: PROTOCOL_VERSION,
+        client_features: client_features(caps),
+        file_id: "42".into(),
+        profile_id: "p-primary".into(),
+        playback_attempt_id: mint_id(),
+        quality_preference: "auto".into(),
+        subtitle_fidelity_preference: "preserve".into(),
+        client_capabilities: client_capabilities(&HardwareDecoders {
+            codecs: vec!["h264".into(), "hevc".into()],
+            ten_bit: vec!["hevc".into()],
+        }),
+        client_playback_context: playback_context(
+            "0.1.0",
+            "10.0.26200",
+            &OutputFacts {
+                display_id: Some(r"\\.\DISPLAY1".into()),
+                hdr_active: Some(true),
+            },
+        ),
+        start_position: Some(12.5),
+        audio_track_index: Some(0),
+        subtitle_track_index: None,
+        allow_alternate_versions: Some(false),
+    }
+}
+
+#[test]
+fn upstream_playback_fixtures_decode_with_granary_types() {
+    let caps: PlaybackCapabilities =
+        serde_json::from_value(load("upstream_playback_capability_available.json")).unwrap();
+    assert!(caps.allowed && caps.protocol_versions.contains(&PROTOCOL_VERSION));
+    assert!(caps.installation_id.is_some());
+    for fixture in [
+        "upstream_playback_start_opaque_ids.json",
+        "upstream_playback_replan_reanchored.json",
+    ] {
+        let d: PlaybackDecision = serde_json::from_value(load(fixture)).unwrap();
+        let (sid, plan) = d.playable().unwrap_or_else(|| panic!("{fixture} not playable"));
+        assert_eq!(sid, SESSION);
+        assert!(plan.plan_attempt_key.starts_with("v3:"));
+        assert!(!plan.stream.url.is_empty());
+        assert!(plan.timeline.player_start_seconds >= 0.0);
+    }
+    for (fixture, outcome) in [
+        ("upstream_playback_progress_applied.json", "applied"),
+        ("upstream_playback_progress_stale.json", "stale_sample"),
+        ("upstream_playback_stop_completed.json", "stopped"),
+        ("upstream_playback_stop_replayed.json", "replayed"),
+    ] {
+        let m: PlaybackMutation = serde_json::from_value(load(fixture)).unwrap();
+        assert_eq!(m.outcome, outcome);
+        assert_eq!(m.accepted.map(|a| a.sequence), Some(42));
+    }
+    let t: WatchTrickplay = serde_json::from_value(load("upstream_get_watch_trickplay_ok.json")).unwrap();
+    assert!(t.tile_columns > 0 && !t.sheets.is_empty());
+    let e: EventsSocketTicket = serde_json::from_value(load("upstream_events_socket_ticket.json")).unwrap();
+    assert_eq!(e.protocol, "silo.events.v2");
+}
+
+#[test]
+fn granary_playback_request_bodies_match_the_upstream_schemas() {
+    let caps: PlaybackCapabilities =
+        serde_json::from_value(load("upstream_playback_capability_available.json")).unwrap();
+    let start = granary_start_body(&caps);
+    assert_valid(
+        &serde_json::to_value(&start).unwrap(),
+        &schema_of("PlaybackStartBody"),
+        "start body",
+    );
+    // Unknown output HDR state is valid too.
+    let unknown = PlaybackStartBody {
+        client_playback_context: playback_context("0.1.0", "10", &OutputFacts::default()),
+        ..start.clone()
+    };
+    assert_valid(
+        &serde_json::to_value(&unknown).unwrap(),
+        &schema_of("PlaybackStartBody"),
+        "start body (unknown HDR)",
+    );
+    let progress = PlaybackProgressBody {
+        installation_id: start.installation_id.clone(),
+        sequence: 1,
+        position: 12.5,
+        is_paused: false,
+    };
+    assert_valid(
+        &serde_json::to_value(&progress).unwrap(),
+        &schema_of("PlaybackProgressBody"),
+        "progress body",
+    );
+    for stop in [
+        PlaybackStopBody {
+            installation_id: start.installation_id.clone(),
+            stop_id: mint_id(),
+            sequence: Some(2),
+            position: Some(20.0),
+            is_paused: Some(true),
+        },
+        PlaybackStopBody {
+            installation_id: start.installation_id.clone(),
+            stop_id: mint_id(),
+            sequence: None,
+            position: None,
+            is_paused: None,
+        },
+    ] {
+        assert_valid(
+            &serde_json::to_value(&stop).unwrap(),
+            &schema_of("PlaybackStopBody"),
+            "stop body",
+        );
+    }
+    let replan = PlaybackReplanBody {
+        installation_id: start.installation_id.clone(),
+        protocol_version: PROTOCOL_VERSION,
+        operation: "track_change".into(),
+        playback_attempt_id: start.playback_attempt_id.clone(),
+        replan_request_id: mint_id(),
+        failed_plan_id: "plan:478677870860e5e5108c18bff749b34b".into(),
+        plan_attempt_id: mint_id(),
+        plan_attempt_key: "v3:f0144c47fa349e3e".into(),
+        attempted_plan_keys: vec!["v3:f0144c47fa349e3e".into()],
+        attempt_count: 1,
+        quality_preference: "auto".into(),
+        position_seconds: 30.0,
+        selected_tracks: SelectedTracks {
+            audio: Some(TrackIdentity {
+                id: "file:42:audio:1".into(),
+                index: Some(1),
+            }),
+            subtitle: None,
+        },
+        client_capabilities: start.client_capabilities.clone(),
+        client_playback_context: start.client_playback_context.clone(),
+        client_features: start.client_features.clone(),
+        failure: None,
+    };
+    assert_valid(
+        &serde_json::to_value(&replan).unwrap(),
+        &schema_of("PlaybackReplanBody"),
+        "replan body",
+    );
+}
+
+#[tokio::test]
+async fn http_client_speaks_the_playback_contract() {
+    let server = MockServer::start().await;
+    for (id, status, fixture) in RESPONSES.iter().filter(|r| {
+        PLAYBACK_OPS.contains(&r.0)
+            && (r.1 == "200" || r.1 == "201")
+            && !r.2.contains("stale")
+            && !r.2.contains("replayed")
+    }) {
+        mount(
+            &server,
+            id,
+            status.parse().unwrap(),
+            fixture,
+            &[("session_id", SESSION), ("id", "42")],
+        )
+        .await;
+    }
+    let api = HttpSiloApi::new(device()).unwrap();
+    let o = server.uri();
+    let a = auth(Some(("p-primary", None)));
+    let caps = api.playback_capabilities(&o, &a).await.unwrap();
+    let start = granary_start_body(&caps);
+    let d = api.start_playback(&o, &a, &start).await.unwrap();
+    assert_eq!(d.session_id.as_deref(), Some(SESSION));
+    let p = PlaybackProgressBody {
+        installation_id: start.installation_id.clone(),
+        sequence: 42,
+        position: 120.0,
+        is_paused: false,
+    };
+    assert_eq!(
+        api.playback_progress(&o, &a, SESSION, &p).await.unwrap().outcome,
+        "applied"
+    );
+    let stop = PlaybackStopBody {
+        installation_id: start.installation_id.clone(),
+        stop_id: mint_id(),
+        sequence: None,
+        position: None,
+        is_paused: None,
+    };
+    assert_eq!(
+        api.stop_playback(&o, &a, SESSION, &stop).await.unwrap().outcome,
+        "stopped"
+    );
+    let replan = PlaybackReplanBody {
+        installation_id: start.installation_id.clone(),
+        protocol_version: PROTOCOL_VERSION,
+        operation: "seek_reanchor".into(),
+        playback_attempt_id: start.playback_attempt_id.clone(),
+        replan_request_id: mint_id(),
+        failed_plan_id: "plan:478677870860e5e5108c18bff749b34b".into(),
+        plan_attempt_id: mint_id(),
+        plan_attempt_key: "v3:f0144c47fa349e3e".into(),
+        attempted_plan_keys: vec![],
+        attempt_count: 1,
+        quality_preference: "auto".into(),
+        position_seconds: 30.0,
+        client_capabilities: start.client_capabilities.clone(),
+        client_playback_context: start.client_playback_context.clone(),
+        client_features: start.client_features.clone(),
+        ..PlaybackReplanBody::default()
+    };
+    assert!(
+        api.replan_playback(&o, &a, SESSION, &replan)
+            .await
+            .unwrap()
+            .playable()
+            .is_some()
+    );
+    let t = api.watch_trickplay(&o, &a, "42", "42").await.unwrap();
+    assert_eq!(t.file_id, "42");
+    assert_eq!(api.events_ticket(&o, &a).await.unwrap().protocol, "silo.events.v2");
+
+    // Every request carried the profile header and a body that matches the upstream request schema.
+    let reqs = server.received_requests().await.unwrap();
+    assert_eq!(reqs.len(), 7);
+    for req in &reqs {
+        assert_eq!(req.headers.get("x-profile-id").unwrap(), "p-primary");
+        assert_eq!(req.headers.get("authorization").unwrap(), "Bearer fixture-access-1");
+        let id = PLAYBACK_OPS
+            .iter()
+            .find(|id| {
+                let o = op(id);
+                let re = o["path"]
+                    .as_str()
+                    .unwrap()
+                    .replace("{session_id}", SESSION)
+                    .replace("{id}", "42");
+                o["method"].as_str().unwrap() == req.method.as_str() && re == req.url.path()
+            })
+            .unwrap_or_else(|| panic!("unexpected request {} {}", req.method, req.url));
+        let o = op(id);
+        if !o["requestBody"].is_null() {
+            let body: Value = serde_json::from_slice(&req.body).unwrap();
+            assert_valid(&body, &o["requestBody"], &format!("{id} request body"));
+        } else {
+            assert!(req.body.is_empty(), "{id} sends no body");
+        }
+        if *id == "getWatchTrickplay" {
+            assert_eq!(req.url.query(), Some("file_id=42"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn media_requests_forward_ranges_and_never_follow_redirects() {
+    use futures_util::TryStreamExt;
+    let server = MockServer::start().await;
+    let media_path = format!("/api/v2/stream/{SESSION}");
+    Mock::given(method("GET"))
+        .and(path(media_path.clone()))
+        .and(header("range", "bytes=10-19"))
+        .and(header("authorization", "Bearer fixture-access-1"))
+        .and(header("x-profile-id", "p-primary"))
+        .and(header("X-Silo-Device-Id", device().id.as_str()))
+        .respond_with(
+            ResponseTemplate::new(206)
+                .insert_header("content-range", "bytes 10-19/100")
+                .insert_header("accept-ranges", "bytes")
+                .insert_header("set-cookie", "leak=1")
+                .insert_header("x-internal", "nope")
+                .set_body_raw(vec![7u8; 10], "video/x-matroska"),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/redirect"))
+        .respond_with(ResponseTemplate::new(302).insert_header("location", "https://evil.test/x"))
+        .mount(&server)
+        .await;
+    Mock::given(method("HEAD"))
+        .and(path(media_path.clone()))
+        .respond_with(ResponseTemplate::new(410))
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let a = auth(Some(("p-primary", None)));
+    let req = |url: String, head: bool, headers: Vec<(String, String)>, auth: Option<Auth>| MediaRequest {
+        url,
+        auth,
+        head,
+        headers,
+    };
+    let r = api
+        .fetch_media(req(
+            format!("{}{media_path}", server.uri()),
+            false,
+            vec![("range".into(), "bytes=10-19".into()), ("cookie".into(), "no=1".into())],
+            Some(a.clone()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status, 206);
+    assert_eq!(r.header("content-range"), Some("bytes 10-19/100"));
+    assert_eq!(r.header("set-cookie"), None);
+    assert_eq!(r.header("x-internal"), None);
+    let body: Vec<bytes::Bytes> = r.body.try_collect().await.unwrap();
+    assert_eq!(body.concat(), vec![7u8; 10]);
+    // The cookie header was not forwarded.
+    let reqs = server.received_requests().await.unwrap();
+    assert!(reqs[0].headers.get("cookie").is_none());
+
+    let redirect = api
+        .fetch_media(req(
+            format!("{}/redirect", server.uri()),
+            false,
+            vec![],
+            Some(a.clone()),
+        ))
+        .await;
+    assert!(matches!(redirect, Err(ApiError::Redirected { .. })), "{redirect:?}");
+    let gone = api
+        .fetch_media(req(format!("{}{media_path}", server.uri()), true, vec![], Some(a)))
+        .await;
+    assert!(matches!(gone, Err(ApiError::Http { status: 410, .. })), "{gone:?}");
+    // Without auth no credential or device header is sent (foreign origins).
+    let _ = api
+        .fetch_media(req(format!("{}/redirect", server.uri()), false, vec![], None))
+        .await;
+    let last = server.received_requests().await.unwrap().pop().unwrap();
+    assert!(last.headers.get("authorization").is_none() && last.headers.get("x-silo-device-id").is_none());
 }

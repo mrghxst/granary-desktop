@@ -981,6 +981,90 @@
         }
       }
     },
+    "createEventsSocketTicket": {
+      "method": "POST",
+      "path": "/api/v2/events/ws-ticket",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/EventsSocketTicket"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
     "listHomeSections": {
       "method": "GET",
       "path": "/api/v2/home/sections",
@@ -1074,6 +1158,1132 @@
           }
         },
         "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getPlaybackCapabilities": {
+      "method": "GET",
+      "path": "/api/v2/playback/capabilities",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "If-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-None-Match",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/PlaybackCapabilities"
+          }
+        },
+        "304": null,
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "412": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "startPlayback": {
+      "method": "POST",
+      "path": "/api/v2/playback/start",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "User-Agent",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Device-ID",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Name",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Model",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Platform",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-OS-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Name",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Platform",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "$ref": "#/components/schemas/PlaybackStartBody"
+      },
+      "responses": {
+        "201": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/PlaybackDecision"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getPlaybackManifest": {
+      "method": "GET",
+      "path": "/api/v2/playback/transcode/{session_id}/master.m3u8",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "st",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "silo_rendition",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "silo_track",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/vnd.apple.mpegurl",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "410": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getPlaybackSegment": {
+      "method": "GET",
+      "path": "/api/v2/playback/transcode/{session_id}/segment/{name}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "st",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "If-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Unmodified-Since",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "Range",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Range",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-None-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Modified-Since",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/octet-stream",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "206": {
+          "contentType": "application/octet-stream",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "304": null,
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "410": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "412": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "416": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "stopPlayback": {
+      "method": "DELETE",
+      "path": "/api/v2/playback/{session_id}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "User-Agent",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Device-ID",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Name",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Model",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Platform",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-OS-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        }
+      ],
+      "requestBody": {
+        "$ref": "#/components/schemas/PlaybackStopBody"
+      },
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/PlaybackMutation"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "updatePlaybackProgress": {
+      "method": "POST",
+      "path": "/api/v2/playback/{session_id}/progress",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "User-Agent",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Device-ID",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Name",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Model",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Platform",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-OS-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        }
+      ],
+      "requestBody": {
+        "$ref": "#/components/schemas/PlaybackProgressBody"
+      },
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/PlaybackMutation"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "replanPlayback": {
+      "method": "POST",
+      "path": "/api/v2/playback/{session_id}/replan",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": true
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "User-Agent",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Device-ID",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Name",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Model",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-Platform",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Client-OS-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Version",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Build",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Client-Channel",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        }
+      ],
+      "requestBody": {
+        "$ref": "#/components/schemas/PlaybackReplanBody"
+      },
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/PlaybackDecision"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "408": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "413": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
           "contentType": "application/problem+json",
           "schema": {
             "$ref": "#/components/schemas/Problem"
@@ -1267,6 +2477,576 @@
           }
         },
         "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getPlaybackMedia": {
+      "method": "GET",
+      "path": "/api/v2/stream/{session_id}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "st",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Unmodified-Since",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "Range",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Range",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-None-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Modified-Since",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/octet-stream",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "206": {
+          "contentType": "application/octet-stream",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "304": null,
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "410": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "412": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "416": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "headPlaybackMedia": {
+      "method": "HEAD",
+      "path": "/api/v2/stream/{session_id}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "st",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Unmodified-Since",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "Range",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Range",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-None-Match",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "If-Modified-Since",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": null,
+        "206": null,
+        "304": null,
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "410": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "412": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "416": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getPlaybackSubtitle": {
+      "method": "GET",
+      "path": "/api/v2/stream/{session_id}/subtitles/{track}",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "token",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "st",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "track",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "file_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "downloaded_subtitle_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "original",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "position",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "duration",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "windowed",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/octet-stream",
+          "schema": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "409": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "410": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "415": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
+    },
+    "getPlaybackSubtitleFonts": {
+      "method": "GET",
+      "path": "/api/v2/stream/{session_id}/subtitles/{track}/fonts",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "session_id",
+          "required": true
+        },
+        {
+          "in": "path",
+          "name": "track",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "file_id",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "embedded_stream_index",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "st",
+          "required": false
+        },
+        {
+          "in": "query",
+          "name": "token",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/CollectionPlaybackSubtitleFont"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "410": {
           "contentType": "application/problem+json",
           "schema": {
             "$ref": "#/components/schemas/Problem"
@@ -1604,6 +3384,105 @@
           }
         }
       }
+    },
+    "getWatchTrickplay": {
+      "method": "GET",
+      "path": "/api/v2/watch/{id}/trickplay",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Profile-Id",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Profile-Token",
+          "required": false
+        },
+        {
+          "in": "header",
+          "name": "X-Silo-Device-Id",
+          "required": false
+        },
+        {
+          "in": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "in": "query",
+          "name": "file_id",
+          "required": true
+        }
+      ],
+      "requestBody": null,
+      "responses": {
+        "200": {
+          "contentType": "application/json",
+          "schema": {
+            "$ref": "#/components/schemas/WatchTrickplay"
+          }
+        },
+        "400": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "401": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "403": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "404": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "406": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "422": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "429": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "500": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        },
+        "503": {
+          "contentType": "application/problem+json",
+          "schema": {
+            "$ref": "#/components/schemas/Problem"
+          }
+        }
+      }
     }
   },
   "schemas": {
@@ -1686,6 +3565,109 @@
         "permissions",
         "download_allowed",
         "password_change_required"
+      ],
+      "type": "object"
+    },
+    "AppliedQuirkV3": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "registry_revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "registry_revision",
+        "action"
+      ],
+      "type": "object"
+    },
+    "AudioClaimsV3": {
+      "additionalProperties": false,
+      "properties": {
+        "atmos_preserved": {
+          "type": "boolean"
+        },
+        "codec": {
+          "type": "string"
+        },
+        "dts_variant": {
+          "type": "string"
+        },
+        "passthrough": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "passthrough",
+        "atmos_preserved"
+      ],
+      "type": "object"
+    },
+    "AudioPassthroughEntryV3": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_counts": {
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "codec": {
+          "type": "string"
+        },
+        "layouts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "codec"
+      ],
+      "type": "object"
+    },
+    "AudioPassthroughV3": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/components/schemas/AudioPassthroughEntryV3"
+          },
+          "type": "array"
+        },
+        "max_channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "passthrough_codecs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "spatializer_enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "passthrough_codecs",
+        "spatializer_enabled",
+        "max_channels"
       ],
       "type": "object"
     },
@@ -1894,6 +3876,33 @@
       },
       "required": [
         "entries"
+      ],
+      "type": "object"
+    },
+    "AvailableQualityV3": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "preserves_source": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label",
+        "preserves_source"
       ],
       "type": "object"
     },
@@ -3223,6 +5232,131 @@
       ],
       "type": "object"
     },
+    "ClientCodecCapabilitiesV3": {
+      "additionalProperties": false,
+      "properties": {
+        "audio_evidence": {
+          "type": "string"
+        },
+        "audio_passthrough": {
+          "$ref": "#/components/schemas/AudioPassthroughV3"
+        },
+        "codecs_audio": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "codecs_video": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "codecs_video_hardware": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "containers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hdr": {
+          "type": "boolean"
+        },
+        "hdr_details": {
+          "$ref": "#/components/schemas/HDRCapabilitiesV3"
+        },
+        "max_resolution": {
+          "type": "string"
+        },
+        "video_decode": {
+          "items": {
+            "$ref": "#/components/schemas/VideoDecodeCapabilityV3"
+          },
+          "type": "array"
+        },
+        "video_evidence": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "video_evidence",
+        "audio_evidence",
+        "codecs_video",
+        "codecs_video_hardware",
+        "codecs_audio",
+        "containers",
+        "hdr"
+      ],
+      "type": "object"
+    },
+    "ClientPlaybackContextV3": {
+      "additionalProperties": false,
+      "properties": {
+        "app_build": {
+          "type": "string"
+        },
+        "app_channel": {
+          "type": "string"
+        },
+        "app_version": {
+          "type": "string"
+        },
+        "deliveries": {
+          "additionalProperties": {
+            "$ref": "#/components/schemas/DeliveryCapabilityV3"
+          },
+          "type": "object"
+        },
+        "device": {
+          "$ref": "#/components/schemas/DeviceContextV3"
+        },
+        "form_factor": {
+          "type": "string"
+        },
+        "output": {
+          "$ref": "#/components/schemas/OutputContextV3"
+        },
+        "protocol_version": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "form_factor",
+        "app_version",
+        "device",
+        "output",
+        "deliveries"
+      ],
+      "type": "object"
+    },
+    "CollectionPlaybackSubtitleFont": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "description": "The page's items; empty, never null",
+          "items": {
+            "$ref": "#/components/schemas/PlaybackSubtitleFont"
+          },
+          "type": "array"
+        },
+        "page": {
+          "$ref": "#/components/schemas/PageInfo",
+          "description": "Cursor state; absent for bounded unpaginated collections"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "CollectionUserLibrary": {
       "additionalProperties": false,
       "properties": {
@@ -3281,6 +5415,200 @@
       ],
       "type": "object"
     },
+    "DegradationWarningV3": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "DeliveryCapabilityV3": {
+      "additionalProperties": false,
+      "properties": {
+        "audio_decode_codecs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "audio_passthrough_codecs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "auth_header_refresh": {
+          "type": "boolean"
+        },
+        "containers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "failure_reason": {
+          "type": "string"
+        },
+        "features": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hdr_details": {
+          "$ref": "#/components/schemas/HDRCapabilitiesV3"
+        },
+        "max_channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "max_channels_by_codec": {
+          "additionalProperties": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "maxProperties": 32,
+          "type": "object"
+        },
+        "subtitles": {
+          "$ref": "#/components/schemas/DeliverySubtitleCapabilitiesV3"
+        },
+        "supported_on_device": {
+          "type": "boolean"
+        },
+        "transformations": {
+          "items": {
+            "$ref": "#/components/schemas/TransformationV3"
+          },
+          "type": "array"
+        },
+        "validated_claims": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "video_codecs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "supported_on_device",
+        "containers",
+        "video_codecs",
+        "audio_decode_codecs",
+        "audio_passthrough_codecs",
+        "subtitles",
+        "features",
+        "auth_header_refresh",
+        "validated_claims",
+        "transformations"
+      ],
+      "type": "object"
+    },
+    "DeliverySubtitleCapabilitiesV3": {
+      "additionalProperties": false,
+      "properties": {
+        "ass_styling": {
+          "type": "boolean"
+        },
+        "embedded_bitmap": {
+          "type": "boolean"
+        },
+        "embedded_text": {
+          "type": "boolean"
+        },
+        "font_attachments": {
+          "type": "boolean"
+        },
+        "native_embedded": {
+          "items": {
+            "$ref": "#/components/schemas/NativeEmbeddedSubtitleCapabilityV3"
+          },
+          "type": "array"
+        },
+        "sidecar_bitmap": {
+          "type": "boolean"
+        },
+        "sidecar_text": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "embedded_text",
+        "sidecar_text",
+        "ass_styling",
+        "embedded_bitmap",
+        "sidecar_bitmap",
+        "font_attachments"
+      ],
+      "type": "object"
+    },
+    "DeviceContextV3": {
+      "additionalProperties": false,
+      "properties": {
+        "manufacturer": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "os_version": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "platform_details": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "DolbyVisionProfileCapabilityV3": {
+      "additionalProperties": false,
+      "properties": {
+        "bl_compatibility_ids": {
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "max_level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "profile": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "profile",
+        "max_level"
+      ],
+      "type": "object"
+    },
     "EbookDetailExtension": {
       "additionalProperties": false,
       "properties": {
@@ -3303,6 +5631,66 @@
       "required": [
         "authors",
         "related"
+      ],
+      "type": "object"
+    },
+    "EffectiveRecipeV3": {
+      "additionalProperties": false,
+      "properties": {
+        "audio_channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "audio_codec": {
+          "type": "string"
+        },
+        "audio_layout": {
+          "type": "string"
+        },
+        "bitrate_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dynamic_range": {
+          "type": "string"
+        },
+        "frame_rate": {
+          "format": "double",
+          "type": "number"
+        },
+        "height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "segment_container": {
+          "type": "string"
+        },
+        "video_codec": {
+          "type": "string"
+        },
+        "video_sample_entry": {
+          "type": "string"
+        },
+        "width": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "EmbeddedSubtitleV3": {
+      "additionalProperties": false,
+      "properties": {
+        "container_track_id": {
+          "type": "string"
+        },
+        "stream_index": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stream_index"
       ],
       "type": "object"
     },
@@ -3466,6 +5854,50 @@
       ],
       "type": "object"
     },
+    "EventsSocketTicket": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_in": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "max_connection_seconds": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "ticket": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ticket",
+        "expires_in",
+        "max_connection_seconds",
+        "protocol"
+      ],
+      "type": "object"
+    },
+    "FailureV3": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "type": "string"
+        },
+        "decoder_name": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "classification"
+      ],
+      "type": "object"
+    },
     "FileVersion": {
       "additionalProperties": false,
       "properties": {
@@ -3617,6 +6049,86 @@
         "duration",
         "bitrate",
         "added_at"
+      ],
+      "type": "object"
+    },
+    "HDRCapabilitiesV3": {
+      "additionalProperties": false,
+      "properties": {
+        "dolby_vision_profile_levels": {
+          "items": {
+            "$ref": "#/components/schemas/DolbyVisionProfileCapabilityV3"
+          },
+          "type": "array"
+        },
+        "dolby_vision_profiles": {
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "hdr10": {
+          "type": "boolean"
+        },
+        "hdr10_max_bitrate_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "hdr10_max_frame_rate": {
+          "format": "double",
+          "type": "number"
+        },
+        "hdr10_max_height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "hdr10_max_width": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "hdr10_plus": {
+          "type": "boolean"
+        },
+        "hlg": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "hdr10",
+        "hdr10_plus",
+        "hlg",
+        "dolby_vision_profiles"
+      ],
+      "type": "object"
+    },
+    "HLSSubtitleRenditionV3": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string"
+        },
+        "index": {
+          "description": "1-based position of the rendition in its SUBTITLES group, set when the group lists every embedded text track (hls_subtitle_renditions_all_v1); equal to the selected inventory row's hls_rendition.index",
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mime_type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "name",
+        "format",
+        "mime_type"
       ],
       "type": "object"
     },
@@ -3865,6 +6377,89 @@
       ],
       "type": "object"
     },
+    "NativeEmbeddedSubtitleCapabilityV3": {
+      "additionalProperties": false,
+      "properties": {
+        "ass_styling": {
+          "type": "boolean"
+        },
+        "codecs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "container": {
+          "type": "string"
+        },
+        "font_attachments": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "description": "Renderer limitations of this native route: forced_unlisted, hidden_track_preemption, literal_override_tags. Honored when the server advertises native_embedded_limitations_v1; an entry naming a value the server does not know is not used for native selection.",
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "track_identity": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "container",
+        "codecs",
+        "track_identity",
+        "ass_styling",
+        "font_attachments"
+      ],
+      "type": "object"
+    },
+    "OutputContextV3": {
+      "additionalProperties": false,
+      "properties": {
+        "audio_passthrough": {
+          "$ref": "#/components/schemas/AudioPassthroughV3"
+        },
+        "current_sink": {
+          "type": "string"
+        },
+        "display": {
+          "$ref": "#/components/schemas/OutputDisplayV3"
+        },
+        "hdr_details": {
+          "$ref": "#/components/schemas/HDRCapabilitiesV3"
+        },
+        "output_context_id": {
+          "type": "string"
+        },
+        "sink_type": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "OutputDisplayV3": {
+      "additionalProperties": false,
+      "properties": {
+        "display_id": {
+          "type": "string"
+        },
+        "hdr_evidence": {
+          "type": "string"
+        },
+        "hdr_types": {
+          "$ref": "#/components/schemas/HDRCapabilitiesV3"
+        }
+      },
+      "required": [
+        "hdr_evidence"
+      ],
+      "type": "object"
+    },
     "PageInfo": {
       "additionalProperties": false,
       "properties": {
@@ -3885,6 +6480,794 @@
       },
       "required": [
         "has_more"
+      ],
+      "type": "object"
+    },
+    "PlaybackAccepted": {
+      "additionalProperties": false,
+      "properties": {
+        "is_paused": {
+          "type": "boolean"
+        },
+        "position": {
+          "format": "double",
+          "type": "number"
+        },
+        "sequence": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sequence",
+        "position",
+        "is_paused"
+      ],
+      "type": "object"
+    },
+    "PlaybackBandwidthLimit": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "observed_rebuffer"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kbps",
+        "source",
+        "expires_at"
+      ],
+      "type": "object"
+    },
+    "PlaybackCapabilities": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "description": "Whether the current principal may use the capability",
+          "type": "boolean"
+        },
+        "bandwidth_probe_automatic": {
+          "description": "With connection_speed_v1: false when the administrator turned automatic speed tests off. Test speed still works.",
+          "type": "boolean"
+        },
+        "bandwidth_probe_max_age_seconds": {
+          "description": "With connection_speed_v1: how long a speed reading stays current.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_probe_target_kbps": {
+          "description": "With connection_speed_v1: the rate a quick speed test has to prove, the highest bitrate the server would plan for this viewer plus 25%. Absent when the server has no bitrates to set it from.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_probe_url": {
+          "format": "uri",
+          "type": "string"
+        },
+        "deliveries": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "features": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "installation_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "protocol_versions": {
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "revision": {
+          "description": "Opaque revision of this document",
+          "type": "string"
+        },
+        "state": {
+          "description": "Support and configuration state, not health",
+          "enum": [
+            "available",
+            "disabled",
+            "not_configured",
+            "unsupported"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_versions",
+        "features",
+        "deliveries",
+        "revision",
+        "state",
+        "allowed"
+      ],
+      "type": "object"
+    },
+    "PlaybackDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "type": "string"
+        },
+        "playback_plan": {
+          "$ref": "#/components/schemas/PlaybackPlan"
+        },
+        "protocol_version": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "server_features": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "session_id": {
+          "description": "Present only when outcome is playable. A terminal decision (adaptation_unavailable), from start or replan, carries none; read outcome before comparing sessions.",
+          "type": "string"
+        },
+        "terminal": {
+          "$ref": "#/components/schemas/TerminalV3"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "server_features",
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "PlaybackMutation": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "$ref": "#/components/schemas/PlaybackAccepted"
+        },
+        "history_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "stop_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "outcome"
+      ],
+      "type": "object"
+    },
+    "PlaybackPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "active_quality": {
+          "description": "The available_qualities label this plan delivers, so a client can mark that menu entry: the label quality_preference named while the menu lists it and the encode keeps its resolution, otherwise the rung whose resolution class and bitrate the encode matches. Absent when the plan delivers no listed entry, such as the source played unchanged or a plain-resolution or auto request whose capped encode falls between two rungs. Present on servers that advertise plan_active_quality_v1.",
+          "type": "string"
+        },
+        "applied_quirks": {
+          "items": {
+            "$ref": "#/components/schemas/AppliedQuirkV3"
+          },
+          "type": "array"
+        },
+        "available_qualities": {
+          "description": "Fixed quality rungs a quality_change replan may request, in menu order. The source is not listed: quality_preference auto returns to it. Empty when no rung applies.",
+          "items": {
+            "$ref": "#/components/schemas/AvailableQualityV3"
+          },
+          "type": "array"
+        },
+        "bandwidth_limit": {
+          "$ref": "#/components/schemas/PlaybackBandwidthLimit"
+        },
+        "claims": {
+          "$ref": "#/components/schemas/ValidationClaimsV3"
+        },
+        "decision_reason": {
+          "type": "string"
+        },
+        "degradation_warnings": {
+          "items": {
+            "$ref": "#/components/schemas/DegradationWarningV3"
+          },
+          "type": "array"
+        },
+        "delivery": {
+          "type": "string"
+        },
+        "effective_media_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "effective_recipe": {
+          "$ref": "#/components/schemas/EffectiveRecipeV3"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "plan_attempt_key": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "protocol_version": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "requested_media_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "runtime_corrections": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "selected_tracks": {
+          "$ref": "#/components/schemas/SelectedTracksV3"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/components/schemas/PlaybackSource"
+        },
+        "stream": {
+          "$ref": "#/components/schemas/StreamV3"
+        },
+        "subtitle": {
+          "$ref": "#/components/schemas/SubtitleDecisionV3"
+        },
+        "subtitle_fidelity_policy": {
+          "type": "string"
+        },
+        "timeline": {
+          "$ref": "#/components/schemas/TimelineV3"
+        },
+        "transformations": {
+          "items": {
+            "$ref": "#/components/schemas/TransformationV3"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "plan_id",
+        "plan_attempt_key",
+        "delivery",
+        "stream",
+        "timeline",
+        "selected_tracks",
+        "effective_recipe",
+        "claims",
+        "subtitle",
+        "transformations",
+        "applied_quirks",
+        "runtime_corrections",
+        "available_qualities",
+        "degradation_warnings",
+        "decision_reason",
+        "requested_media_file_id",
+        "effective_media_file_id",
+        "source",
+        "subtitle_fidelity_policy"
+      ],
+      "type": "object"
+    },
+    "PlaybackProgressBody": {
+      "additionalProperties": false,
+      "properties": {
+        "installation_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "is_paused": {
+          "type": "boolean"
+        },
+        "position": {
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "sequence": {
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "installation_id",
+        "sequence",
+        "position",
+        "is_paused"
+      ],
+      "type": "object"
+    },
+    "PlaybackReplanBody": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_count": {
+          "format": "int64",
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "attempted_plan_keys": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "bandwidth_cap_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_estimate_kbps": {
+          "description": "Measured throughput to this server, such as a bandwidth probe result. auto sends a source whose bitrate fits 80% of it as-is and lowers only one that does not. Omit it rather than send a guess.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_estimate_source": {
+          "enum": [
+            "probe",
+            "observed_rebuffer"
+          ],
+          "type": "string"
+        },
+        "client_capabilities": {
+          "$ref": "#/components/schemas/ClientCodecCapabilitiesV3"
+        },
+        "client_features": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "client_playback_context": {
+          "$ref": "#/components/schemas/ClientPlaybackContextV3"
+        },
+        "failed_plan_id": {
+          "maxLength": 128,
+          "minLength": 8,
+          "type": "string"
+        },
+        "failure": {
+          "$ref": "#/components/schemas/FailureV3"
+        },
+        "installation_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "learned_limit": {
+          "enum": [
+            "ignore",
+            "clear"
+          ],
+          "type": "string"
+        },
+        "local_mutations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "metered": {
+          "deprecated": true,
+          "description": "Deprecated; ignored. A client on a metered link sends its cellular quality as quality_preference and bandwidth_cap_kbps instead.",
+          "type": "boolean"
+        },
+        "observed_throughput_kbps": {
+          "description": "What the plan that kept buffering received, measured as plan_summary throughput_kbps. Only with bandwidth_estimate_source observed_rebuffer; the server plans with, and learns, the lower of it and bandwidth_estimate_kbps.",
+          "format": "int64",
+          "maximum": 1000000,
+          "minimum": 100,
+          "type": "integer"
+        },
+        "operation": {
+          "enum": [
+            "failure_recovery",
+            "seek_reanchor",
+            "seek_failure_recovery",
+            "track_change",
+            "quality_change",
+            "output_change"
+          ],
+          "type": "string"
+        },
+        "plan_attempt_id": {
+          "maxLength": 128,
+          "minLength": 8,
+          "type": "string"
+        },
+        "plan_attempt_key": {
+          "maxLength": 128,
+          "minLength": 8,
+          "type": "string"
+        },
+        "playback_attempt_id": {
+          "maxLength": 128,
+          "minLength": 8,
+          "type": "string"
+        },
+        "position_seconds": {
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "protocol_version": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "quality_preference": {
+          "description": "auto (the default), a resolution such as 1080p, or a rung label from available_qualities. auto plays the source unless the device cannot, a measured bandwidth_estimate_kbps cannot carry it, or it is above bandwidth_cap_kbps. original is a deprecated alias of auto.",
+          "type": "string"
+        },
+        "replan_request_id": {
+          "description": "Client-minted identity of this replan; a retry with the same body replays the durable decision",
+          "maxLength": 128,
+          "minLength": 8,
+          "type": "string"
+        },
+        "selected_tracks": {
+          "$ref": "#/components/schemas/SelectedTracksV3"
+        }
+      },
+      "required": [
+        "installation_id",
+        "protocol_version",
+        "playback_attempt_id",
+        "replan_request_id",
+        "failed_plan_id",
+        "plan_attempt_id",
+        "plan_attempt_key",
+        "attempted_plan_keys",
+        "attempt_count",
+        "quality_preference",
+        "position_seconds",
+        "selected_tracks",
+        "client_capabilities",
+        "client_playback_context"
+      ],
+      "type": "object"
+    },
+    "PlaybackSource": {
+      "additionalProperties": false,
+      "properties": {
+        "audio_channels": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "audio_codec": {
+          "type": "string"
+        },
+        "audio_layout": {
+          "type": "string"
+        },
+        "bit_depth": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bitrate_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "color_range": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        },
+        "dolby_vision_level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dolby_vision_profile": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "dv_base_layer_proven": {
+          "type": "boolean"
+        },
+        "dv_bl_compat_id": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "dv_enhancement_layer": {
+          "type": "string"
+        },
+        "dynamic_range": {
+          "type": "string"
+        },
+        "frame_rate": {
+          "format": "double",
+          "type": "number"
+        },
+        "hdr10_plus": {
+          "type": "boolean"
+        },
+        "height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "media_file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "video_codec": {
+          "type": "string"
+        },
+        "video_copy_unsafe": {
+          "type": "boolean"
+        },
+        "video_level": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "video_profile": {
+          "type": "string"
+        },
+        "width": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "media_file_id",
+        "hdr10_plus",
+        "dv_enhancement_layer"
+      ],
+      "type": "object"
+    },
+    "PlaybackStartBody": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_alternate_versions": {
+          "description": "False keeps the requested source file for this attempt, including quality changes and failure recovery. Omitted or true allows alternate versions.",
+          "type": "boolean"
+        },
+        "audio_track_id": {
+          "type": "string"
+        },
+        "audio_track_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_cap_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_estimate_kbps": {
+          "description": "Measured throughput to this server, such as a bandwidth probe result. auto sends a source whose bitrate fits 80% of it as-is and lowers only one that does not. Omit it rather than send a guess.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "bandwidth_estimate_source": {
+          "enum": [
+            "probe",
+            "observed_rebuffer"
+          ],
+          "type": "string"
+        },
+        "client_capabilities": {
+          "$ref": "#/components/schemas/ClientCodecCapabilitiesV3"
+        },
+        "client_features": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "client_playback_context": {
+          "$ref": "#/components/schemas/ClientPlaybackContextV3"
+        },
+        "file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "installation_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "learned_limit": {
+          "enum": [
+            "ignore",
+            "clear"
+          ],
+          "type": "string"
+        },
+        "metered": {
+          "deprecated": true,
+          "description": "Deprecated; ignored. A client on a metered link sends its cellular quality as quality_preference and bandwidth_cap_kbps instead.",
+          "type": "boolean"
+        },
+        "observed_throughput_kbps": {
+          "description": "What the plan that kept buffering received, measured as plan_summary throughput_kbps. Only with bandwidth_estimate_source observed_rebuffer; the server plans with, and learns, the lower of it and bandwidth_estimate_kbps.",
+          "format": "int64",
+          "maximum": 1000000,
+          "minimum": 100,
+          "type": "integer"
+        },
+        "playback_attempt_id": {
+          "type": "string"
+        },
+        "profile_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "progress_persistence": {
+          "enum": [
+            "server",
+            "client"
+          ],
+          "type": "string"
+        },
+        "protocol_version": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "quality_preference": {
+          "description": "auto (the default), a resolution such as 1080p, or a rung label from available_qualities. auto plays the source unless the device cannot, a measured bandwidth_estimate_kbps cannot carry it, or it is above bandwidth_cap_kbps. original is a deprecated alias of auto.",
+          "type": "string"
+        },
+        "start_position": {
+          "format": "double",
+          "type": "number"
+        },
+        "subtitle_fidelity_preference": {
+          "type": "string"
+        },
+        "subtitle_track_id": {
+          "type": "string"
+        },
+        "subtitle_track_index": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "installation_id",
+        "protocol_version",
+        "client_features",
+        "file_id",
+        "profile_id",
+        "playback_attempt_id",
+        "quality_preference",
+        "subtitle_fidelity_preference",
+        "client_capabilities",
+        "client_playback_context"
+      ],
+      "type": "object"
+    },
+    "PlaybackStopBody": {
+      "additionalProperties": false,
+      "properties": {
+        "installation_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "is_paused": {
+          "type": "boolean"
+        },
+        "position": {
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "sequence": {
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "stop_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "1"
+          ],
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "installation_id",
+        "stop_id"
+      ],
+      "type": "object"
+    },
+    "PlaybackSubtitleFont": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "Base64-encoded font bytes",
+          "type": "string"
+        },
+        "name": {
+          "description": "Attachment file name as authored in the container",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "data"
       ],
       "type": "object"
     },
@@ -4635,6 +8018,18 @@
       ],
       "type": "object"
     },
+    "SelectedTracksV3": {
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "$ref": "#/components/schemas/TrackIdentityV3"
+        },
+        "subtitle": {
+          "$ref": "#/components/schemas/TrackIdentityV3"
+        }
+      },
+      "type": "object"
+    },
     "ServerIdentity": {
       "additionalProperties": false,
       "properties": {
@@ -4648,6 +8043,124 @@
       },
       "required": [
         "server_id"
+      ],
+      "type": "object"
+    },
+    "StreamV3": {
+      "additionalProperties": false,
+      "properties": {
+        "container": {
+          "type": "string"
+        },
+        "header_refresh": {
+          "type": "string"
+        },
+        "header_refresh_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "mime_type": {
+          "type": "string"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "url": {
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "protocol",
+        "headers",
+        "header_refresh"
+      ],
+      "type": "object"
+    },
+    "SubtitleArtifactV3": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "mime_type": {
+          "type": "string"
+        },
+        "timing_origin_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "url": {
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "mime_type",
+        "format",
+        "timing_origin_seconds"
+      ],
+      "type": "object"
+    },
+    "SubtitleClaimsV3": {
+      "additionalProperties": false,
+      "properties": {
+        "ass_styling_preserved": {
+          "type": "boolean"
+        },
+        "bitmap_overlay": {
+          "type": "boolean"
+        },
+        "bitmap_sidecar": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ass_styling_preserved",
+        "bitmap_overlay",
+        "bitmap_sidecar"
+      ],
+      "type": "object"
+    },
+    "SubtitleDecisionV3": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/components/schemas/SubtitleArtifactV3"
+        },
+        "embedded": {
+          "$ref": "#/components/schemas/EmbeddedSubtitleV3"
+        },
+        "hls_rendition": {
+          "$ref": "#/components/schemas/HLSSubtitleRenditionV3"
+        },
+        "inventory": {
+          "items": {
+            "$ref": "#/components/schemas/SubtitleInventoryItemV3"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "track_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "inventory"
       ],
       "type": "object"
     },
@@ -4679,6 +8192,110 @@
         "language",
         "forced",
         "hearing_impaired"
+      ],
+      "type": "object"
+    },
+    "SubtitleInventoryHLSRenditionV3": {
+      "additionalProperties": false,
+      "properties": {
+        "group_id": {
+          "description": "The rendition's EXT-X-MEDIA GROUP-ID",
+          "type": "string"
+        },
+        "index": {
+          "description": "1-based position of the rendition in its group, in inventory order",
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "The rendition's EXT-X-MEDIA NAME, unique in the group",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "name",
+        "index"
+      ],
+      "type": "object"
+    },
+    "SubtitleInventoryItemV3": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "combined_index": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "container_track_id": {
+          "description": "Embedded tracks only: the Matroska TrackNumber or MP4 track ID, omitted when unknown",
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "delivery": {
+          "type": "string"
+        },
+        "font_bundle_url": {
+          "format": "uri-reference",
+          "type": "string"
+        },
+        "forced": {
+          "type": "boolean"
+        },
+        "hearing_impaired": {
+          "type": "boolean"
+        },
+        "hls_rendition": {
+          "$ref": "#/components/schemas/SubtitleInventoryHLSRenditionV3",
+          "description": "Embedded text tracks of an HLS plan under hls_subtitle_renditions_all_v1: the track's WebVTT rendition in the stream's SUBTITLES group. The client may select it in its player and report the change with a subtitle_track_changed replan, which keeps the stream; url stays the fallback."
+        },
+        "label": {
+          "type": "string"
+        },
+        "language": {
+          "description": "Subtitle language: BCP 47 tag (en, pt-BR), empty when unknown; older rows may carry a legacy value",
+          "type": "string"
+        },
+        "native_selectable": {
+          "description": "Embedded tracks only: selecting this track, with the plan's delivery and audio, yields subtitle.embedded. The client may switch to it locally and report the change with a subtitle_track_changed replan, which returns a plan for the same media; url, when the row has one, stays the fallback; a bitmap track delivered only by burn-in has none.",
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "stream_index": {
+          "description": "Embedded tracks only: the absolute probed stream index, the namespace of subtitle.embedded.stream_index and the sidecar URL's embedded_stream_index",
+          "format": "int64",
+          "type": "integer"
+        },
+        "sync_key": {
+          "type": "string"
+        },
+        "track_id": {
+          "type": "string"
+        },
+        "unplayable": {
+          "description": "No route can show this track: the server has no rendering, conversion, or burn-in route for its format, or doesn't recognize the format at all. Selecting it gets a subtitle_codec_unsupported terminal, so a client should list it as unavailable.",
+          "type": "boolean"
+        },
+        "url": {
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "track_id",
+        "combined_index",
+        "source",
+        "forced",
+        "default",
+        "hearing_impaired",
+        "delivery"
       ],
       "type": "object"
     },
@@ -4759,6 +8376,26 @@
       ],
       "type": "object"
     },
+    "TerminalV3": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reason",
+        "message",
+        "retryable"
+      ],
+      "type": "object"
+    },
     "ThemeSong": {
       "additionalProperties": false,
       "properties": {
@@ -4803,6 +8440,50 @@
       ],
       "type": "object"
     },
+    "TimelineV3": {
+      "additionalProperties": false,
+      "properties": {
+        "can_seek_anywhere": {
+          "type": "boolean"
+        },
+        "player_start_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "seek_restoration": {
+          "type": "string"
+        },
+        "seek_window_end_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "seek_window_start_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "source_start_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "stream_origin_seconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "timeline_offset_seconds": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "source_start_seconds",
+        "stream_origin_seconds",
+        "player_start_seconds",
+        "timeline_offset_seconds",
+        "can_seek_anywhere",
+        "seek_restoration"
+      ],
+      "type": "object"
+    },
     "TokenPair": {
       "additionalProperties": false,
       "properties": {
@@ -4838,6 +8519,49 @@
         "refresh_token",
         "expires_in",
         "user"
+      ],
+      "type": "object"
+    },
+    "TrackIdentityV3": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "index": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "TransformationV3": {
+      "additionalProperties": false,
+      "properties": {
+        "executor": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "recipe_version": {
+          "type": "string"
+        },
+        "validated_claims": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "executor",
+        "recipe_version",
+        "validated_claims"
       ],
       "type": "object"
     },
@@ -4880,6 +8604,26 @@
         "type",
         "sort_order",
         "box_sets_enabled"
+      ],
+      "type": "object"
+    },
+    "ValidationClaimsV3": {
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "$ref": "#/components/schemas/AudioClaimsV3"
+        },
+        "subtitles": {
+          "$ref": "#/components/schemas/SubtitleClaimsV3"
+        },
+        "video": {
+          "$ref": "#/components/schemas/VideoClaimsV3"
+        }
+      },
+      "required": [
+        "video",
+        "audio",
+        "subtitles"
       ],
       "type": "object"
     },
@@ -4965,6 +8709,88 @@
         "default",
         "hearing_impaired",
         "external"
+      ],
+      "type": "object"
+    },
+    "VideoClaimsV3": {
+      "additionalProperties": false,
+      "properties": {
+        "dolby_vision": {
+          "type": "boolean"
+        },
+        "dolby_vision_reason": {
+          "type": "string"
+        },
+        "hdr10": {
+          "type": "boolean"
+        },
+        "hdr10_plus": {
+          "type": "boolean"
+        },
+        "hlg": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "hdr10",
+        "hdr10_plus",
+        "hlg",
+        "dolby_vision"
+      ],
+      "type": "object"
+    },
+    "VideoDecodeCapabilityV3": {
+      "additionalProperties": false,
+      "properties": {
+        "bit_depths": {
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "codec": {
+          "type": "string"
+        },
+        "decoder_name": {
+          "type": "string"
+        },
+        "hardware": {
+          "type": "boolean"
+        },
+        "levels": {
+          "items": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "max_bitrate_kbps": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "max_frame_rate": {
+          "format": "double",
+          "type": "number"
+        },
+        "max_height": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "max_width": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "profiles": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "codec",
+        "hardware"
       ],
       "type": "object"
     },
@@ -5781,6 +9607,117 @@
         "default",
         "hearing_impaired",
         "external"
+      ],
+      "type": "object"
+    },
+    "WatchTrickplay": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "description": "When the sheet URLs stop working; read the previews again for fresh ones",
+          "examples": [
+            "2026-01-02T03:04:05.000Z"
+          ],
+          "format": "date-time",
+          "pattern": "^(?:[1-9][0-9]{3}|0[1-9][0-9]{2}|00[1-9][0-9]|000[2-9])-",
+          "patternDescription": "a non-zero RFC 3339 instant",
+          "type": "string"
+        },
+        "file_id": {
+          "description": "Opaque identifier",
+          "examples": [
+            "42"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "interval_ms": {
+          "description": "Media time each thumbnail covers: thumbnail i shows what plays from i*interval_ms to (i+1)*interval_ms",
+          "examples": [
+            10000
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "sheets": {
+          "description": "Every sheet, in order. Sheet s holds thumbnails s*tile_columns*tile_rows onward, left to right and top to bottom; every sheet has the full grid, black after the last thumbnail",
+          "items": {
+            "$ref": "#/components/schemas/WatchTrickplaySheet"
+          },
+          "type": "array"
+        },
+        "thumbnail_count": {
+          "examples": [
+            720
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "thumbnail_height": {
+          "description": "Pixels",
+          "examples": [
+            126
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "thumbnail_width": {
+          "description": "Pixels",
+          "examples": [
+            300
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "tile_columns": {
+          "description": "Thumbnails across a sheet",
+          "examples": [
+            10
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "tile_rows": {
+          "description": "Thumbnails down a sheet",
+          "examples": [
+            10
+          ],
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file_id",
+        "interval_ms",
+        "thumbnail_width",
+        "thumbnail_height",
+        "tile_columns",
+        "tile_rows",
+        "thumbnail_count",
+        "sheets",
+        "expires_at"
+      ],
+      "type": "object"
+    },
+    "WatchTrickplaySheet": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "examples": [
+            0
+          ],
+          "format": "int64",
+          "type": "integer"
+        },
+        "url": {
+          "description": "A JPEG image; the URL carries its own authorization",
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "url"
       ],
       "type": "object"
     },

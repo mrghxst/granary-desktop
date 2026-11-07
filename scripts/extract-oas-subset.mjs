@@ -29,6 +29,20 @@ const OPERATIONS = [
   "listSeasonEpisodes",
   "getWatchState",
   "getArtwork",
+  // Phase 6: playback protocol v3, media relay, trickplay, events
+  "getPlaybackCapabilities",
+  "startPlayback",
+  "updatePlaybackProgress",
+  "stopPlayback",
+  "replanPlayback",
+  "getPlaybackMedia",
+  "headPlaybackMedia",
+  "getPlaybackManifest",
+  "getPlaybackSegment",
+  "getPlaybackSubtitle",
+  "getPlaybackSubtitleFonts",
+  "getWatchTrickplay",
+  "createEventsSocketTicket",
 ];
 
 const oas = JSON.parse(readFileSync(src, "utf8"));

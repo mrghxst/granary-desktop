@@ -1,5 +1,5 @@
 //! One signed-in account on one server: in-memory access token, refresh token in the credential store, selected
-//! profile. Implements the client rules of silo-api.md §1.3:
+//! profile. Implements the client rules of silo-api.md Â§1.3:
 //! - refresh proactively [`REFRESH_MARGIN`] before expiry;
 //! - on a 401 refresh **once** (single-flight: concurrent requests share one refresh) and retry the request once;
 //! - a refresh rejected with 401/403 means the session is revoked: forget the credential, report [`ApiError::SignedOut`];
@@ -8,7 +8,9 @@ use crate::api::{Auth, ProfileAuth, SiloApi};
 use crate::catalog::*;
 use crate::credentials::{CredentialStore, account_key};
 use crate::error::{ApiError, Result};
+use crate::media::{MediaRequest, MediaResponse, MediaTarget, resolve_media_url};
 use crate::models::{Account, Profile, UserLibrary};
+use crate::playback::*;
 use crate::registry::AccountRecord;
 use crate::secret::Secret;
 use std::future::Future;
@@ -355,6 +357,62 @@ impl Session {
         self.call_profile(|auth| async move { self.api.watch_state(&self.origin, &auth, id).await })
             .await
     }
+
+    // Playback protocol v3 (silo-api.md Â§13, ADR-0008).
+
+    pub async fn playback_capabilities(&self) -> Result<PlaybackCapabilities> {
+        self.call_profile(|auth| async move { self.api.playback_capabilities(&self.origin, &auth).await })
+            .await
+    }
+
+    pub async fn start_playback(&self, body: &PlaybackStartBody) -> Result<PlaybackDecision> {
+        self.call_profile(|auth| async move { self.api.start_playback(&self.origin, &auth, body).await })
+            .await
+    }
+
+    pub async fn playback_progress(&self, session_id: &str, body: &PlaybackProgressBody) -> Result<PlaybackMutation> {
+        self.call_profile(|auth| async move { self.api.playback_progress(&self.origin, &auth, session_id, body).await })
+            .await
+    }
+
+    pub async fn stop_playback(&self, session_id: &str, body: &PlaybackStopBody) -> Result<PlaybackMutation> {
+        self.call_profile(|auth| async move { self.api.stop_playback(&self.origin, &auth, session_id, body).await })
+            .await
+    }
+
+    pub async fn replan_playback(&self, session_id: &str, body: &PlaybackReplanBody) -> Result<PlaybackDecision> {
+        self.call_profile(|auth| async move { self.api.replan_playback(&self.origin, &auth, session_id, body).await })
+            .await
+    }
+
+    pub async fn watch_trickplay(&self, id: &str, file_id: &str) -> Result<WatchTrickplay> {
+        self.call_profile(|auth| async move { self.api.watch_trickplay(&self.origin, &auth, id, file_id).await })
+            .await
+    }
+
+    pub async fn events_ticket(&self) -> Result<EventsSocketTicket> {
+        self.call_profile(|auth| async move { self.api.events_ticket(&self.origin, &auth).await })
+            .await
+    }
+
+    /// Fetch a media URL the server handed out (`stream.url`, subtitle and font URLs). Only URLs on the saved
+    /// server origin are allowed here, and they get the bearer/profile headers; the caller hands foreign URLs to
+    /// the player directly ([`crate::media::resolve_media_url`]).
+    pub async fn fetch_media(&self, raw_url: &str, head: bool, headers: &[(String, String)]) -> Result<MediaResponse> {
+        let MediaTarget::Server(url) = resolve_media_url(&self.origin, raw_url)? else {
+            return Err(ApiError::Internal("media URL is not on the server origin".into()));
+        };
+        self.call_profile(|auth| {
+            let request = MediaRequest {
+                url: url.clone(),
+                auth: Some(auth),
+                head,
+                headers: headers.to_vec(),
+            };
+            async move { self.api.fetch_media(request).await }
+        })
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -567,5 +625,165 @@ mod tests {
         assert!(s.is_signed_out());
         assert!(store.is_empty());
         assert_eq!(api.live_sessions(), 0);
+    }
+
+    fn start_body(file_id: &str, attempt: &str) -> PlaybackStartBody {
+        PlaybackStartBody {
+            installation_id: crate::mock::MOCK_INSTALLATION_ID.into(),
+            protocol_version: PROTOCOL_VERSION,
+            file_id: file_id.into(),
+            profile_id: "1".into(),
+            playback_attempt_id: attempt.into(),
+            quality_preference: "auto".into(),
+            subtitle_fidelity_preference: "preserve".into(),
+            start_position: Some(42.0),
+            audio_track_index: Some(0),
+            ..PlaybackStartBody::default()
+        }
+    }
+
+    fn progress(sequence: i64, position: f64) -> PlaybackProgressBody {
+        PlaybackProgressBody {
+            installation_id: crate::mock::MOCK_INSTALLATION_ID.into(),
+            sequence,
+            position,
+            is_paused: false,
+        }
+    }
+
+    #[tokio::test]
+    #[allow(clippy::unwrap_used)]
+    async fn playback_protocol_round_trip_against_the_mock() {
+        let dir = std::env::temp_dir().join(format!("granary-mock-media-{}", mint_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let clip: Vec<u8> = (0..1000u32).map(|i| (i % 251) as u8).collect();
+        std::fs::write(dir.join("hdr10_hevc_main10_2160p.mkv"), &clip).unwrap();
+        let api = Arc::new(MockSiloApi::demo().with_media_dir(&dir));
+        let store = Arc::new(MemoryStore::default());
+        let (s, _) = Session::login(api.clone(), store, ORIGIN, "srv", "alice", &Secret::new("pw"))
+            .await
+            .unwrap();
+
+        // Profile-scoped: nothing is sent before a profile is chosen.
+        assert!(matches!(
+            s.playback_capabilities().await,
+            Err(ApiError::ProfileRequired)
+        ));
+        s.select_profile("1", None).await.unwrap();
+        let caps = s.playback_capabilities().await.unwrap();
+        assert!(caps.allowed && caps.protocol_versions.contains(&PROTOCOL_VERSION));
+
+        // Start is idempotent per attempt id.
+        let d = s.start_playback(&start_body("m1-f1", "attempt-0001")).await.unwrap();
+        let again = s.start_playback(&start_body("m1-f1", "attempt-0001")).await.unwrap();
+        assert_eq!(d, again);
+        let (sid, plan) = d.playable().unwrap();
+        let sid = sid.to_owned();
+        assert_eq!(plan.delivery, DELIVERY_ORIGINAL_HTTP);
+        assert_eq!(plan.timeline.player_start_seconds, 42.0);
+        assert_eq!(plan.stream.url, format!("/api/v2/stream/{sid}"));
+        assert!(matches!(
+            s.start_playback(&start_body("m1-f2", "attempt-0001")).await,
+            Err(e) if e.problem_id() == Some("playback_attempt_conflict")
+        ));
+
+        // Media: ranges and HEAD through the session's credentials.
+        let r = s
+            .fetch_media(&plan.stream.url, false, &[("range".into(), "bytes=100-199".into())])
+            .await
+            .unwrap();
+        assert_eq!(r.status, 206);
+        assert_eq!(r.header("content-range"), Some("bytes 100-199/1000"));
+        let body: Vec<u8> = {
+            use futures_util::TryStreamExt;
+            let chunks: Vec<bytes::Bytes> = r.body.try_collect().await.unwrap();
+            chunks.concat()
+        };
+        assert_eq!(body, clip[100..200]);
+        let h = s.fetch_media(&plan.stream.url, true, &[]).await.unwrap();
+        assert_eq!((h.status, h.header("content-length")), (200, Some("1000")));
+        let bad = s
+            .fetch_media(&plan.stream.url, false, &[("range".into(), "bytes=5000-".into())])
+            .await
+            .unwrap();
+        assert_eq!(bad.status, 416);
+        assert!(s.fetch_media("https://cdn.example.test/x", false, &[]).await.is_err());
+
+        // Progress: newer applied, exact repeat replayed, older stale.
+        let outcome = |m: PlaybackMutation| m.outcome;
+        assert_eq!(
+            outcome(s.playback_progress(&sid, &progress(1, 50.0)).await.unwrap()),
+            "applied"
+        );
+        assert_eq!(
+            outcome(s.playback_progress(&sid, &progress(1, 50.0)).await.unwrap()),
+            "replayed"
+        );
+        assert_eq!(
+            outcome(s.playback_progress(&sid, &progress(3, 70.0)).await.unwrap()),
+            "applied"
+        );
+        let stale = s.playback_progress(&sid, &progress(2, 60.0)).await.unwrap();
+        assert_eq!(stale.outcome, "stale_sample");
+        assert_eq!(stale.accepted.map(|a| a.sequence), Some(3));
+
+        // Replan (intent: no failure) keeps the session and moves the timeline.
+        let replan = PlaybackReplanBody {
+            installation_id: crate::mock::MOCK_INSTALLATION_ID.into(),
+            protocol_version: PROTOCOL_VERSION,
+            operation: "track_change".into(),
+            playback_attempt_id: "attempt-0001".into(),
+            replan_request_id: mint_id(),
+            failed_plan_id: plan.plan_id.clone(),
+            plan_attempt_id: mint_id(),
+            plan_attempt_key: "v3:x".into(),
+            attempt_count: 1,
+            position_seconds: 70.0,
+            ..PlaybackReplanBody::default()
+        };
+        let d2 = s.replan_playback(&sid, &replan).await.unwrap();
+        assert_eq!(d2.session_id.as_deref(), Some(sid.as_str()));
+        assert_eq!(d2.playback_plan.map(|p| p.timeline.player_start_seconds), Some(70.0));
+        let with_failure = PlaybackReplanBody {
+            failure: Some(Failure {
+                classification: "decode".into(),
+                message: None,
+            }),
+            ..replan
+        };
+        assert!(s.replan_playback(&sid, &with_failure).await.is_err());
+
+        // Stop with a final sample, then replay; the session is gone afterwards.
+        let stop = PlaybackStopBody {
+            installation_id: crate::mock::MOCK_INSTALLATION_ID.into(),
+            stop_id: mint_id(),
+            sequence: Some(4),
+            position: Some(80.0),
+            is_paused: Some(true),
+        };
+        let first = s.stop_playback(&sid, &stop).await.unwrap();
+        assert_eq!(first.outcome, "stopped");
+        assert_eq!(first.accepted.map(|a| (a.sequence, a.position)), Some((4, 80.0)));
+        let replay = s.stop_playback(&sid, &stop).await.unwrap();
+        assert_eq!(
+            (replay.outcome.as_str(), replay.stop_id),
+            ("replayed", Some(stop.stop_id.clone()))
+        );
+        assert!(matches!(
+            s.playback_progress(&sid, &progress(5, 90.0)).await,
+            Err(ApiError::Http { status: 410, .. })
+        ));
+        assert!(s.fetch_media(&plan.stream.url, true, &[]).await.is_err());
+        let not_uuid = PlaybackStopBody {
+            stop_id: "stop-1".into(),
+            ..stop
+        };
+        assert!(s.stop_playback(&sid, &not_uuid).await.is_err());
+
+        let log = api.playback_log();
+        assert_eq!(log.starts.len(), 3);
+        assert_eq!(log.progress.len(), 4);
+        assert_eq!(log.media_requests.len(), 3);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

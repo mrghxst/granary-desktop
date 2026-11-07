@@ -4,10 +4,13 @@
 use crate::api::{Auth, ImageData, SiloApi};
 use crate::catalog::*;
 use crate::error::{ApiError, Result};
+use crate::media::{MediaRequest, MediaResponse, parse_range};
 use crate::models::*;
+use crate::playback::*;
 use crate::secret::Secret;
 use async_trait::async_trait;
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -50,6 +53,39 @@ pub struct MockSiloApi {
     /// profile id → allowed library ids (absent: all)
     restrictions: HashMap<String, Vec<String>>,
     state: Mutex<State>,
+    /// Directory with the generated test clips (`scripts/gen-test-media.ps1`); media requests read from it.
+    media_dir: Option<PathBuf>,
+    playback: Mutex<MockPlayback>,
+}
+
+/// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
+pub const MOCK_INSTALLATION_ID: &str = "mock-installation-1";
+
+#[derive(Debug, Clone, Default)]
+struct MockSession {
+    file_id: String,
+    decision: PlaybackDecision,
+    last_sequence: i64,
+    accepted: Option<PlaybackAccepted>,
+    stop_id: Option<String>,
+    plans: u32,
+}
+
+/// What the mock playback server saw, for assertions.
+#[derive(Debug, Clone, Default)]
+pub struct MockPlayback {
+    counter: u64,
+    sessions: HashMap<String, MockSession>,
+    /// attempt id → session id (start idempotency).
+    attempts: HashMap<String, String>,
+    /// (session, sequence, position, paused, outcome) per progress call.
+    pub progress: Vec<(String, i64, f64, bool, String)>,
+    /// (session, stop body) per stop call.
+    pub stops: Vec<(String, PlaybackStopBody)>,
+    pub starts: Vec<PlaybackStartBody>,
+    pub replans: Vec<PlaybackReplanBody>,
+    /// Media requests: (session, range header).
+    pub media_requests: Vec<(String, Option<String>)>,
 }
 
 fn profile(id: &str, name: &str, has_pin: bool, is_child: bool) -> Profile {
@@ -115,7 +151,141 @@ impl MockSiloApi {
                 access_lifetime: 3600,
                 ..State::default()
             }),
+            media_dir: None,
+            playback: Mutex::new(MockPlayback::default()),
         }
+    }
+
+    /// Serve media from this directory (test clips); without it media requests answer 404.
+    pub fn with_media_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.media_dir = Some(dir.into());
+        self
+    }
+
+    fn with_playback<T>(&self, f: impl FnOnce(&mut MockPlayback) -> T) -> T {
+        match self.playback.lock() {
+            Ok(mut p) => f(&mut p),
+            Err(poisoned) => f(&mut poisoned.into_inner()),
+        }
+    }
+
+    /// A copy of what the playback server recorded.
+    pub fn playback_log(&self) -> MockPlayback {
+        self.with_playback(|p| p.clone())
+    }
+
+    /// End a session server-side (as the liveness sweeper would): later progress answers 410.
+    pub fn end_session(&self, session_id: &str) {
+        self.with_playback(|p| {
+            if let Some(sess) = p.sessions.get_mut(session_id) {
+                sess.stop_id = Some("server-ended".into());
+            }
+        });
+    }
+
+    /// The clip a demo file plays: the HDR10 clip for the 2160p HDR version of the first movie, SDR clips otherwise.
+    fn clip_for(&self, file_id: &str) -> Option<PathBuf> {
+        let dir = self.media_dir.as_ref()?;
+        let name = if file_id == "m1-f1" {
+            "hdr10_hevc_main10_2160p.mkv"
+        } else if file_id.ends_with("-f2") || file_id.starts_with('m') {
+            "sdr_h264_1080p.mkv"
+        } else {
+            "sdr_h264_23976.mkv"
+        };
+        Some(dir.join(name))
+    }
+
+    fn known_file(file_id: &str) -> Option<(String, FileVersion)> {
+        let item = file_id.rsplit_once("-f")?.0;
+        let detail = demo::detail(item)?;
+        let version = detail.versions.into_iter().find(|v| v.file_id == file_id)?;
+        Some((item.to_owned(), version))
+    }
+
+    fn plan(
+        session_id: &str,
+        plan_no: u32,
+        version: &FileVersion,
+        start: f64,
+        audio: Option<i64>,
+        subtitle: Option<i64>,
+    ) -> PlaybackPlan {
+        PlaybackPlan {
+            plan_id: format!("{session_id}-plan-{plan_no}"),
+            plan_attempt_key: format!("v3:{session_id}:{plan_no}"),
+            delivery: "original_http".into(),
+            decision_reason: "direct_play".into(),
+            stream: Stream {
+                url: format!("/api/v2/stream/{session_id}"),
+                protocol: "http_progressive".into(),
+                header_refresh: "session".into(),
+                container: Some(version.container.clone()),
+                mime_type: Some("video/x-matroska".into()),
+                ..Stream::default()
+            },
+            timeline: Timeline {
+                source_start_seconds: start,
+                player_start_seconds: start,
+                can_seek_anywhere: true,
+                seek_restoration: "player".into(),
+                ..Timeline::default()
+            },
+            selected_tracks: SelectedTracks {
+                audio: audio.map(|i| TrackIdentity {
+                    id: format!("a{i}"),
+                    index: Some(i),
+                }),
+                subtitle: subtitle.map(|i| TrackIdentity {
+                    id: format!("s{i}"),
+                    index: Some(i),
+                }),
+            },
+            subtitle: match subtitle {
+                Some(i) => SubtitleDecision {
+                    mode: "render".into(),
+                    track_id: Some(format!("s{i}")),
+                    embedded: Some(EmbeddedSubtitle {
+                        stream_index: i,
+                        container_track_id: None,
+                    }),
+                    ..SubtitleDecision::default()
+                },
+                None => SubtitleDecision {
+                    mode: "off".into(),
+                    ..SubtitleDecision::default()
+                },
+            },
+            requested_media_file_id: version.file_id.clone(),
+            effective_media_file_id: version.file_id.clone(),
+            source: PlaybackSource {
+                media_file_id: version.file_id.clone(),
+                container: Some(version.container.clone()),
+                video_codec: Some(version.codec_video.clone()),
+                audio_codec: Some(version.codec_audio.clone()),
+                dynamic_range: Some(if version.hdr { "hdr10" } else { "sdr" }.into()),
+                duration_seconds: Some(version.duration_seconds as f64),
+                ..PlaybackSource::default()
+            },
+            ..PlaybackPlan::default()
+        }
+    }
+
+    fn check_installation(installation_id: &str) -> Result<()> {
+        if installation_id == MOCK_INSTALLATION_ID {
+            Ok(())
+        } else {
+            Err(problem(409, "installation_changed"))
+        }
+    }
+
+    /// Live session or the protocol error for it (404 unknown, 410 ended).
+    fn live_session(&self, session_id: &str) -> Result<MockSession> {
+        self.with_playback(|p| match p.sessions.get(session_id) {
+            None => Err(problem(404, "not_found")),
+            Some(s) if s.stop_id.is_some() => Err(problem(410, "playback_session_ended")),
+            Some(s) => Ok(s.clone()),
+        })
     }
 
     fn with_state<T>(&self, f: impl FnOnce(&mut State) -> T) -> T {
@@ -742,6 +912,330 @@ impl SiloApi for MockSiloApi {
         Ok(ImageData {
             content_type: "image/png".into(),
             bytes: demo::png(key),
+        })
+    }
+
+    async fn playback_capabilities(&self, _origin: &str, auth: &Auth) -> Result<PlaybackCapabilities> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        Ok(PlaybackCapabilities {
+            state: "available".into(),
+            allowed: true,
+            revision: "mock-1".into(),
+            installation_id: Some(MOCK_INSTALLATION_ID.into()),
+            protocol_versions: vec![PROTOCOL_VERSION],
+            features: [
+                "sequenced_progress_v1",
+                "fixed_media_file_v1",
+                "header_authenticated_media_v1",
+                "seek_reanchor_v1",
+                "embedded_subtitles_v1",
+                "marker_segments_v1",
+                "trickplay_v1",
+            ]
+            .map(String::from)
+            .to_vec(),
+            deliveries: vec!["original_http".into(), "server_transcode_hls".into()],
+        })
+    }
+
+    async fn start_playback(&self, _origin: &str, auth: &Auth, body: &PlaybackStartBody) -> Result<PlaybackDecision> {
+        self.check(auth)?;
+        self.check_profile(auth)?
+            .ok_or_else(|| problem(400, "profile_required"))?;
+        Self::check_installation(&body.installation_id)?;
+        let id_ok = (8..=128).contains(&body.playback_attempt_id.len())
+            && body
+                .playback_attempt_id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._:-".contains(c));
+        if !id_ok || body.protocol_version != PROTOCOL_VERSION {
+            return Err(problem(422, "validation_failed"));
+        }
+        let (_, version) = Self::known_file(&body.file_id).ok_or_else(|| problem(404, "not_found"))?;
+        self.with_playback(|p| {
+            p.starts.push(body.clone());
+            if let Some(sid) = p.attempts.get(&body.playback_attempt_id).cloned() {
+                let sess = p.sessions.get(&sid).cloned().unwrap_or_default();
+                if sess.file_id != body.file_id {
+                    return Err(problem(409, "playback_attempt_conflict"));
+                }
+                return Ok(sess.decision);
+            }
+            p.counter += 1;
+            let sid = format!("ps-{}", p.counter);
+            let start = body.start_position.unwrap_or(0.0);
+            let plan = Self::plan(
+                &sid,
+                1,
+                &version,
+                start,
+                body.audio_track_index,
+                body.subtitle_track_index,
+            );
+            let decision = PlaybackDecision {
+                protocol_version: PROTOCOL_VERSION,
+                outcome: "playable".into(),
+                session_id: Some(sid.clone()),
+                server_features: vec!["sequenced_progress_v1".into(), "header_authenticated_media_v1".into()],
+                terminal: None,
+                playback_plan: Some(plan),
+            };
+            p.attempts.insert(body.playback_attempt_id.clone(), sid.clone());
+            p.sessions.insert(
+                sid,
+                MockSession {
+                    file_id: body.file_id.clone(),
+                    decision: decision.clone(),
+                    plans: 1,
+                    ..MockSession::default()
+                },
+            );
+            Ok(decision)
+        })
+    }
+
+    async fn playback_progress(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackProgressBody,
+    ) -> Result<PlaybackMutation> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        Self::check_installation(&body.installation_id)?;
+        if body.sequence <= 0 || !body.position.is_finite() || body.position < 0.0 {
+            return Err(problem(422, "validation_failed"));
+        }
+        self.live_session(session_id)?;
+        self.with_playback(|p| {
+            let Some(sess) = p.sessions.get_mut(session_id) else {
+                return Err(problem(404, "not_found"));
+            };
+            // protocol_store_v3.go@6791aac L44-55, L522: newer → applied, exact repeat → replayed, same sequence with
+            // another sample → 409 progress_conflict, older → stale_sample.
+            if body.sequence == sess.last_sequence
+                && sess
+                    .accepted
+                    .as_ref()
+                    .is_some_and(|a| a.position != body.position || a.is_paused != body.is_paused)
+            {
+                return Err(problem(409, "progress_conflict"));
+            }
+            let sample = PlaybackAccepted {
+                sequence: body.sequence,
+                position: body.position,
+                is_paused: body.is_paused,
+            };
+            let outcome = if body.sequence > sess.last_sequence {
+                sess.last_sequence = body.sequence;
+                sess.accepted = Some(sample);
+                "applied"
+            } else if sess.accepted.as_ref() == Some(&sample) {
+                "replayed"
+            } else {
+                "stale_sample"
+            };
+            let accepted = sess.accepted.clone();
+            p.progress.push((
+                session_id.to_owned(),
+                body.sequence,
+                body.position,
+                body.is_paused,
+                outcome.into(),
+            ));
+            Ok(PlaybackMutation {
+                outcome: outcome.into(),
+                accepted,
+                ..PlaybackMutation::default()
+            })
+        })
+    }
+
+    async fn stop_playback(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackStopBody,
+    ) -> Result<PlaybackMutation> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        Self::check_installation(&body.installation_id)?;
+        // playback_service.go@6791aac L542-552: canonical UUID stop id; sequence and position come together.
+        let canonical = uuid::Uuid::parse_str(&body.stop_id)
+            .map(|u| !u.is_nil() && u.to_string() == body.stop_id)
+            .unwrap_or(false);
+        let sample_ok = body.sequence.is_some() == body.position.is_some()
+            && body.position.is_none_or(|p| p.is_finite() && p >= 0.0);
+        if !canonical || !sample_ok {
+            return Err(problem(400, "bad_request"));
+        }
+        self.with_playback(|p| {
+            p.stops.push((session_id.to_owned(), body.clone()));
+            let Some(sess) = p.sessions.get_mut(session_id) else {
+                return Err(problem(404, "not_found"));
+            };
+            // A repeated stop (any stop id, or after the server ended the attempt) replays the stored receipt
+            // (protocol_store_v3.go@6791aac StopAttempt).
+            if let Some(done) = &sess.stop_id {
+                return Ok(PlaybackMutation {
+                    outcome: "replayed".into(),
+                    accepted: sess.accepted.clone(),
+                    stop_id: Some(done.clone()),
+                    history_id: Some(format!("h-{session_id}")),
+                });
+            }
+            if let (Some(seq), Some(pos)) = (body.sequence, body.position)
+                && seq > sess.last_sequence
+            {
+                sess.last_sequence = seq;
+                sess.accepted = Some(PlaybackAccepted {
+                    sequence: seq,
+                    position: pos,
+                    is_paused: body.is_paused.unwrap_or(false),
+                });
+            }
+            sess.stop_id = Some(body.stop_id.clone());
+            Ok(PlaybackMutation {
+                outcome: "stopped".into(),
+                accepted: sess.accepted.clone(),
+                stop_id: Some(body.stop_id.clone()),
+                history_id: Some(format!("h-{session_id}")),
+            })
+        })
+    }
+
+    async fn replan_playback(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        session_id: &str,
+        body: &PlaybackReplanBody,
+    ) -> Result<PlaybackDecision> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        Self::check_installation(&body.installation_id)?;
+        // protocol_v3.go@6791aac L1371-1400: recoveries need a failure classification, user intents must not carry
+        // one, a seek reanchor accepts either.
+        let failure_ok = match &body.operation[..] {
+            "failure_recovery" | "seek_failure_recovery" => {
+                body.failure.as_ref().is_some_and(|f| !f.classification.is_empty())
+            }
+            "track_change" | "quality_change" | "output_change" => body.failure.is_none(),
+            "seek_reanchor" => true,
+            _ => false,
+        };
+        if !(1..=8).contains(&body.attempt_count) || !failure_ok || !body.plan_attempt_key.starts_with("v3:") {
+            return Err(problem(422, "validation_failed"));
+        }
+        let sess = self.live_session(session_id)?;
+        let (_, version) = Self::known_file(&sess.file_id).ok_or_else(|| problem(404, "not_found"))?;
+        self.with_playback(|p| {
+            p.replans.push(body.clone());
+            let Some(s) = p.sessions.get_mut(session_id) else {
+                return Err(problem(404, "not_found"));
+            };
+            s.plans += 1;
+            let audio = body.selected_tracks.audio.as_ref().and_then(|t| t.index);
+            let subtitle = body.selected_tracks.subtitle.as_ref().and_then(|t| t.index);
+            let plan = Self::plan(session_id, s.plans, &version, body.position_seconds, audio, subtitle);
+            s.decision.playback_plan = Some(plan);
+            Ok(s.decision.clone())
+        })
+    }
+
+    async fn watch_trickplay(&self, _origin: &str, auth: &Auth, _id: &str, _file_id: &str) -> Result<WatchTrickplay> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        Err(problem(404, "not_found"))
+    }
+
+    async fn events_ticket(&self, _origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
+        self.check(auth)?;
+        Ok(EventsSocketTicket {
+            ticket: "mock-ticket".into(),
+            expires_in: 60,
+            max_connection_seconds: 3600,
+            protocol: "silo.events.v2".into(),
+        })
+    }
+
+    async fn fetch_media(&self, request: MediaRequest) -> Result<MediaResponse> {
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        let auth = request.auth.as_ref().ok_or_else(|| problem(401, "invalid_token"))?;
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let path = request.url.split('?').next().unwrap_or_default();
+        let session_id = path
+            .split("/api/v2/stream/")
+            .nth(1)
+            .filter(|s| !s.is_empty() && !s.contains('/'))
+            .ok_or_else(|| problem(404, "not_found"))?;
+        let sess = self.live_session(session_id)?;
+        let range_header = request
+            .headers
+            .iter()
+            .find(|(k, _)| k == "range")
+            .map(|(_, v)| v.clone());
+        self.with_playback(|p| p.media_requests.push((session_id.to_owned(), range_header.clone())));
+        let file = self.clip_for(&sess.file_id).ok_or_else(|| problem(404, "not_found"))?;
+        let mut f = tokio::fs::File::open(&file)
+            .await
+            .map_err(|_| problem(404, "not_found"))?;
+        let len = f.metadata().await.map_err(|e| ApiError::Internal(e.to_string()))?.len();
+        let mut headers = vec![
+            ("content-type".to_owned(), "video/x-matroska".to_owned()),
+            ("accept-ranges".to_owned(), "bytes".to_owned()),
+            ("etag".to_owned(), format!("\"{}-{len}\"", sess.file_id)),
+        ];
+        let (status, start, count) = match parse_range(range_header.as_deref(), len) {
+            None => (200, 0, len),
+            Some(Ok(r)) => {
+                headers.push(("content-range".into(), format!("bytes {}-{}/{len}", r.start, r.end)));
+                (206, r.start, r.end - r.start + 1)
+            }
+            Some(Err(())) => {
+                headers.push(("content-range".into(), format!("bytes */{len}")));
+                headers.push(("content-length".into(), "0".into()));
+                return Ok(MediaResponse {
+                    status: 416,
+                    headers,
+                    body: Box::pin(futures_util::stream::empty()),
+                });
+            }
+        };
+        headers.push(("content-length".into(), count.to_string()));
+        if request.head {
+            return Ok(MediaResponse {
+                status,
+                headers,
+                body: Box::pin(futures_util::stream::empty()),
+            });
+        }
+        f.seek(std::io::SeekFrom::Start(start))
+            .await
+            .map_err(|e| ApiError::Internal(e.to_string()))?;
+        let body = futures_util::stream::unfold((f, count), |(mut f, left)| async move {
+            if left == 0 {
+                return None;
+            }
+            let want = usize::try_from(left.min(256 * 1024)).unwrap_or(256 * 1024);
+            let mut buf = vec![0u8; want];
+            match f.read(&mut buf).await {
+                Ok(0) => None,
+                Ok(n) => {
+                    buf.truncate(n);
+                    Some((Ok(bytes::Bytes::from(buf)), (f, left - n as u64)))
+                }
+                Err(e) => Some((Err(e), (f, 0))),
+            }
+        });
+        Ok(MediaResponse {
+            status,
+            headers,
+            body: Box::pin(body),
         })
     }
 }
