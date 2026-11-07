@@ -196,6 +196,18 @@ impl MockSiloApi {
         Some(dir.join(name))
     }
 
+    /// Dynamic range and frame rate of the clip `clip_for` streams (the plan describes what mpv really gets, so the
+    /// Phase 7 display policy can be exercised with the test clips).
+    fn clip_facts(file_id: &str) -> (&'static str, f64) {
+        if file_id == "m1-f1" {
+            ("hdr10", 24_000.0 / 1001.0)
+        } else if file_id.ends_with("-f2") || file_id.starts_with('m') {
+            ("sdr", 25.0)
+        } else {
+            ("sdr", 24_000.0 / 1001.0)
+        }
+    }
+
     fn known_file(file_id: &str) -> Option<(String, FileVersion)> {
         let item = file_id.rsplit_once("-f")?.0;
         let detail = demo::detail(item)?;
@@ -263,7 +275,8 @@ impl MockSiloApi {
                 container: Some(version.container.clone()),
                 video_codec: Some(version.codec_video.clone()),
                 audio_codec: Some(version.codec_audio.clone()),
-                dynamic_range: Some(if version.hdr { "hdr10" } else { "sdr" }.into()),
+                dynamic_range: Some(Self::clip_facts(&version.file_id).0.into()),
+                frame_rate: Some(Self::clip_facts(&version.file_id).1),
                 duration_seconds: Some(version.duration_seconds as f64),
                 ..PlaybackSource::default()
             },

@@ -1,0 +1,13 @@
+2026-11-07T13:49:35.710996Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T13:49:36.004498Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T13:49:39.491460Z  INFO granary_lib::playback::output: display output decided monitor= gdi=\\.\DISPLAY1 range=Hdr10 fps=Some(23.976023976023978) hdr=Enable hdr_switched=true hdr_output=true refresh_switched=false refresh_hz=60.0000845508658 reason=NoExactMode options=[("target-peak", "1266"), ("target-contrast", "auto"), ("hdr-reference-white", "200"), ("video-sync", "display-resample"), ("video-sync-max-factor", "5"), ("display-fps-override", "60.000085")] notes=[]
+2026-11-07T13:49:39.492282Z  INFO granary_lib::playback::controller: playback plan accepted session=ps-1 delivery=original_http reason=direct_play direct_play=true relayed=true stream=/api/v2/stream/ps-1
+2026-11-07T13:49:40.008183Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=8
+2026-11-07T13:49:48.030376Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=16
+2026-11-07T13:49:56.615686Z  INFO granary_lib::playback::output: display state restored outcomes=[EntryOutcome { id: DisplayId { adapter_luid_low: 68728, adapter_luid_high: 0, target_id: 8388688 }, hdr_restored: Some(true), refresh_restored: None, error: None }]
+2026-11-07T13:49:58.107973Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=4
+2026-11-07T13:49:58.455986Z  INFO granary_lib::playback::output: display output decided monitor= gdi=\\.\DISPLAY1 range=Sdr fps=Some(25.0) hdr=StaySdr(SdrContent) hdr_switched=false hdr_output=false refresh_switched=true refresh_hz=75.0 reason=ExactMultiple options=[("target-peak", "auto"), ("target-contrast", "auto"), ("hdr-reference-white", "auto"), ("video-sync", "display-resample"), ("video-sync-max-factor", "5"), ("display-fps-override", "75.000000")] notes=[]
+2026-11-07T13:49:58.456555Z  INFO granary_lib::playback::controller: playback plan accepted session=ps-2 delivery=original_http reason=direct_play direct_play=true relayed=true stream=/api/v2/stream/ps-2
+2026-11-07T13:50:02.114127Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=8
+2026-11-07T13:50:10.120038Z  WARN granary_lib::playback::events: events socket unavailable code="unreachable" wait_s=16
+2026-11-07T13:50:15.287831Z  INFO granary_lib::playback::output: display state restored outcomes=[EntryOutcome { id: DisplayId { adapter_luid_low: 68728, adapter_luid_high: 0, target_id: 8388688 }, hdr_restored: None, refresh_restored: Some(true), error: None }]

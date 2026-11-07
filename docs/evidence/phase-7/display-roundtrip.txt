@@ -1,7 +1,12 @@
+# Gate 7 display round trip (Phase 7), 2026-11-07, Intel Arc 140V laptop panel, on mains power
+# command: cargo run -q -p granary-display --example display_roundtrip -- <scratch dir>
+# exit code: 0
+# Earlier run on battery: HDR did not read back on (Windows blocks HDR on battery by default); refresh round trip passed then too.
+
 display 00000000:00010c78/8388688 '' \\.\DISPLAY1: hdr_supported=true hdr_enabled=false refresh=60.000 Hz sdr_white=80 nits peak=500 nits modes=[30.000, 48.000, 60.000, 75.000, 100.000, 120.000]
-APPLIED in 10207 ms: hdr=StaySdr(Unsupported) hdr_switched=false hdr_output=false refresh_switched=true now 120.000 Hz, peak=500 nits, notes=["HDR switch failed (HDR did not read back on in time); playing tone-mapped SDR"]
-mpv options: [("target-peak", "auto"), ("target-contrast", "auto"), ("hdr-reference-white", "auto"), ("video-sync", "audio"), ("video-sync-max-factor", "5"), ("display-fps-override", "120.000169")]
+APPLIED in 3166 ms: hdr=Enable hdr_switched=true hdr_output=true refresh_switched=true now 120.000 Hz, peak=1266 nits, notes=[]
+mpv options: [("target-peak", "1266"), ("target-contrast", "auto"), ("hdr-reference-white", "200"), ("video-sync", "audio"), ("video-sync-max-factor", "5"), ("display-fps-override", "120.000169")]
 marker present while applied: true
-RESTORE in 128 ms: all_ok=true [EntryOutcome { id: DisplayId { adapter_luid_low: 68728, adapter_luid_high: 0, target_id: 8388688 }, hdr_restored: Some(true), refresh_restored: Some(true), error: None }]
+RESTORE in 1643 ms: all_ok=true [EntryOutcome { id: DisplayId { adapter_luid_low: 68728, adapter_luid_high: 0, target_id: 8388688 }, hdr_restored: Some(true), refresh_restored: Some(true), error: None }]
 RESTORED \\.\DISPLAY1: hdr false -> false, refresh 60.000 -> 60.000 Hz, marker removed: true
 DISPLAY ROUNDTRIP OK

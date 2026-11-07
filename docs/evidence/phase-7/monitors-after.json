@@ -1,0 +1,21 @@
+[
+  {
+    "key": "\\\\?\\DISPLAY#LEN414D#4&2863bb83&0&UID8388688#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}",
+    "name": "",
+    "hdrSupported": true,
+    "hdrEnabled": false,
+    "refreshHz": 60,
+    "modesHz": [
+      30,
+      48,
+      60,
+      75,
+      100,
+      120
+    ],
+    "peakNits": 500,
+    "blackNits": 0.0004,
+    "sdrWhiteNits": 80,
+    "current": true
+  }
+]
