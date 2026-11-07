@@ -3,18 +3,6 @@
 All notable changes to Granary. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
-### Security
-- Loopback relay route tokens are masked in logs, and error messages shown in the UI get the same redaction as logs.
-- Artwork references on foreign hosts may no longer name `localhost` or a loopback/private/link-local address.
-- mpv never auto-loads scripts or starts `yt-dlp` (`load-scripts=no`, `ytdl=no` forced).
-- A test checks the IPC contract: commands, capability, permissions and argument names.
-- Dev dependency `minimatch` pinned past GHSA-g3hv-75wg-m249.
-
-### Added
-- Security review (`docs/security.md`), architecture overview (`docs/ARCHITECTURE.md`), `CONTRIBUTING.md`.
-
 ## [0.1.0] - 2026-11-07
 First private test release (unsigned, per-user installer).
 
@@ -31,7 +19,14 @@ First private test release (unsigned, per-user installer).
 - English and German UI, onboarding, About with licences, the exact source commit and an update link, log viewer and redacted log export,
   offline banner with automatic reload.
 - Bundled mpv defaults (`mpv.conf`) and an optional power-user `%APPDATA%\Granary\mpv.conf`.
-- NSIS per-user installer with libmpv, licences and the WebView2 bootstrapper; draft releases from CI.
+- NSIS per-user installer with libmpv, full third-party licence texts and the WebView2 bootstrapper; draft releases from CI.
+- Security review (`docs/security.md`), architecture overview (`docs/ARCHITECTURE.md`), `CONTRIBUTING.md`.
 
-[Unreleased]: https://github.com/mrghxst/granary-desktop/compare/v0.1.0...HEAD
+### Security
+- Loopback relay route tokens are masked in logs, and error messages shown in the UI get the same redaction as logs.
+- Artwork references on foreign hosts may no longer name `localhost` or a loopback/private/link-local address.
+- mpv never auto-loads scripts or starts `yt-dlp` (`load-scripts=no`, `ytdl=no` forced).
+- A test checks the IPC contract: commands, capability, permissions and argument names.
+- Dev dependency `minimatch` pinned past GHSA-g3hv-75wg-m249.
+
 [0.1.0]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.1.0
