@@ -7,12 +7,10 @@ use granary_silo_api::catalog::{
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
-use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 
 type CmdResult<T> = Result<T, CommandError>;
 
-/// Event emitted by the Phase 5 play stub; Phase 6 replaces the stub with the native player.
-pub const EVENT_PLAY_HANDOFF: &str = "player://handoff";
 /// Custom scheme serving artwork to the WebView (`http://granary-img.localhost/<serverId>?u=<reference>` on Windows).
 pub const IMAGE_SCHEME: &str = "granary-img";
 
@@ -55,6 +53,16 @@ pub struct PlayRequest {
     pub audio_index: Option<u32>,
     /// `SubtitleTrack.index` of the chosen subtitle; `None` = off.
     pub subtitle_index: Option<i64>,
+    /// For the Windows media flyout.
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub subtitle: Option<String>,
+    /// Previous/next episode exist (media keys).
+    #[serde(default)]
+    pub has_previous: bool,
+    #[serde(default)]
+    pub has_next: bool,
 }
 
 impl PlayRequest {
@@ -131,23 +139,6 @@ pub async fn watch_state(state: State<'_, SiloState>, server_id: String, item_id
     state
         .with_session(&server_id, |s| async move { s.watch_state(&item_id).await })
         .await
-}
-
-/// Phase 5 stub: validates and logs the request and emits [`EVENT_PLAY_HANDOFF`]. Phase 6 starts libmpv here.
-#[tauri::command]
-pub async fn player_play<R: Runtime>(app: AppHandle<R>, request: PlayRequest) -> CmdResult<()> {
-    request.validate()?;
-    tracing::info!(
-        server_id = %request.server_id,
-        item_id = %request.item_id,
-        file_id = %request.file_id,
-        start = request.start_seconds,
-        audio = ?request.audio_index,
-        subtitle = ?request.subtitle_index,
-        "play requested (native player arrives in Phase 6)"
-    );
-    app.emit(EVENT_PLAY_HANDOFF, &request)
-        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Parse `http://granary-img.localhost/<serverId>?u=<reference>` (or `granary-img://localhost/...`).
@@ -261,6 +252,10 @@ mod tests {
             start_seconds: watch.user_data.as_ref().and_then(|u| u.position_seconds).unwrap_or(0.0),
             audio_index: Some(0),
             subtitle_index: version.subtitle_tracks.first().and_then(|t| t.index),
+            title: Some(detail.title.clone()),
+            subtitle: None,
+            has_previous: false,
+            has_next: false,
         };
         request.validate()?;
         let poster = detail.poster_url.unwrap_or_default();
@@ -324,6 +319,10 @@ mod tests {
             start_seconds: 12.5,
             audio_index: Some(0),
             subtitle_index: None,
+            title: None,
+            subtitle: None,
+            has_previous: false,
+            has_next: false,
         };
         assert!(ok.validate().is_ok());
         let neg = PlayRequest {

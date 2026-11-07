@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-events-connect"
+description = "Enables the events_connect command without any pre-configured scope."
+commands.allow = ["events_connect"]
+
+[[permission]]
+identifier = "deny-events-connect"
+description = "Denies the events_connect command without any pre-configured scope."
+commands.deny = ["events_connect"]

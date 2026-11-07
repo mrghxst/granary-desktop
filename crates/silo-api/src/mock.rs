@@ -524,6 +524,31 @@ mod demo {
             duration_seconds: seconds,
             audio_tracks: vec![audio("eng", "eac3", 6, true), audio("deu", "ac3", 6, false)],
             subtitle_tracks: vec![subtitle(2, "eng", false, false), subtitle(3, "deu", true, false)],
+            // Placed inside the 10 s test clips the mock streams, so chapters, skip-intro and the credits countdown
+            // can be exercised with real playback.
+            chapters: [(0.0, 3.0, "Opening"), (3.0, 6.0, "Middle"), (6.0, 10.0, "Finale")]
+                .iter()
+                .enumerate()
+                .map(|(i, (s, e, t))| Chapter {
+                    index: i as i64,
+                    title: (*t).into(),
+                    start_seconds: *s,
+                    end_seconds: *e,
+                    source: "embedded".into(),
+                })
+                .collect(),
+            marker_segments: vec![
+                MarkerOccurrence {
+                    kind: "intro".into(),
+                    start_seconds: 0.5,
+                    end_seconds: 3.0,
+                },
+                MarkerOccurrence {
+                    kind: "credits".into(),
+                    start_seconds: 8.0,
+                    end_seconds: 10.0,
+                },
+            ],
             ..FileVersion::default()
         };
         if id == "m1" {
@@ -1155,7 +1180,7 @@ impl SiloApi for MockSiloApi {
     async fn events_ticket(&self, _origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
         self.check(auth)?;
         Ok(EventsSocketTicket {
-            ticket: "mock-ticket".into(),
+            ticket: crate::Secret::new("mock-ticket"),
             expires_in: 60,
             max_connection_seconds: 3600,
             protocol: "silo.events.v2".into(),

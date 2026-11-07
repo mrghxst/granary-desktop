@@ -58,7 +58,11 @@ fn silo_state(version: &str) -> Result<silo::SiloState, Box<dyn std::error::Erro
     let registry = paths::config_dir().join("servers.json");
     if cfg!(debug_assertions) && std::env::var("GRANARY_MOCK_SERVER").is_ok_and(|v| v == "1") {
         tracing::warn!("GRANARY_MOCK_SERVER=1: using the in-process mock server");
-        let api: Arc<dyn SiloApi> = Arc::new(granary_silo_api::mock::MockSiloApi::demo());
+        // The mock streams the generated test clips (scripts/gen-test-media.ps1) for real playback in debug builds.
+        let media = std::env::var_os("GRANARY_MOCK_MEDIA")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../test-media"));
+        let api: Arc<dyn SiloApi> = Arc::new(granary_silo_api::mock::MockSiloApi::demo().with_media_dir(media));
         let store: Arc<dyn CredentialStore> = Arc::new(MemoryStore::default());
         return Ok(silo::SiloState::new(
             api,
@@ -87,7 +91,12 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     tracing::info!(%version, "Granary starting");
     app.manage(silo_state(&version)?);
     app.manage(settings::SettingsStore::load(paths::config_dir().join("settings.json")));
-    app.manage(AppInfo { version, libmpv });
+    let libmpv_ok = libmpv.error.is_none();
+    app.manage(AppInfo {
+        version: version.clone(),
+        libmpv,
+    });
+    app.manage(playback::events::EventsState::default());
 
     #[cfg(windows)]
     repair_displays();
@@ -112,6 +121,13 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
             allowed
         })
         .build()?;
+    let hwdec = tauri::async_runtime::block_on(app.state::<settings::SettingsStore>().get())
+        .player
+        .hwdec;
+    if let Err(e) = playback::commands::install(app, version, hwdec, libmpv_ok) {
+        // The library UI still works; playback reports the error when requested.
+        tracing::error!(error = %e, "player host could not be installed");
+    }
     Ok(())
 }
 
@@ -187,13 +203,33 @@ pub fn run() {
             catalog::series_seasons,
             catalog::season_episodes,
             catalog::watch_state,
-            catalog::player_play,
+            playback::commands::player_play,
+            playback::commands::player_stop,
+            playback::commands::player_pause,
+            playback::commands::player_seek,
+            playback::commands::player_set,
+            playback::commands::player_audio,
+            playback::commands::player_subtitle,
+            playback::commands::player_stats,
+            playback::commands::player_state,
+            playback::commands::player_overlay,
+            playback::commands::player_fullscreen,
+            playback::commands::player_mini,
+            playback::commands::player_window,
+            playback::events::events_connect,
+            playback::events::events_disconnect,
             settings::settings_get,
             settings::settings_set,
         ])
         .build(tauri::generate_context!());
     match app {
-        Ok(app) => app.run(|_, event| {
+        Ok(app) => app.run(|app, event| {
+            if let RunEvent::ExitRequested { .. } = event
+                && let Some(host) = app.try_state::<playback::host::PlayerHost>()
+            {
+                // Report the final position and release the server session before the process ends.
+                host.shutdown_blocking(std::time::Duration::from_secs(3));
+            }
             if let RunEvent::Exit = event {
                 tracing::info!("Granary exiting");
                 logging::flush();

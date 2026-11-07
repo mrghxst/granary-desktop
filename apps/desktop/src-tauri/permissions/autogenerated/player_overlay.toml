@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-player-overlay"
+description = "Enables the player_overlay command without any pre-configured scope."
+commands.allow = ["player_overlay"]
+
+[[permission]]
+identifier = "deny-player-overlay"
+description = "Denies the player_overlay command without any pre-configured scope."
+commands.deny = ["player_overlay"]

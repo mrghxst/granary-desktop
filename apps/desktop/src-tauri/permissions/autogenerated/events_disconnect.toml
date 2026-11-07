@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-events-disconnect"
+description = "Enables the events_disconnect command without any pre-configured scope."
+commands.allow = ["events_disconnect"]
+
+[[permission]]
+identifier = "deny-events-disconnect"
+description = "Denies the events_disconnect command without any pre-configured scope."
+commands.deny = ["events_disconnect"]

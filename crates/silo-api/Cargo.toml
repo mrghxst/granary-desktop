@@ -15,12 +15,14 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util"] }
 bytes = "1.12.1"
 futures-core = "0.3.34"
-futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["std", "sink"] }
 async-trait = "0.1.92"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "http2", "charset", "json", "query", "system-proxy", "stream"] }
 rustls = { version = "0.23", default-features = false }
 url = "2.5.8"
 uuid = { version = "1.29.0", features = ["v4", "serde"] }
+tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
+rustls-platform-verifier = "0.7.1"
 keyring-core = "1.0.1"
 
 [target.'cfg(windows)'.dependencies]

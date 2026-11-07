@@ -395,6 +395,13 @@ impl Session {
             .await
     }
 
+    /// Mint a ticket and open the events socket (silo-api.md §9). The socket request itself carries no profile
+    /// headers (`EventsSocketV2Api.kt@ee178d8` L146); the ticket is bound to the profile proof.
+    pub async fn open_events(&self) -> Result<crate::events::EventsSocket> {
+        let ticket = self.events_ticket().await?;
+        crate::events::EventsSocket::connect(&self.origin, &ticket.ticket).await
+    }
+
     /// Fetch a media URL the server handed out (`stream.url`, subtitle and font URLs). Only URLs on the saved
     /// server origin are allowed here, and they get the bearer/profile headers; the caller hands foreign URLs to
     /// the player directly ([`crate::media::resolve_media_url`]).

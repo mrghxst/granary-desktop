@@ -7,6 +7,7 @@ pub mod catalog;
 pub mod credentials;
 pub mod device;
 pub mod error;
+pub mod events;
 pub mod media;
 pub mod mock;
 pub mod models;

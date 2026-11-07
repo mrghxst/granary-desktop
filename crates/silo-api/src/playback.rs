@@ -3,6 +3,7 @@
 //! Request bodies mirror the OAS schemas exactly (they are `additionalProperties: false` upstream, so nothing extra may
 //! be sent; optional fields are omitted when `None`). Response models are lenient subsets: unknown fields are ignored
 //! and optional fields default. Schema names and lines refer to `silo-server/contracts/api/v2/openapi.json@6791aac`.
+use crate::Secret;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -554,7 +555,8 @@ pub struct WatchTrickplay {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct EventsSocketTicket {
-    pub ticket: String,
+    /// Single-use, 30 s; a credential (never logged).
+    pub ticket: Secret,
     pub expires_in: i64,
     pub max_connection_seconds: i64,
     pub protocol: String,

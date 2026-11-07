@@ -54,7 +54,7 @@ impl From<ApiError> for CommandError {
 }
 
 impl CommandError {
-    fn plain(code: &str, message: String) -> Self {
+    pub(crate) fn plain(code: &str, message: String) -> Self {
         Self {
             code: code.to_owned(),
             message,
@@ -77,7 +77,7 @@ impl CommandError {
     }
 }
 
-type CmdResult<T> = Result<T, CommandError>;
+pub(crate) type CmdResult<T> = Result<T, CommandError>;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
