@@ -231,3 +231,15 @@ Everything else is sound:
 | H1 | Fix before Gate 9 (or remove the false claim and record the gap as "Blocked / needs human") |
 | M1, M2 | Fix (or accept explicitly in PROGRESS.md / ADR-0005) before Gate 9 |
 | L1-L5 | Fix or record in PROGRESS.md "Known issues" |
+
+## Resolution (main session, 2026-11-08)
+| Finding | Resolution |
+|---|---|
+| H1 | Fixed (5f563ae). `scripts/gen-licenses.mjs` generates `THIRD_PARTY_LICENSES.txt`: GPL-3.0 for libmpv/FFmpeg, LGPL-2.1, and the licence files of 293 Rust crates and 15 JS packages. The installer bundles it, `verify.ps1` step `licenses` keeps it current, and the install test checks that it is installed. |
+| M1 | Fixed. The final installer was built by the release workflow from main `dd9b7a8` (run 42428189010, workflow_dispatch; jobs libmpv/installer/draft all succeeded) into draft release `v0.1.0-dev`. Its isDraft is `true`, its target is `dd9b7a8` and its assets are the exe and `.sha256` (`docs/evidence/phase-9/draft-release.txt`). The downloaded asset's SHA-256 matches its `.sha256`, `a78a23e5…091d`. `scripts/install-test.ps1` passed against that CI asset (`docs/evidence/phase-9/install-test-ci.txt`). CI on `dd9b7a8` is green. Tag `v0.1.0` stays on 1257c5f, because the session's safety policy refused to force-move a pushed tag. Moving it before publishing is recorded in PROGRESS "Blocked / needs human". |
+| M2 | Fixed (5f563ae). `NSIS_HOOK_POSTUNINSTALL` deletes the product key outside update mode. While re-checking, a broken path in `install-test.ps1` was found: a shell edit had stripped its backslashes, so the "left behind" check could never fail. It now uses `HKCU:\Software\Granary contributors`, and a new check that the key exists after install proves it can fail. Both pass on the CI installer. |
+| L1 | Fixed: `idle`, `keep-open`, `ytdl`, `load-scripts` are forced; real-libmpv test `real_libmpv_accepts_every_option`. |
+| L2 | Documented (ADR-0002 Amendment 2) and tested: `broken_user_conf_does_not_stop_mpv` shows libmpv only warns on bad user-conf lines. |
+| L3 | Fixed: build.rs emits `<sha>-dirty`; About shows it. |
+| L4 | Accepted and documented in docs/security.md: DNS names are not resolved; no credentials are ever sent with artwork requests and redirects are not followed. |
+| L5 | Fixed: log timestamps parsed with `TryParse`. The earlier uninstall failure was caused by a leftover registry key from a previous test run, which the pre-flight check now rejects. |

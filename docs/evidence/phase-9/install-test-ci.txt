@@ -1,0 +1,28 @@
+installer: C:\Users\mr\AppData\Local\Temp\claude\d50ba555d6452fe6\d32ba26f-c811-49cf-97a4-6e6babbd7cf3\scratchpad\ci-installer-dd9b7a8\Granary_0.1.0_x64-setup.exe
+sha256   : a78a23e5ec513f5f7226ae2c03f6b168e4ac02fe6d35dd8160c6c3983a6f091d
+PASS silent install exits 0 (exit 0)
+PASS uninstall entry registered under HKCU
+PASS install-location key written under HKCU\Software\Granary contributors
+install dir: C:\Users\mr\AppData\Local\Granary
+PASS per-user install location (no admin) (C:\Users\mr\AppData\Local\Granary)
+PASS installed granary.exe
+PASS installed libmpv-2.dll
+PASS installed mpv.conf
+PASS installed LICENSE.txt
+PASS installed THIRD_PARTY_NOTICES.md
+PASS installed THIRD_PARTY_LICENSES.txt
+installed files: 7 (granary.exe, libmpv-2.dll, LICENSE.txt, mpv.conf, THIRD_PARTY_LICENSES.txt, THIRD_PARTY_NOTICES.md, uninstall.exe)
+PASS start menu shortcut
+PASS app starts and logs ready (2026-11-08T00:16:32.333221Z  INFO granary_lib::commands: ready cold_start_ms=455)
+PASS window title has no trademark (title 'Granary')
+PASS app closes on window close
+PASS silent uninstall starts (exit 0)
+PASS uninstall entry and program removed
+PASS no installed file left behind (7 files removed)
+PASS start menu shortcut removed
+PASS no registry key left under HKCU\Software\Granary contributors
+PASS desktop shortcut absent
+user data kept: C:\Users\mr\AppData\Roaming\Granary (2 of 2 earlier entries, 2 now)
+user data kept: C:\Users\mr\AppData\Local\Granary (29 of 29 earlier entries, 29 now)
+
+INSTALL TEST PASSED

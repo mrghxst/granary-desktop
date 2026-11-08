@@ -1,0 +1,17 @@
+$ gh release view v0.1.0-dev -R mrghxst/granary-desktop --json tagName,isDraft,targetCommitish,name,body,assets,url
+{"assets":[{"name":"Granary_0.1.0_x64-setup.exe","size":39860848},{"name":"Granary_0.1.0_x64-setup.exe.sha256","size":93}],"body":"Draft build from dd9b7a8d4cc647e28e0044ce213d331b90d43418 (run 42428189010). Review before publishing (private repo).","isDraft":true,"name":"Granary v0.1.0-dev","tagName":"v0.1.0-dev","targetCommitish":"dd9b7a8d4cc647e28e0044ce213d331b90d43418","url":"https://github.com/mrghxst/granary-desktop/releases/tag/untagged-3e187c638f306657dc58"}
+exit 0
+
+$ gh release list -R mrghxst/granary-desktop
+Granary v0.1.0-dev	Draft	v0.1.0-dev	2026-11-08T00:01:01Z
+Granary v0.1.0	Draft	v0.1.0	2026-11-07T20:02:47Z
+deps: libmpv shinchiro 20261106 (mirror)	Draft	deps-libmpv-20261106	2026-11-06T13:56:52Z
+exit 0
+
+$ gh run view 42428189010 (Release, workflow_dispatch on main)
+{"conclusion":"success","event":"workflow_dispatch","headSha":"dd9b7a8d4cc647e28e0044ce213d331b90d43418","jobs":[{"conclusion":"success","name":"libmpv"},{"conclusion":"success","name":"installer"},{"conclusion":"success","name":"draft"}]}
+exit 0
+
+$ gh run view 42428171536 (CI)
+{"conclusion":"success","headSha":"dd9b7a8d4cc647e28e0044ce213d331b90d43418"}
+exit 0

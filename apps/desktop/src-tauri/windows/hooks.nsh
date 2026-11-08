@@ -7,7 +7,7 @@
 ; purpose: it only exists if a display change still needs repairing at the next start.
 ; Refresh tokens live in Windows Credential Manager (service "Granary"); removing a server in the app
 ; deletes its token, the uninstaller does not touch Credential Manager.
-; Tauri's template keeps the install-location key (HKCUSoftware<publisher><product>) unless app data is deleted;
+; Tauri's template keeps the install-location key (HKCU\Software\<publisher>\<product>) unless app data is deleted;
 ; it is not user data, so a real uninstall (not an update) always removes it (phase-9 review M2).
 
 !macro NSIS_HOOK_POSTUNINSTALL

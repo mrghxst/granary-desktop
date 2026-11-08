@@ -1,5 +1,5 @@
 # PROGRESS
-Last updated: 2026-11-08 | Current phase: 9 (closing) | Last commit: 1c10c83 (each Log line names its commit)
+Last updated: 2026-11-08 | Current phase: 10 | Last commit: 1c10c83 (each Log line names its commit)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
@@ -11,13 +11,12 @@ Last updated: 2026-11-08 | Current phase: 9 (closing) | Last commit: 1c10c83 (ea
 - [x] 6 Native playback & progress sync — DONE — gate: verify.ps1 exit 0 (11 steps), playback evidence 17/17 (docs/evidence/phase-6, mock server + ffmpeg clips, d3d11va), progress/stop/recovery controller tests, reviewer docs/reviews/phase-6.md PASS WITH FINDINGS → 5 medium + 6 low resolved (L1–L3, L7–L9), L4–L6/L10 deferred below
 - [x] 7 Display & audio (auto-HDR, refresh match, passthrough) — DONE — gate: verify.ps1 exit 0, display crate 36 + app 56 tests (mode selection, restore, leftover marker, refused HDR, live retune), display_roundtrip exit 0 (mains: HDR + refresh; battery: HDR refusal + refresh), output-evidence 17/17 (mains and battery runs), MANUAL_TEST_CHECKLIST A.1–A.15 / B.1–B.6, reviewer docs/reviews/phase-7.md PASS WITH FINDINGS → 7 medium + L1/L3/L6/L7 resolved, L2/L4/L5/L8 deferred below
 - [x] 8 Polish — DONE — gate: verify.ps1 exit 0 (11 steps, vitest 47), docs/perf.md (cold start 778 ms median, idle 455 MiB / 7 processes, TTFF 1.46 s SDR / 1.61 s HDR10 4K), native-keys evidence 3/3 (German layout), reviewer docs/reviews/phase-8.md PASS WITH FINDINGS → 2 medium + L1/L5/L6 resolved, other lows re-targeted or accepted below
-- [ ] 9 Packaging & release workflow
+- [x] 9 Packaging & release workflow — DONE — gate: local installer (release-build.ps1) and CI installer (release run 42428189010 on dd9b7a8, draft release v0.1.0-dev, isDraft=true, SHA-256 a78a23e5…091d verified), install-test.ps1 PASSED on the CI asset (docs/evidence/phase-9/install-test-ci.txt), CI green, reviewer docs/reviews/phase-9.md FAIL → H1 + M1 + M2 + L1–L5 resolved
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Gate 9 closure: Gate 9 review fixes are pushed (1c10c83). The release workflow is building the final installer
-from main as draft release `v0.1.0-dev`; next is the CI-installer install test, then Phase 10 (clean-clone build,
-final review, report).
+Phase 10: the final review is resolved (docs/reviews/final.md), and the clean-clone build is re-running on dd9b7a8. Then the FINAL
+REPORT and Gate 10.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -106,6 +105,7 @@ final review, report).
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 Gate 9 PASSED: CI installer from dd9b7a8 (draft v0.1.0-dev) SHA-256 verified and install-tested (install-location key written, then removed; the install-test registry path is fixed), CI green, phase-9 review resolved.
 - 2026-11-08 Final review (docs/reviews/final.md, PASS WITH FINDINGS): M1 release.yml split into libmpv / installer (read-only, no persisted credentials) / draft jobs; L1 draft target and notes follow re-runs; L2 display repair before anything that can fail at startup; L3 doc corrections; L4 this header and log; L5 README states what is untested. Clean clone found a parallel-test race in crates/player/tests/libmpv_options.rs (DLL copy once per process).
 - 2026-11-08 Phase 10 (1c10c83, d1336dd, 950ca33): security review in docs/security.md (CSP, capabilities, IPC contract test, artwork host check, relay token and command-error redaction, cargo audit 0 vulnerabilities, pnpm audit clean), ARCHITECTURE.md, CONTRIBUTING.md, README rewrite, CHANGELOG 0.1.0.
 - 2026-11-08 Gate 9 review fixes (5f563ae): H1 bundled THIRD_PARTY_LICENSES.txt (gen-licenses.mjs, verify step), M2 uninstall removes the HKCU product key, L1 forced host options, L2 test, L3 dirty build marker, L5 install-test robustness.

@@ -44,7 +44,7 @@ if (-not $Installer) {
 }
 if (Get-Process granary -ErrorAction SilentlyContinue) { throw 'granary.exe is running; close it first' }
 if (UninstallEntry) { throw 'Granary is already installed for this user; uninstall it first so the test starts clean' }
-if (Test-Path 'HKCU:SoftwareGranary contributors') { throw 'HKCU:SoftwareGranary contributors exists from an earlier install; remove it so the test starts clean' }
+if (Test-Path 'HKCU:\Software\Granary contributors') { throw 'HKCU:\Software\Granary contributors exists from an earlier install; remove it so the test starts clean' }
 
 Say "installer: $Installer"
 Say "sha256   : $((Get-FileHash -Algorithm SHA256 $Installer).Hash.ToLowerInvariant())"
@@ -59,6 +59,8 @@ $p = Start-Process -FilePath $Installer -ArgumentList '/S' -PassThru -Wait
 Check 'silent install exits 0' ($p.ExitCode -eq 0) "exit $($p.ExitCode)"
 $entry = UninstallEntry
 Check 'uninstall entry registered under HKCU' ($null -ne $entry)
+# The installer writes this key; seeing it here proves the "left behind" check after uninstall can fail.
+Check 'install-location key written under HKCU\Software\Granary contributors' (Test-Path 'HKCU:\Software\Granary contributors\Granary')
 if (-not $entry) { throw 'install failed; stopping' }
 $uninstaller = ($entry.UninstallString -replace '"', '').Trim()
 $installDir = Split-Path -Parent $uninstaller
@@ -111,7 +113,7 @@ Start-Sleep -Seconds 2
 $left = @($installed | Where-Object { Test-Path $_ })
 Check 'no installed file left behind' ($left.Count -eq 0) $(if ($left.Count) { $left -join ', ' } else { "$($installed.Count) files removed" })
 Check 'start menu shortcut removed' (-not (Test-Path $shortcut))
-Check 'no registry key left under HKCUSoftwareGranary contributors' (-not (Test-Path 'HKCU:SoftwareGranary contributors'))
+Check 'no registry key left under HKCU\Software\Granary contributors' (-not (Test-Path 'HKCU:\Software\Granary contributors'))
 Check 'desktop shortcut absent' (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Granary.lnk')))
 foreach ($d in $userData) {
   $now = @(if (Test-Path $d) { Get-ChildItem $d -Recurse -Force | ForEach-Object FullName })
