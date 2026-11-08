@@ -9,6 +9,7 @@ pub mod output;
 pub mod platform;
 pub mod preview;
 pub mod relay;
+pub mod rendering;
 #[cfg(windows)]
 pub mod video;
 

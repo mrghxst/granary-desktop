@@ -302,9 +302,7 @@ function SeekBar({
               alt=""
               data-testid="seek-preview"
               data-approx={local.approx ? "true" : undefined}
-              className={`aspect-video shrink-0 rounded-md border border-white/20 bg-black object-cover shadow-lg transition-[filter] duration-150 ${
-                local.approx ? "brightness-75 saturate-50" : ""
-              }`}
+              className="aspect-video shrink-0 rounded-md border border-white/20 bg-black object-cover shadow-lg"
               style={{ width: PREVIEW_WIDTH }}
             />
           ) : null}

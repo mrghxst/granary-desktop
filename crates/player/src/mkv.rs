@@ -112,28 +112,58 @@ fn children(mut b: &[u8]) -> impl Iterator<Item = (u32, &[u8], &[u8])> {
     })
 }
 
-/// Reads through a small window over the source, fetching `CHUNK`-sized pieces as needed.
+/// Reads through a window over the source: the first read is `chunk` bytes, and a request past the window's end
+/// fetches only the missing tail, so a keyframe whose size was guessed a little short costs one more small read
+/// rather than a second full one.
 struct Window<'a, S: RangeSource + ?Sized> {
     src: &'a mut S,
     start: u64,
     buf: Vec<u8>,
+    chunk: u64,
+    /// The end of the furthest byte asked for (what a later read of the same element needs).
+    reach: u64,
+    /// Range requests made.
+    reads: u32,
+    /// The last read came back short: the source ends at the window.
+    eof: bool,
 }
 
 impl<'a, S: RangeSource + ?Sized> Window<'a, S> {
     fn new(src: &'a mut S) -> Self {
+        Self::with_chunk(src, CHUNK)
+    }
+
+    fn with_chunk(src: &'a mut S, chunk: u64) -> Self {
         Self {
             src,
             start: 0,
             buf: Vec::new(),
+            chunk: chunk.max(4096),
+            reach: 0,
+            reads: 0,
+            eof: false,
         }
     }
 
     /// `len` bytes at `off` (fewer only at the end of the file).
     fn get(&mut self, off: u64, len: u64) -> io::Result<&[u8]> {
         let end = off.checked_add(len).ok_or_else(|| bad("offset overflow"))?;
+        self.reach = self.reach.max(end);
         let have = self.start + self.buf.len() as u64;
-        if off < self.start || end > have {
-            self.buf = self.src.read_at(off, len.max(CHUNK))?;
+        if off >= self.start && end > have && (off <= have && !self.buf.is_empty()) {
+            if !self.eof {
+                // Extend: only the missing bytes (at least a quarter chunk, so headers that follow are covered).
+                let want = (end - have).max(self.chunk / 4);
+                let more = self.src.read_at(have, want)?;
+                self.reads += 1;
+                self.eof = (more.len() as u64) < want;
+                self.buf.extend_from_slice(&more);
+            }
+        } else if off < self.start || end > have {
+            let want = len.max(self.chunk);
+            self.buf = self.src.read_at(off, want)?;
+            self.reads += 1;
+            self.eof = (self.buf.len() as u64) < want;
             self.start = off;
         }
         let from = usize::try_from(off - self.start).map_err(|_| bad("offset"))?;
@@ -346,8 +376,7 @@ impl MkvIndex {
     }
 
     /// The keyframe's block payload (track number vint + timestamp + flags + frame data) for `cue`.
-    fn keyframe(&self, src: &mut (impl RangeSource + ?Sized), cue: &Cue) -> io::Result<Vec<u8>> {
-        let mut w = Window::new(src);
+    fn keyframe(&self, w: &mut Window<'_, impl RangeSource + ?Sized>, cue: &Cue) -> io::Result<Vec<u8>> {
         let cluster_off = self.segment_start + cue.cluster;
         let cluster = w.header_at(cluster_off)?;
         if cluster.id != CLUSTER {
@@ -355,7 +384,7 @@ impl MkvIndex {
         }
         let data_start = cluster_off + cluster.len as u64;
         if let Some(rel) = cue.relative
-            && let Ok(Some(block)) = self.block_at(&mut w, data_start + rel)
+            && let Ok(Some(block)) = self.block_at(w, data_start + rel)
         {
             return Ok(block);
         }
@@ -367,7 +396,7 @@ impl MkvIndex {
             if h.id == CLUSTER {
                 break;
             }
-            if let Some(block) = self.block_at(&mut w, off)? {
+            if let Some(block) = self.block_at(w, off)? {
                 return Ok(block);
             }
             off += h.len as u64 + h.size.ok_or_else(|| bad("unknown-size cluster child"))?;
@@ -415,14 +444,41 @@ impl MkvIndex {
 
     /// A complete single-frame Matroska file holding the keyframe for `cue`.
     pub fn frame_file(&self, src: &mut (impl RangeSource + ?Sized), cue: &Cue) -> io::Result<Vec<u8>> {
-        let block = self.keyframe(src, cue)?;
+        self.frame_file_sized(src, cue, CHUNK).map(|f| f.file)
+    }
+
+    /// Like [`Self::frame_file`], reading `first` bytes from the cluster start in the first request (a guess of the
+    /// keyframe's size, so most keyframes take one request), and reporting what the keyframe really needed.
+    pub fn frame_file_sized(
+        &self,
+        src: &mut (impl RangeSource + ?Sized),
+        cue: &Cue,
+        first: u64,
+    ) -> io::Result<FrameFile> {
+        let mut w = Window::with_chunk(src, first);
+        let block = self.keyframe(&mut w, cue)?;
+        let needed = w.reach.saturating_sub(self.segment_start + cue.cluster);
+        let reads = w.reads;
         let (_, n) = read_vint(&block).ok_or_else(|| bad("block track"))?;
         let mut simple = Vec::with_capacity(block.len());
         simple.extend_from_slice(&block[..n]);
         simple.extend_from_slice(&[0, 0, 0x80]); // timestamp 0, keyframe
         simple.extend_from_slice(block.get(n + 3..).ok_or_else(|| bad("short block"))?);
-        Ok(single_frame_file(self.scale_ns, &self.track_entry, &simple))
+        Ok(FrameFile {
+            file: single_frame_file(self.scale_ns, &self.track_entry, &simple),
+            needed,
+            reads,
+        })
     }
+}
+
+/// A single-frame file and what reading its keyframe cost.
+pub struct FrameFile {
+    pub file: Vec<u8>,
+    /// Bytes from the cluster start the keyframe needed (to size the next first read).
+    pub needed: u64,
+    /// Range requests made.
+    pub reads: u32,
 }
 
 fn put_id(out: &mut Vec<u8>, id: u32) {
@@ -582,6 +638,25 @@ mod tests {
         assert_eq!(read_id(&[0x1A, 0x45, 0xDF, 0xA3]), Some((EBML, 4)));
         assert_eq!(read_id(&[0xA3]), Some((SIMPLE_BLOCK, 1)));
         assert_eq!(read_vint(&[0x00]), None);
+    }
+
+    #[test]
+    fn window_extends_with_the_missing_tail_only() {
+        let mut src = Mem((0..20_000u32).map(|i| i as u8).collect(), 0);
+        let mut w = Window::with_chunk(&mut src, 4096);
+        assert_eq!(w.get(0, 10).unwrap().len(), 10);
+        assert_eq!(w.get(4000, 1000).unwrap()[0], (4000u32 % 256) as u8);
+        assert_eq!((w.reads, w.buf.len()), (2, 4096 + 1024));
+        w.get(100, 50).unwrap();
+        assert_eq!(w.reads, 2, "inside the window: no request");
+        assert_eq!(w.get(10_000, 10).unwrap()[0], (10_000u32 % 256) as u8);
+        assert_eq!((w.reads, w.reach), (3, 10_010));
+        let mut short = Mem(vec![7; 5000], 0);
+        let mut w = Window::with_chunk(&mut short, 4096);
+        w.get(0, 10).unwrap();
+        assert_eq!(w.get(4090, 2000).unwrap().len(), 910);
+        assert_eq!(w.get(4990, 100).unwrap().len(), 10);
+        assert_eq!(w.reads, 2, "the end of the source is not asked for again");
     }
 
     #[test]

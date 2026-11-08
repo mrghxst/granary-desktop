@@ -10,6 +10,7 @@
 //!
 //! All methods block (DisplayConfig calls, HDR read-back up to [`Timing::hdr_timeout`]); callers run them off the
 //! async executor (see `run_blocking`).
+use super::rendering;
 use crate::settings::{AudioSettings, DisplaySettings, Settings};
 use granary_display::DisplayController;
 use granary_display::policy::{Content, DynamicRange, HdrDecision, HdrMode, MonitorPrefs, RefreshStrategy};
@@ -35,6 +36,10 @@ struct Active {
     /// Granary switched HDR on for this (held) output.
     hdr_switched: bool,
     /// Display-side mpv options of this monitor (audio options are added on every call).
+    /// The swapchain is HDR for this playback.
+    hdr_output: bool,
+    /// Height of the monitor in physical pixels.
+    monitor_height: Option<i32>,
     display_options: Vec<(String, String)>,
     summary: Vec<(String, String)>,
 }
@@ -43,12 +48,18 @@ pub struct Output {
     ctrl: Option<Ctrl>,
     monitor: MonitorOf,
     settings: SettingsOf,
+    render: rendering::Env,
     inner: Mutex<Inner>,
 }
 
 struct Inner {
     session: DisplaySession,
     active: Option<Active>,
+    /// The title playing now (rendering options are decided again on settings changes and monitor moves).
+    video: Option<PlaybackSource>,
+    render_summary: Vec<(String, String)>,
+    /// Rendering options set for the title playing now.
+    render_options: Vec<(String, String)>,
 }
 
 /// The content facts the display policy needs, from the negotiated plan.
@@ -152,9 +163,13 @@ impl Output {
             ctrl,
             monitor,
             settings,
+            render: rendering::Env::default(),
             inner: Mutex::new(Inner {
                 session: DisplaySession::new(marker, timing),
                 active: None,
+                video: None,
+                render_summary: Vec::new(),
+                render_options: Vec::new(),
             }),
         }
     }
@@ -172,7 +187,13 @@ impl Output {
         let content = content_of(source, &settings.audio);
         let mut inner = self.lock();
         let display = self.apply(&mut inner, &settings, content, None);
-        display.into_iter().chain(audio_options(&settings.audio)).collect()
+        inner.video = Some(source.clone());
+        let rendering = self.rendering(&mut inner, &settings, true);
+        display
+            .into_iter()
+            .chain(audio_options(&settings.audio))
+            .chain(rendering)
+            .collect()
     }
 
     /// The window moved: if it is on another monitor now, restore the old one and apply the policy to the new one.
@@ -186,7 +207,9 @@ impl Output {
         }
         tracing::info!(from = %active.gdi, to = %now, "player window moved to another monitor");
         let settings = (self.settings)();
-        Some(self.apply(&mut inner, &settings, active.content, Some(now)))
+        let mut options = self.apply(&mut inner, &settings, active.content, Some(now));
+        options.extend(self.rendering(&mut inner, &settings, false));
+        Some(options)
     }
 
     /// Restore everything changed for playback (idle grace elapsed, app exit).
@@ -194,6 +217,9 @@ impl Output {
         let mut inner = self.lock();
         Self::restore(&mut inner, self.ctrl.as_deref());
         inner.active = None;
+        inner.video = None;
+        inner.render_summary.clear();
+        inner.render_options.clear();
     }
 
     /// Audio options from the current settings (applied live when settings change during playback).
@@ -208,16 +234,47 @@ impl Output {
         let mut inner = self.lock();
         let active = inner.active.clone()?;
         let settings = (self.settings)();
-        Some(self.apply(&mut inner, &settings, active.content, Some(active.gdi)))
+        let mut options = self.apply(&mut inner, &settings, active.content, Some(active.gdi));
+        options.extend(self.rendering(&mut inner, &settings, false));
+        Some(options)
     }
 
     /// Lines for the stats overlay.
     pub fn summary(&self) -> Vec<(String, String)> {
-        self.lock()
-            .active
-            .as_ref()
-            .map(|a| a.summary.clone())
-            .unwrap_or_default()
+        let inner = self.lock();
+        let mut lines = inner.active.as_ref().map(|a| a.summary.clone()).unwrap_or_default();
+        lines.extend(inner.render_summary.iter().cloned());
+        lines
+    }
+
+    /// GPU and configuration facts for the rendering options (ADR-0012).
+    #[must_use]
+    pub fn with_render_env(mut self, env: rendering::Env) -> Self {
+        self.render = env;
+        self
+    }
+
+    /// Rendering options for the title playing now (none before the first title): all of them for a new title, the
+    /// changed ones otherwise (setting `vf` again re-creates the filters).
+    fn rendering(&self, inner: &mut Inner, settings: &Settings, all: bool) -> Vec<(String, String)> {
+        let Some(source) = inner.video.as_ref() else {
+            return Vec::new();
+        };
+        let target = rendering::Target {
+            monitor_height: inner.active.as_ref().and_then(|a| a.monitor_height),
+            hdr_output: inner.active.as_ref().is_some_and(|a| a.hdr_output),
+        };
+        let d = rendering::decide_now(&settings.player, &self.render, source, target);
+        tracing::info!(summary = ?d.summary, "rendering options decided");
+        inner.render_summary = d.summary;
+        let changed = d
+            .options
+            .iter()
+            .filter(|o| all || !inner.render_options.contains(o))
+            .cloned()
+            .collect();
+        inner.render_options = d.options;
+        changed
     }
 
     /// Something was changed and not restored yet.
@@ -333,6 +390,8 @@ impl Output {
                     content,
                     policy,
                     hdr_switched,
+                    hdr_output: a.hdr_output,
+                    monitor_height: Some(a.display.desktop_rect.3 - a.display.desktop_rect.1).filter(|h| *h > 0),
                     display_options: a.options.clone(),
                     summary,
                 });
@@ -633,5 +692,26 @@ mod tests {
         assert_eq!(get(&o, "display-fps-override"), Some("0"));
         assert_eq!(get(&o, "audio-device"), Some("auto"));
         out.release();
+    }
+
+    #[test]
+    fn rendering_options_follow_the_title_and_live_changes_send_only_differences() {
+        let mut s = Settings::default();
+        s.player.render_quality = "fast".into();
+        let (_m, out, _marker, settings) = rig_shared("render", false, Rational::new(60, 1), s);
+        let o = out.prepare(&source("sdr", 24.0));
+        assert_eq!(get(&o, "deband"), Some("no"));
+        assert_eq!(get(&o, "scale"), Some("bilinear"));
+        assert!(out.summary().iter().any(|(k, v)| k == "render-quality" && v == "fast"));
+        // Saving unrelated settings re-sends no rendering option (a new `vf` would re-create the filters).
+        let o = out.settings_changed().unwrap();
+        assert_eq!(get(&o, "deband"), None);
+        assert_eq!(get(&o, "vf"), None);
+        settings.lock().unwrap().player.render_quality = "max".into();
+        let o = out.settings_changed().unwrap();
+        assert_eq!(get(&o, "scale"), Some("ewa_lanczossharp"));
+        assert_eq!(get(&o, "deband"), Some("yes"));
+        out.release();
+        assert!(!out.summary().iter().any(|(k, _)| k == "render-quality"));
     }
 }

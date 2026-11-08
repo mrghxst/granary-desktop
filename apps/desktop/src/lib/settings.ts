@@ -20,6 +20,14 @@ export interface Settings {
     seekPreviews: boolean;
     /** Preview providers in the order they are tried (server trickplay, Seekr, local decoding). */
     previewSources: PreviewSourceSetting[];
+    /** Rendering quality: `auto` is a little lighter on integrated GPUs; `max` is mpv's high-quality profile. */
+    renderQuality: "auto" | "fast" | "balanced" | "high" | "max";
+    /** Video Super Resolution for SDR video below the monitor resolution (NVIDIA RTX, Intel Arc/Xe). */
+    superResolution: boolean;
+    /** NVIDIA RTX Video HDR for SDR video while Windows HDR is on. */
+    rtxHdr: boolean;
+    /** Use Dolby Vision metadata; off plays the HDR10/HLG base layer of profiles 7 and 8. */
+    dolbyVision: boolean;
   };
   display: {
     /** Windows HDR switching: never, for HDR content only (default) or for all video. Always restored. */
@@ -95,6 +103,19 @@ export async function listMonitors(): Promise<MonitorView[]> {
   return isTauri() ? invoke<MonitorView[]>("display_list") : [];
 }
 
+/** The GPU behind the rendering settings (mirrors `playback::rendering::Gpu`). */
+export interface GpuInfo {
+  name: string;
+  vendor: "nvidia" | "intel" | "amd" | "other";
+  uma: boolean;
+  rtxVsr: boolean;
+  rtxHdr: boolean;
+}
+
+export async function gpuInfo(): Promise<GpuInfo | null> {
+  return isTauri() ? invoke<GpuInfo>("player_gpu") : null;
+}
+
 export async function listAudioDevices(): Promise<AudioDevice[]> {
   return isTauri() ? invoke<AudioDevice[]>("player_audio_devices") : [];
 }
@@ -109,6 +130,10 @@ export const DEFAULT_SETTINGS: Settings = {
     seekStep: 10,
     seekPreviews: true,
     previewSources: DEFAULT_PREVIEW_SOURCES,
+    renderQuality: "auto",
+    superResolution: false,
+    rtxHdr: false,
+    dolbyVision: true,
   },
   display: { hdrMode: "content", refresh: "auto", monitors: {} },
   audio: {

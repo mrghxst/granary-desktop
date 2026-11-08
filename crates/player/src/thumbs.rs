@@ -120,6 +120,42 @@ pub struct KeyframeFetcher {
     index: Arc<MkvIndex>,
     source: String,
     timeout: Duration,
+    /// Recent keyframe sizes, to size the first read (shared by the clones).
+    sizes: Arc<std::sync::Mutex<SizeGuess>>,
+}
+
+/// Sizes the first read of a keyframe from the last ones: large enough that most keyframes take one request, small
+/// enough that little is read in vain (the approach of AIOStreams' thumbnailer).
+#[derive(Default)]
+pub struct SizeGuess {
+    recent: std::collections::VecDeque<u64>,
+}
+
+impl SizeGuess {
+    const FLOOR: u64 = 256 * 1024;
+    const CEIL: u64 = 8 << 20;
+
+    pub fn next(&self) -> u64 {
+        if self.recent.len() < 4 {
+            // Few samples: the largest seen plus a quarter.
+            return self
+                .recent
+                .iter()
+                .max()
+                .map_or(Self::FLOOR, |m| m * 5 / 4)
+                .clamp(Self::FLOOR, Self::CEIL);
+        }
+        let mut sorted: Vec<u64> = self.recent.iter().copied().collect();
+        sorted.sort_unstable();
+        (sorted[sorted.len() * 3 / 4] * 7 / 5).clamp(Self::FLOOR, Self::CEIL)
+    }
+
+    pub fn learn(&mut self, needed: u64) {
+        if self.recent.len() == 32 {
+            self.recent.pop_front();
+        }
+        self.recent.push_back(needed);
+    }
 }
 
 impl KeyframeFetcher {
@@ -128,13 +164,26 @@ impl KeyframeFetcher {
         self.index.cue_for(seconds).map(|c| self.index.seconds(&c))
     }
 
+    /// The time of the last keyframe (about the duration).
+    pub fn last_keyframe(&self) -> Option<f64> {
+        self.index.cues().last().map(|c| self.index.seconds(c))
+    }
+
     /// The keyframe time and a complete single-frame Matroska file for the keyframe at or before `seconds`.
     pub fn fetch(&self, seconds: f64) -> Result<(f64, Vec<u8>), PlayerError> {
         let bad = |m: String| PlayerError::InvalidArgument(format!("preview keyframe: {m}"));
         let cue = self.index.cue_for(seconds).ok_or_else(|| bad("no keyframe".into()))?;
         let mut src = range_source(&self.source, self.timeout).ok_or_else(|| bad("source not readable".into()))?;
-        let file = self.index.frame_file(&mut *src, &cue).map_err(|e| bad(e.to_string()))?;
-        Ok((self.index.seconds(&cue), file))
+        let first = self.sizes.lock().map_or(SizeGuess::FLOOR, |s| s.next());
+        let f = self
+            .index
+            .frame_file_sized(&mut *src, &cue, first)
+            .map_err(|e| bad(e.to_string()))?;
+        if let Ok(mut s) = self.sizes.lock() {
+            s.learn(f.needed);
+        }
+        tracing::trace!(first, needed = f.needed, reads = f.reads, "preview keyframe read");
+        Ok((self.index.seconds(&cue), f.file))
     }
 }
 
@@ -204,6 +253,7 @@ impl Thumbnailer {
                     index: Arc::new(index),
                     source: source.to_owned(),
                     timeout,
+                    sizes: Arc::default(),
                 },
                 last: None,
                 gamma_checked: false,

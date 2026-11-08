@@ -57,6 +57,14 @@ pub fn desktop_baseline() -> Vec<(String, String)> {
     .collect()
 }
 
+/// Demuxer cache sizes `(ahead, back)` in MiB for a machine with `total_ram` bytes: a sixteenth of the memory ahead,
+/// between 384 MiB (about 40 s of an 80 Mbit/s 4K remux) and 1 GiB, and a sixth of that behind for short seeks back.
+/// A fixed 768 MiB took 11 % of an 8 GB HTPC for one stream (docs/research/reference-clients.md §4).
+pub fn demuxer_cache_mib(total_ram: u64) -> (u64, u64) {
+    let ahead = ((total_ram / 16) >> 20).clamp(384, 1024);
+    (ahead, ahead / 6)
+}
+
 /// Merge layers: later layers override earlier ones; `forced` always wins.
 pub fn merge(forced: Vec<(String, String)>, layers: &[Vec<(String, String)>]) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
@@ -117,6 +125,16 @@ mod tests {
 
     fn get<'a>(o: &'a [(String, String)], k: &str) -> Option<&'a str> {
         o.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str())
+    }
+
+    #[test]
+    fn demuxer_cache_follows_installed_memory() {
+        const GIB: u64 = 1 << 30;
+        assert_eq!(demuxer_cache_mib(4 * GIB), (384, 64));
+        assert_eq!(demuxer_cache_mib(8 * GIB), (512, 85));
+        assert_eq!(demuxer_cache_mib(16 * GIB), (1024, 170));
+        assert_eq!(demuxer_cache_mib(64 * GIB), (1024, 170));
+        assert_eq!(demuxer_cache_mib(0), (384, 64));
     }
 
     #[test]

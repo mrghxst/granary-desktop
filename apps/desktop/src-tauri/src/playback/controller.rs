@@ -187,10 +187,67 @@ pub struct Controller {
     /// After an audio switch resumed: watch A/V sync for a few seconds and resync again if audio is missing or
     /// drifting (the remedy a viewer would otherwise apply by seeking).
     sync_check: Option<SyncCheck>,
-    /// Sidecar subtitle URLs already handed to mpv for this load (server URL, local URL).
+    /// Sidecar subtitles already handed to mpv for this load (server URL, mpv track id).
     sidecars: Vec<(String, String)>,
+    /// Sidecar subtitle files, downloaded in the background as soon as the plan names them (by server URL).
+    sub_files: SubFiles,
     /// `gapless-audio` value to put back once an audio switch that kept the open audio device has landed.
     gapless_restore: Option<String>,
+}
+
+/// How long selecting a sidecar subtitle waits for its background download before mpv is given the URL instead.
+const SIDECAR_WAIT: Duration = Duration::from_secs(5);
+/// Larger sidecar files are left to mpv (a subtitle file is rarely over a few MB, even heavily typeset ASS).
+const SIDECAR_MAX: u64 = 16 << 20;
+
+/// Sidecar subtitle downloads by server URL: one per file, shared by the background prefetch and a selection that
+/// arrives while it runs. `None` inside means the download failed (mpv then reads the URL itself).
+#[derive(Default, Clone)]
+struct SubFiles(Arc<std::sync::Mutex<std::collections::HashMap<String, SubFile>>>);
+
+type SubFile = Arc<tokio::sync::OnceCell<Option<Arc<[u8]>>>>;
+
+impl SubFiles {
+    fn cell(&self, raw: &str) -> SubFile {
+        let mut map = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        Arc::clone(map.entry(raw.to_owned()).or_default())
+    }
+}
+
+/// Download a sidecar subtitle (through the loopback relay for server files, which adds the credentials).
+async fn download_subtitle(url: String) -> Option<Arc<[u8]>> {
+    static CLIENT: std::sync::OnceLock<Option<reqwest::Client>> = std::sync::OnceLock::new();
+    let client = CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .no_proxy()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(30))
+                .build()
+                .ok()
+        })
+        .as_ref()?;
+    let res = client.get(&url).send().await.ok()?.error_for_status().ok()?;
+    if res.content_length().is_some_and(|n| n > SIDECAR_MAX) {
+        return None;
+    }
+    let bytes = res.bytes().await.ok()?;
+    if bytes.len() as u64 > SIDECAR_MAX {
+        return None;
+    }
+    tracing::debug!(bytes = bytes.len(), "sidecar subtitle downloaded ahead");
+    Some(Arc::from(&bytes[..]))
+}
+
+/// Lower-case hex, for mpv's `hex://` in-memory stream.
+fn hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push(char::from(DIGITS[usize::from(b >> 4)]));
+        out.push(char::from(DIGITS[usize::from(b & 15)]));
+    }
+    out
 }
 
 /// How long after an audio switch the sync watchdog runs, and how often it may resync.
@@ -269,6 +326,7 @@ impl Controller {
             resume_after_switch: false,
             sync_check: None,
             sidecars: Vec::new(),
+            sub_files: SubFiles::default(),
             gapless_restore: None,
             stop_id: None,
             stopped: false,
@@ -393,6 +451,7 @@ impl Controller {
         self.resume_after_switch = false;
         self.sync_check = None;
         self.sidecars.clear();
+        self.prefetch_sidecars();
         let info = self.plan_info(relayed);
         tracing::info!(
             session = %self.session_id,
@@ -490,7 +549,7 @@ impl Controller {
         match ev {
             MpvEvent::FileLoaded => {
                 self.restore_gapless();
-                self.apply_tracks();
+                self.apply_tracks().await;
                 self.reloads_succeeded();
             }
             MpvEvent::PlaybackRestart => {
@@ -572,7 +631,7 @@ impl Controller {
     }
 
     /// Select the plan's audio and subtitle tracks once mpv has the track list.
-    fn apply_tracks(&mut self) {
+    async fn apply_tracks(&mut self) {
         if self.tracks_applied {
             return;
         }
@@ -597,7 +656,7 @@ impl Controller {
                 }
             },
             (_, _, Some(a)) if sub.mode != "off" && sub.mode != "burn_in" => {
-                if let Err(e) = self.add_sidecar(&a.url.clone()) {
+                if let Err(e) = self.add_sidecar(&a.url.clone()).await {
                     tracing::warn!(error = %e, "subtitle sidecar could not be added");
                 }
             }
@@ -623,32 +682,54 @@ impl Controller {
         })
     }
 
-    fn add_sidecar(&mut self, raw: &str) -> Result<(), ControllerError> {
-        let url = match self.sidecars.iter().find(|(r, _)| r == raw) {
-            Some((_, local)) => local.clone(),
-            None => self.media_url(raw)?.0,
-        };
-        // Picked before: select the loaded track instead of downloading and stacking another copy.
-        if let Some(count) = self
-            .backend
-            .get_property("track-list/count")
-            .and_then(|c| c.parse::<usize>().ok())
-        {
-            let existing = (0..count).find_map(|n| {
-                let get = |k: &str| self.backend.get_property(&format!("track-list/{n}/{k}"));
-                (get("type").as_deref() == Some("sub") && get("external-filename").as_deref() == Some(url.as_str()))
-                    .then(|| get("id"))
-                    .flatten()
-            });
-            if let Some(id) = existing {
-                self.set("sid", &id);
-                return Ok(());
+    /// Start downloading every sidecar subtitle the plan names, so selecting one later only parses it.
+    fn prefetch_sidecars(&mut self) {
+        let sub = &self.plan.subtitle;
+        let raws: Vec<String> = sub
+            .inventory
+            .iter()
+            .filter_map(|t| t.url.clone())
+            .chain(sub.artifact.as_ref().map(|a| a.url.clone()))
+            .collect();
+        for raw in raws {
+            let Ok((url, _)) = self.media_url(&raw) else { continue };
+            let cell = self.sub_files.cell(&raw);
+            if cell.initialized() {
+                continue;
             }
+            tokio::spawn(async move {
+                cell.get_or_init(|| download_subtitle(url)).await;
+            });
         }
+    }
+
+    /// Show the sidecar subtitle at `raw` (a server URL): from memory when it was downloaded ahead, so mpv only parses
+    /// it; a track added before is selected again instead of stacking another copy.
+    async fn add_sidecar(&mut self, raw: &str) -> Result<(), ControllerError> {
+        if let Some((_, sid)) = self.sidecars.iter().find(|(r, _)| r == raw) {
+            let sid = sid.clone();
+            self.set("sid", &sid);
+            return Ok(());
+        }
+        let (url, _) = self.media_url(raw)?;
+        let cell = self.sub_files.cell(raw);
+        let fetch = url.clone();
+        // Normally done long before; a download still running is waited for briefly, then mpv reads the URL itself.
+        let file = tokio::time::timeout(SIDECAR_WAIT, cell.get_or_init(|| download_subtitle(fetch)))
+            .await
+            .ok()
+            .cloned()
+            .flatten();
+        let target = match &file {
+            Some(bytes) => format!("hex://{}", hex(bytes)),
+            None => url,
+        };
         self.backend
-            .command(&["sub-add", &url, "select"])
+            .command(&["sub-add", &target, "select"])
             .map_err(|e| ControllerError::Player(e.to_string()))?;
-        self.sidecars.push((raw.to_owned(), url));
+        if let Some(sid) = self.backend.get_property("sid").filter(|s| s != "no") {
+            self.sidecars.push((raw.to_owned(), sid));
+        }
         Ok(())
     }
 
@@ -685,7 +766,7 @@ impl Controller {
                     .find(|t| &t.track_id == track_id)
                     .and_then(|t| t.url.clone())
                     .ok_or_else(|| ControllerError::Player("no such subtitle".into()))?;
-                self.add_sidecar(&url)?;
+                self.add_sidecar(&url).await?;
             }
         }
         Ok(())
@@ -1793,5 +1874,66 @@ mod tests {
                 .is_err()
         );
         assert_eq!(r.api.playback_log().replans.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn sidecar_subtitles_are_downloaded_ahead_and_added_from_memory() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let served = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = Arc::clone(&served);
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = listener.accept().await {
+                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut buf = [0u8; 2048];
+                let _ = s.read(&mut buf).await;
+                let body = "1\r\n00:00:01,000 --> 00:00:02,000\r\nHi\r\n";
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = s.write_all(format!("{head}{body}").as_bytes()).await;
+            }
+        });
+        let mut r = rig(args()).await;
+        let c = &mut r.controller;
+        c.plan.subtitle.inventory = vec![SubtitleInventoryItem {
+            track_id: "ext-1".into(),
+            url: Some(format!("http://127.0.0.1:{port}/sub.srt")),
+            ..SubtitleInventoryItem::default()
+        }];
+        c.prefetch_sidecars();
+        r.backend.set_property("sid", "3").unwrap();
+        let c = &mut r.controller;
+        c.select_subtitle(&SubtitleChoice::External {
+            track_id: "ext-1".into(),
+        })
+        .await
+        .unwrap();
+        let calls = r.backend.calls();
+        let add = calls.iter().find(|c| c.starts_with("cmd sub-add")).unwrap();
+        assert!(add.starts_with("cmd sub-add hex://310d0a"), "{add}");
+        assert!(add.ends_with(" select"), "{add}");
+        // Picked again: the loaded track is selected, nothing is downloaded or added again.
+        let c = &mut r.controller;
+        c.select_subtitle(&SubtitleChoice::External {
+            track_id: "ext-1".into(),
+        })
+        .await
+        .unwrap();
+        let adds = r
+            .backend
+            .calls()
+            .iter()
+            .filter(|c| c.starts_with("cmd sub-add"))
+            .count();
+        assert_eq!(adds, 1);
+        assert!(r.backend.calls().ends_with(&["set sid=3".to_owned()]));
+        assert_eq!(
+            served.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "one download, shared"
+        );
     }
 }

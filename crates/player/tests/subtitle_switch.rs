@@ -194,3 +194,60 @@ fn selecting_an_embedded_subtitle_over_http_shows_the_current_line() {
     eprintln!("subtitle shown {} ms after selecting it", started.elapsed().as_millis());
     mpv.quit();
 }
+
+/// External subtitles are downloaded ahead and handed to mpv in memory (`hex://`): adding one shows the current line
+/// without a network round trip.
+#[test]
+fn an_external_subtitle_from_memory_shows_the_current_line() {
+    if !libmpv_available() {
+        return;
+    }
+    let media = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-media");
+    let (file, subs) = (media.join("sdr_h264_1080p.mkv"), media.join("subs.en.ass"));
+    if !file.is_file() || !subs.is_file() {
+        eprintln!("skipped: run scripts/gen-test-media.ps1");
+        return;
+    }
+    let opts: Vec<(String, String)> = [
+        ("vo", "null"),
+        ("ao", "null"),
+        ("idle", "yes"),
+        ("config", "no"),
+        ("sid", "no"),
+    ]
+    .iter()
+    .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+    .collect();
+    let mpv = Mpv::new(&opts).unwrap();
+    mpv.command(&["loadfile", file.to_str().unwrap()]).unwrap();
+    wait_for(
+        &mpv,
+        "playback to reach 3.8 s",
+        |m| pos(m) >= 3.8,
+        Duration::from_secs(20),
+    );
+    let hex: String = std::fs::read(&subs)
+        .unwrap()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let started = Instant::now();
+    mpv.command(&["sub-add", &format!("hex://{hex}"), "select", "English", "en"])
+        .unwrap();
+    wait_for(
+        &mpv,
+        "the current external subtitle line",
+        |m| {
+            m.get_property("sub-text")
+                .is_some_and(|t| t.contains("Italic line two"))
+        },
+        Duration::from_millis(1500),
+    );
+    eprintln!(
+        "external subtitle shown {} ms after adding it",
+        started.elapsed().as_millis()
+    );
+    let sid = mpv.get_property("sid").unwrap();
+    assert!(sid.parse::<u32>().is_ok(), "the added track is selected: {sid}");
+    mpv.quit();
+}

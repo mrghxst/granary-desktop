@@ -279,6 +279,18 @@ fn reg_sz(name: windows::core::PCWSTR) -> Option<String> {
     Some(String::from_utf16_lossy(&buf[..n]))
 }
 
+/// Installed physical memory in bytes (sizes the demuxer cache).
+pub fn total_memory() -> Option<u64> {
+    use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    let mut m = MEMORYSTATUSEX {
+        dwLength: u32::try_from(std::mem::size_of::<MEMORYSTATUSEX>()).ok()?,
+        ..MEMORYSTATUSEX::default()
+    };
+    // SAFETY: `m` is a properly sized, writable MEMORYSTATUSEX.
+    unsafe { GlobalMemoryStatusEx(&mut m) }.ok()?;
+    Some(m.ullTotalPhys)
+}
+
 /// `10.0.26200.7171` style version (major.minor.build.ubr).
 pub fn os_version() -> String {
     let major = reg_dword(w!("CurrentMajorVersionNumber")).unwrap_or(10);
@@ -359,5 +371,119 @@ mod audio_tests {
             eprintln!("default device mixes to {n} channels");
             assert!((1..=32).contains(&n));
         }
+    }
+}
+
+/// NVIDIA video processing extension (RTX Video Super Resolution), as in mpv's `vf_d3d11vpp.c`.
+const NVIDIA_PPE_GUID: windows::core::GUID = windows::core::GUID::from_u128(0xd43ce1b3_1f4b_48ac_baee_c3c25375e6f7);
+/// NVIDIA RTX Video HDR extension.
+const NVIDIA_TRUE_HDR_GUID: windows::core::GUID =
+    windows::core::GUID::from_u128(0xfdd62bb4_620b_4fd7_9ab3_1e59d0d544b3);
+
+/// The default GPU (the one mpv renders on): vendor, integrated or not, and the NVIDIA video processing extensions
+/// its driver accepts (ADR-0012). Creates a throwaway D3D11 device; about 30 ms.
+pub fn probe_gpu() -> super::rendering::Gpu {
+    use super::rendering::{Gpu, Vendor};
+    use windows::Win32::Graphics::Dxgi::{Common::DXGI_RATIONAL, IDXGIDevice};
+    let mut gpu = Gpu::default();
+    let mut device: Option<ID3D11Device> = None;
+    let mut context: Option<ID3D11DeviceContext> = None;
+    // SAFETY: plain device creation; the out pointers are local Options.
+    let created = unsafe {
+        D3D11CreateDevice(
+            None,
+            D3D_DRIVER_TYPE_HARDWARE,
+            windows::Win32::Foundation::HMODULE::default(),
+            D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
+            None,
+            D3D11_SDK_VERSION,
+            Some(&mut device),
+            None,
+            Some(&mut context),
+        )
+    };
+    let (Ok(()), Some(device), Some(context)) = (created, device, context) else {
+        tracing::warn!("no D3D11 video device; GPU video processing unavailable");
+        return gpu;
+    };
+    // SAFETY: read-only queries on a live device.
+    if let Ok(desc) = unsafe {
+        device
+            .cast::<IDXGIDevice>()
+            .and_then(|d| d.GetAdapter())
+            .and_then(|a| a.GetDesc())
+    } {
+        let n = desc
+            .Description
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(desc.Description.len());
+        gpu.name = String::from_utf16_lossy(&desc.Description[..n]);
+        gpu.vendor = Vendor::from_pci(desc.VendorId);
+    }
+    let mut options = D3D11_FEATURE_DATA_D3D11_OPTIONS2::default();
+    // SAFETY: the buffer is a local struct of the size passed.
+    let uma = unsafe {
+        device.CheckFeatureSupport(
+            D3D11_FEATURE_D3D11_OPTIONS2,
+            (&raw mut options).cast(),
+            std::mem::size_of::<D3D11_FEATURE_DATA_D3D11_OPTIONS2>() as u32,
+        )
+    };
+    gpu.uma = uma.is_ok() && options.UnifiedMemoryArchitecture.as_bool();
+    if gpu.vendor == Vendor::Nvidia
+        && let (Ok(video), Ok(vctx)) = (device.cast::<ID3D11VideoDevice>(), context.cast::<ID3D11VideoContext>())
+    {
+        let rate = DXGI_RATIONAL {
+            Numerator: 60,
+            Denominator: 1,
+        };
+        let desc = D3D11_VIDEO_PROCESSOR_CONTENT_DESC {
+            InputFrameFormat: D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE,
+            InputFrameRate: rate,
+            InputWidth: 1280,
+            InputHeight: 720,
+            OutputFrameRate: rate,
+            OutputWidth: 1920,
+            OutputHeight: 1080,
+            Usage: D3D11_VIDEO_USAGE_PLAYBACK_NORMAL,
+        };
+        // SAFETY: video processor creation and extension queries with local, correctly sized buffers.
+        unsafe {
+            if let Ok(proc) = video
+                .CreateVideoProcessorEnumerator(&desc)
+                .and_then(|e| video.CreateVideoProcessor(&e, 0))
+            {
+                // { version, method, enable }: the structure mpv sends to switch RTX VSR on.
+                let ext: [u32; 3] = [1, 2, 1];
+                gpu.rtx_vsr = vctx.VideoProcessorSetStreamExtension(
+                    &proc,
+                    0,
+                    &NVIDIA_PPE_GUID,
+                    std::mem::size_of_val(&ext) as u32,
+                    ext.as_ptr().cast(),
+                ) >= 0;
+                let mut hdr = 0u32;
+                gpu.rtx_hdr = vctx.VideoProcessorGetStreamExtension(
+                    &proc,
+                    0,
+                    &NVIDIA_TRUE_HDR_GUID,
+                    std::mem::size_of_val(&hdr) as u32,
+                    (&raw mut hdr).cast(),
+                ) >= 0
+                    && hdr != 0;
+            }
+        }
+    }
+    tracing::info!(?gpu, "GPU");
+    gpu
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[ignore = "manual: prints this machine's GPU facts"]
+    fn print_gpu() {
+        println!("{:?}", super::probe_gpu());
     }
 }

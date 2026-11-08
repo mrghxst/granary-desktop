@@ -127,3 +127,120 @@ fn preview_frames_from_real_files() {
         );
     }
 }
+
+#[test]
+fn most_keyframes_take_one_range_request() {
+    use granary_player::mkv::MkvIndex;
+    use granary_player::range::FileRange;
+    use granary_player::thumbs::SizeGuess;
+    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-media/hdr10_hevc_main10_2160p.mkv");
+    if !file.is_file() {
+        eprintln!("skipped: run scripts/gen-test-media.ps1");
+        return;
+    }
+    let mut src = FileRange::open(&file).unwrap();
+    let index = MkvIndex::load(&mut src).unwrap();
+    let mut guess = SizeGuess::default();
+    let mut reads = Vec::new();
+    for cue in index.cues() {
+        let f = index.frame_file_sized(&mut src, cue, guess.next()).unwrap();
+        guess.learn(f.needed);
+        reads.push(f.reads);
+    }
+    assert!(reads.iter().all(|&r| r <= 2), "{reads:?}");
+    assert!(
+        reads.iter().skip(1).all(|&r| r == 1),
+        "after the first, one request each: {reads:?}"
+    );
+}
+
+#[test]
+#[ignore = "manual: prints mpv's built-in rendering profiles"]
+fn print_builtin_profiles() {
+    use granary_player::PlayerBackend;
+    use granary_player::mpv::Mpv;
+    if !libmpv_available() {
+        return;
+    }
+    let mpv = Mpv::new(&[("vo".into(), "null".into())]).unwrap();
+    let list = mpv.get_property("profile-list").unwrap_or_default();
+    for name in ["\"fast\"", "\"high-quality\"", "\"gpu-hq\""] {
+        if let Some(i) = list.find(name) {
+            println!("{}", &list[i.saturating_sub(10)..(i + 700).min(list.len())]);
+        }
+    }
+    for k in [
+        "scale",
+        "dscale",
+        "cscale",
+        "deband",
+        "dither-depth",
+        "correct-downscaling",
+        "linear-downscaling",
+        "sigmoid-upscaling",
+        "hdr-compute-peak",
+        "allow-delayed-peak-detect",
+        "hdr-peak-percentile",
+        "hdr-contrast-recovery",
+        "scaler-lut-size",
+        "interpolation",
+        "video-sync",
+    ] {
+        println!("default {k} = {:?}", mpv.get_property(k));
+    }
+    mpv.quit();
+}
+
+/// The video filters the host can set per title run on this GPU: `d3d11vpp` upscaling (Intel/NVIDIA modes; the
+/// output size shows the filter ran) and the Dolby Vision strip. Opens a window, so manual.
+#[test]
+#[ignore = "manual: needs a GPU and opens a window"]
+fn gpu_video_filters_run() {
+    use granary_player::PlayerBackend;
+    use std::time::{Duration, Instant};
+    if !libmpv_available() {
+        return;
+    }
+    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-media/sdr_h264_1080p.mkv");
+    for vf in [
+        "d3d11vpp=scaling-mode=intel:scale=2.00",
+        "d3d11vpp=scaling-mode=nvidia:scale=1.33",
+        "d3d11vpp=scaling-mode=nvidia:scale=2.00:format=x2bgr10:nvidia-true-hdr",
+        "format=dolbyvision=no",
+    ] {
+        let opts: Vec<(String, String)> = [
+            ("vo", "gpu-next"),
+            ("gpu-api", "d3d11"),
+            ("hwdec", "d3d11va"),
+            ("ao", "null"),
+            ("pause", "no"),
+            ("vf", vf),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+        let mpv = Mpv::new(&opts).unwrap();
+        mpv.command(&["loadfile", file.to_str().unwrap()]).unwrap();
+        let start = Instant::now();
+        let mut out = None;
+        while start.elapsed() < Duration::from_secs(10) {
+            if mpv
+                .get_property("time-pos")
+                .and_then(|t| t.parse::<f64>().ok())
+                .unwrap_or(0.0)
+                > 0.5
+            {
+                out = mpv.get_property("video-out-params/w");
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        println!(
+            "{vf}: out w={out:?} hwdec={:?} vf={:?} fmt={:?}",
+            mpv.get_property("hwdec-current"),
+            mpv.get_property("vf"),
+            mpv.get_property("video-out-params/hw-pixelformat"),
+        );
+        mpv.quit();
+    }
+}

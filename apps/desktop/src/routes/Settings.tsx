@@ -6,10 +6,12 @@ import { Alert } from "../components/ui";
 import { errorMessage } from "../lib/errors";
 import {
   DEFAULT_MONITOR,
+  gpuInfo,
   listAudioDevices,
   listMonitors,
   useSettings,
   type AudioDevice,
+  type GpuInfo,
   type MonitorSettings,
   type MonitorView,
   type Settings as SettingsModel,
@@ -160,6 +162,7 @@ function NumberField({
 function useOutputs() {
   const [monitors, setMonitors] = useState<MonitorView[] | null>(null);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
+  const [gpu, setGpu] = useState<GpuInfo | null>(null);
   useEffect(() => {
     let alive = true;
     listMonitors()
@@ -176,11 +179,18 @@ function useOutputs() {
       .catch(() => {
         /* no devices: only "Windows default" is offered */
       });
+    gpuInfo()
+      .then((g) => {
+        if (alive) setGpu(g);
+      })
+      .catch(() => {
+        /* unknown GPU: no video processing options */
+      });
     return () => {
       alive = false;
     };
   }, []);
-  return { monitors, devices };
+  return { monitors, devices, gpu };
 }
 
 const CODECS = ["ac3", "eac3", "dts", "dts-hd", "truehd"] as const;
@@ -188,7 +198,8 @@ const CODECS = ["ac3", "eac3", "dts", "dts-hd", "truehd"] as const;
 export function Settings() {
   const { t } = useTranslation();
   const { settings: s, update, error } = useSettings();
-  const { monitors, devices } = useOutputs();
+  const { monitors, devices, gpu } = useOutputs();
+  const vsr = gpu?.vendor === "intel" || (gpu?.vendor === "nvidia" && gpu.rtxVsr);
   if (!s) return <p className="text-muted-foreground">{t("status.loading")}</p>;
   const set = (patch: (draft: SettingsModel) => SettingsModel) => void update(patch(s));
   const setMonitor = (m: MonitorView, patch: Partial<MonitorSettings>) => {
@@ -273,6 +284,49 @@ export function Settings() {
             { value: "auto-copy-safe", label: t("settings.hwdecCopy") },
             { value: "no", label: t("settings.hwdecOff") },
           ]}
+        />
+        <Choice
+          label={t("settings.renderQuality")}
+          hint={t(gpu?.uma ? "settings.renderQualityHintIntegrated" : "settings.renderQualityHint")}
+          value={s.player.renderQuality}
+          onChange={(renderQuality) => {
+            set((d) => ({ ...d, player: { ...d.player, renderQuality } }));
+          }}
+          options={[
+            { value: "auto", label: t("settings.renderAuto") },
+            { value: "fast", label: t("settings.renderFast") },
+            { value: "balanced", label: t("settings.renderBalanced") },
+            { value: "high", label: t("settings.renderHigh") },
+            { value: "max", label: t("settings.renderMax") },
+          ]}
+        />
+        {vsr ? (
+          <Toggle
+            label={t(gpu.vendor === "nvidia" ? "settings.superResolutionNvidia" : "settings.superResolutionIntel")}
+            hint={t("settings.superResolutionHint")}
+            checked={s.player.superResolution}
+            onChange={(superResolution) => {
+              set((d) => ({ ...d, player: { ...d.player, superResolution } }));
+            }}
+          />
+        ) : null}
+        {gpu?.rtxHdr ? (
+          <Toggle
+            label={t("settings.rtxHdr")}
+            hint={t("settings.rtxHdrHint")}
+            checked={s.player.rtxHdr}
+            onChange={(rtxHdr) => {
+              set((d) => ({ ...d, player: { ...d.player, rtxHdr } }));
+            }}
+          />
+        ) : null}
+        <Toggle
+          label={t("settings.dolbyVision")}
+          hint={t("settings.dolbyVisionHint")}
+          checked={s.player.dolbyVision}
+          onChange={(dolbyVision) => {
+            set((d) => ({ ...d, player: { ...d.player, dolbyVision } }));
+          }}
         />
         <Toggle
           label={t("settings.autoplayNext")}

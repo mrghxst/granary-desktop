@@ -3,6 +3,26 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Chapter, Episode, FileVersion, MarkerOccurrence, WatchDetail } from "./catalog";
 
 /** Mirrors `UiState` in src-tauri/src/playback/host.rs (serde camelCase). Positions are source-timeline seconds. */
+/** The host's answer to a preview request (see `player_preview_want`). */
+export interface PreviewReply {
+  /** The source the answer is about; pushed frames of another generation are from an earlier file. */
+  generation: number;
+  /** The time the exact preview shows (the keyframe at or before the request), once the file is open. */
+  key: number | null;
+  /** The exact preview, when the host made it before. */
+  url: string | null;
+  /** Otherwise the closest frame made so far. */
+  near: { at: number; url: string } | null;
+}
+
+/** A preview frame the host decoded, pushed as soon as it is ready. */
+export interface PushedPreview {
+  generation: number;
+  /** The time the frame shows. */
+  at: number;
+  url: string;
+}
+
 export interface PlayerState {
   active: boolean;
   itemId?: string | null;
@@ -128,12 +148,14 @@ export const player = {
   fullscreen: (fullscreen?: boolean) => call<WindowState>("player_fullscreen", { fullscreen: fullscreen ?? null }),
   mini: (enabled: boolean) => call<WindowState>("player_mini", { enabled }),
   window: () => call<WindowState>("player_window"),
-  /** JPEG data URL of the frame near `seconds` in the playing file (no server trickplay), or null. */
-  preview: (seconds: number) => call<string | null>("player_preview", { seconds }),
-  /** The nearest frame already decoded (never waits for the network). */
-  previewNear: (seconds: number) => call<{ at: number; url: string } | null>("player_preview_near", { seconds }),
-  /** Start the paced background fill of preview frames for the playing file. */
+  /**
+   * Ask for the local preview at `seconds` (no server trickplay). Answers at once with the frame when the host has it,
+   * else with the nearest one; the exact frame follows through {@link player.onPreview}. Null when previews are off.
+   */
+  previewWant: (seconds: number) => call<PreviewReply | null>("player_preview_want", { seconds }),
+  /** Open the playing file's previews ahead of the first hover and start the paced background fill. */
   previewWarm: () => call<null>("player_preview_warm"),
+  onPreview: (f: (p: PushedPreview) => void) => on("player://preview", f),
   trickplay: (serverId: string, itemId: string, fileId: string) =>
     call<Trickplay>("watch_trickplay", { serverId, itemId, fileId }),
   onState: (f: (s: PlayerState) => void) => on("player://state", f),

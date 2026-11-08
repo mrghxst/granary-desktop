@@ -108,6 +108,13 @@ fn mpv_factory(app_version: String, hwdec: String) -> BackendFactory {
         ]
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .chain({
+            let (ahead, back) = options::demuxer_cache_mib(super::platform::total_memory().unwrap_or(8 << 30));
+            [
+                ("demuxer-max-bytes".to_owned(), format!("{ahead}MiB")),
+                ("demuxer-max-back-bytes".to_owned(), format!("{back}MiB")),
+            ]
+        })
         .chain([
             ("user-agent".to_owned(), format!("Granary/{app_version}")),
             // `config=no` leaves mpv without a cache directory, so libplacebo compiled every D3D11 shader again on
@@ -152,6 +159,10 @@ fn mpv_factory(app_version: String, hwdec: String) -> BackendFactory {
             }
         })
         .map_err(|e| e.to_string())?;
+        {
+            use granary_player::PlayerBackend;
+            super::rendering::remember_configured(|k| mpv.get_property(k));
+        }
         tracing::info!(wid, "mpv created");
         Ok(mpv as Arc<dyn granary_player::PlayerBackend>)
     })
@@ -264,6 +275,10 @@ fn display_output(app: &tauri::App) -> super::output::Output {
             Box::new(move || gdi_name_for_window(main)),
             settings,
         )
+        .with_render_env(super::rendering::Env {
+            gpu: super::rendering::known_gpu(super::platform::probe_gpu),
+            user_conf: crate::paths::config_dir().join("mpv.conf").is_file(),
+        })
     }
     #[cfg(not(windows))]
     {
@@ -332,6 +347,16 @@ pub async fn display_list(app: AppHandle) -> CmdResult<Vec<MonitorView>> {
         let _ = app;
         Ok(Vec::new())
     }
+}
+
+/// The GPU facts behind the rendering settings (which video processing options to offer).
+#[tauri::command]
+pub fn player_gpu() -> super::rendering::Gpu {
+    #[cfg(windows)]
+    let probe = super::platform::probe_gpu;
+    #[cfg(not(windows))]
+    let probe = super::rendering::Gpu::default;
+    super::rendering::known_gpu(probe)
 }
 
 #[tauri::command]

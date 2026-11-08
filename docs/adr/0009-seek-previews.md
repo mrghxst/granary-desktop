@@ -93,6 +93,31 @@
   - Result: about 0.12 s per frame for HDR10 2160p and 0.06 s for SDR 1080p (was 0.86 s and 0.33 s), plus the range
     read. On remote sources the range read is now most of the wait, and parallel fetches hide it for quick series of
     rests.
+- **Revision 5 (2026-11-09, 0.4.3): newest request wins, frames are pushed.** Sweeping the bar still felt slow
+  compared with the AIOStreams desktop app. We read its thumbnail code (AIOStreams/media @87dee2c). Its libmpv build
+  ships shared FFmpeg libraries and decodes with libavcodec directly. Ours (shinchiro) exports no `av*` symbols, so
+  decoding stays in mpv. Measured with `crates/player/tests/preview_bench.rs`, mpv costs 40–70 ms per 4K keyframe
+  and about 20 ms per 1080p one, against about 20–40 ms for plain libavcodec. The decoder was therefore not why it
+  felt slow. The causes were in the scheduling and the reads:
+  - **Dimmed stand-ins.** A frame from elsewhere was drawn dimmed and desaturated until the exact one came, which
+    looked like the colours "correcting". Stand-ins are now drawn as they are.
+  - **Waiting for the pointer.** Nothing was asked until the pointer had rested for 60 ms.
+  - **A queue of stale spots.** Requests waited up to three deep in the overlay, all of them for spots the pointer
+    had already left.
+  - **Several reads per keyframe.** Each keyframe took two or three sequential range requests: a 256 KB probe, then
+    the rest of the block.
+
+  The new design follows AIOStreams' session model:
+  - One preview session per file, held by the host. Each new spot under the pointer replaces the previous request
+    at once (`player_preview_want`); there is no queue.
+  - Three fetch threads read keyframes, taking the wanted one first. One render thread decodes the wanted keyframe
+    if it has arrived, else the most recently asked one.
+  - Every decoded frame is pushed to the overlay (`player://preview`) when it answers a request newer than the
+    frame on screen. During a sweep the tile therefore keeps following the pointer instead of waiting for the end.
+  - Each keyframe is one range request, sized from the keyframes read so far: the 75th percentile × 1.4, between
+    256 KiB and 8 MiB. A short read only fetches the missing tail.
+  - The background fill of the grid starts 4 s after playback, pauses while the pointer moves, and takes at most one
+    keyframe per 300 ms. Answers about an earlier file are dropped by generation.
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 

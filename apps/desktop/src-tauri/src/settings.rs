@@ -35,6 +35,14 @@ pub struct PlayerSettings {
     /// Where previews come from, tried in this order (ADR-0011): `server` trickplay, `seekr` (needs a key),
     /// `local` decoding. Every id appears exactly once.
     pub preview_sources: Vec<PreviewSource>,
+    /// Rendering quality (ADR-0012): `auto` (lighter on integrated GPUs), `fast`, `balanced`, `high` or `max`.
+    pub render_quality: String,
+    /// Video Super Resolution for SDR video below the monitor resolution (NVIDIA RTX, Intel Arc/Xe; opt-in).
+    pub super_resolution: bool,
+    /// NVIDIA RTX Video HDR for SDR video while Windows HDR is on (opt-in).
+    pub rtx_hdr: bool,
+    /// Dolby Vision metadata is used; off plays the HDR10/HLG base layer of profiles 7 and 8.
+    pub dolby_vision: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -146,6 +154,10 @@ impl Default for PlayerSettings {
             seek_step: 10,
             seek_previews: true,
             preview_sources: default_preview_sources(),
+            render_quality: "auto".into(),
+            super_resolution: false,
+            rtx_hdr: false,
+            dolby_vision: true,
         }
     }
 }
@@ -202,6 +214,11 @@ impl Settings {
             "auto-safe",
         );
         self.player.seek_step = self.player.seek_step.clamp(1, 120);
+        one_of(
+            &mut self.player.render_quality,
+            &["auto", "fast", "balanced", "high", "max"],
+            "auto",
+        );
         // Keep the known sources in the saved order, once each; missing ones are appended enabled.
         let mut sources: Vec<PreviewSource> = Vec::new();
         for s in std::mem::take(&mut self.player.preview_sources) {

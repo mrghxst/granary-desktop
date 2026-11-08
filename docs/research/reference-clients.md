@@ -27,6 +27,12 @@ The others simply set `aid`/`sid` and accept the gap.
 One real gap was common to all three reference clients and is fixed in 0.4.2: retrying transient HTTP statuses
 inside FFmpeg. The rest are improvements, ranked below.
 
+## Status (2026-11-09, 0.4.3)
+
+- Done in 0.4.3: item 2 (background subtitle download), item 4 (cache from installed memory), items 5–7 (ADR-0012).
+- Not adopted: item 3. The owner pointed out that Nuvio prepares the next episode because it scrapes streams first;
+  Granary gets the stream from the server at once.
+
 ## Fixed in 0.4.2
 
 ### 1. Retry transient HTTP statuses in place
@@ -121,10 +127,10 @@ files have wrong colours (ADR-0009). Better options for those files:
 ### 8. Ideas worth a look later
 - **Subtitle auto-sync** (Nuvio, `features/autosync`): retimes SRT, WebVTT and ASS timestamps to a computed
   timeline, then hands the file to libmpv. It helps with downloaded subtitles that drift. Larger effort.
-- **A user `mpv.conf`** (AIOStreams writes a commented template into its config folder and loads it; the app keeps
-  the options it depends on fixed). It is a power-user escape hatch for shaders and scalers. Granary runs with
-  `config=no` on purpose (reproducible support). If it is ever added, it should be an advanced, clearly marked
-  option, and the forced layer must still win.
+- **A user `mpv.conf`** (AIOStreams writes a commented template into its config folder and loads it). Correction:
+  Granary already has one. `config=no` only stops mpv from reading its own folders; the app includes
+  `%APPDATA%Granarympv.conf` after the settings layer and before the forced layer (ADR-0002 L2). A commented
+  template could still help discoverability.
 
 ## Looked at and deliberately not adopted
 - **`hr-seek=no`** (Nuvio). Keyframe-only seeks are faster but land up to several seconds off. Granary's exact seeks
