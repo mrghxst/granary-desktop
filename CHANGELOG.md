@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-08
+Fixes and polish: a working right-click menu with more actions, Seekr seek previews, an artwork cache, the right subtitles at start and steadier audio switches.
+
 ### Added
 - Right-click menu on every poster card (home rows, libraries, search, detail pages): Play, Play from beginning, Mark
   watched / unwatched and Remove from Continue Watching / Next Up, each shown only where it applies.
