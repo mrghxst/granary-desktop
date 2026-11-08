@@ -9,6 +9,10 @@ gives it:
 - smooth playback at high refresh rates and with VRR;
 - opt-in audio passthrough for AV receivers.
 
+These are the design goals. Automated tests covered them on a laptop with an HDR-capable internal panel, using
+synthetic test clips and a mock server. Dolby Vision remuxes, OLED desktop monitors, VRR, receivers and a real Silo
+server have not been tested yet; those checks are in [`MANUAL_TEST_CHECKLIST.md`](MANUAL_TEST_CHECKLIST.md).
+
 > Granary is an independent project. It is **not affiliated with or endorsed by Silo Media L.L.C.**; "Silo" is their
 > trademark. Granary is "compatible with Silo" and nothing more.
 

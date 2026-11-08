@@ -730,8 +730,9 @@ Facts confirmed while implementing (all `@6791aac`):
   - Replan `operation` enum: `failure_recovery | seek_reanchor | seek_failure_recovery | track_change | quality_change | output_change`. The two recoveries need `failure.classification`; `track_change`, `quality_change` and `output_change` must not carry a failure; `seek_reanchor` accepts either (`internal/playback/protocol_v3.go` L1371-1400). `quality_change` needs a non-empty `quality_preference`. `failed_plan_id` has `minLength` 8.
   - Media URLs in a plan are resolved like the web app after the v2 projection (`internal/apiv2/playback.go` `playbackV2MediaURL`): `/api/...` as-is, a legacy `/stream/...` or `/playback/transcode/...` gets the `/api/v2` prefix. An absolute URL on the saved origin (scheme, host and port) is fetched with credentials; any other origin is handed to mpv without credentials (`media::resolve_media_url`). Media redirects are never followed.
   - Next episode: there is no next-up endpoint (open question 9). The player takes the neighbours from
-    `listSeasonEpisodes` of the playing episode's season (`WatchDetail.series_id` + `season_number`), so "next"
-    does not cross a season boundary yet.
+    `listSeasonEpisodes` of the playing episode's season (`WatchDetail.series_id` + `season_number`). At a season
+    boundary it moves to the adjacent season from `listSeasons` (first or last episode); specials (season 0) never
+    cross (Gate 8, `episodesAround`).
   - Events socket in use (§9): every event frame triggers a debounced in-place refetch of the visible page (the payload
     is not interpreted); the `access_changed` frame sends the user back to profile selection.
   - Trickplay: previews are drawn from `WatchTrickplay` sheets with the tile arithmetic of §10 (UNVERIFIED); sheet

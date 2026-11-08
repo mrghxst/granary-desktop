@@ -1,5 +1,5 @@
 # PROGRESS
-Last updated: 2026-11-07T21:10:00+01:00 | Current phase: 9 | Last commit: (see git log)
+Last updated: 2026-11-08 | Current phase: 9 (closing) | Last commit: 1c10c83 (each Log line names its commit)
 
 ## Phases
 - [x] 0 Preflight & private repo — DONE (commit a0e7d04) — gate: gh repo view visibility=PRIVATE, skeleton pushed, PROGRESS.md + CLAUDE.md present
@@ -15,9 +15,9 @@ Last updated: 2026-11-07T21:10:00+01:00 | Current phase: 9 | Last commit: (see g
 - [ ] 10 Final verification & handoff
 
 ## Current step
-Phase 9: packaging. In progress: bundled + user mpv.conf layering (ADR-0002 L2), NSIS uninstall hook for the
-"delete app data" box, docs/signing.md, scripts/install-test.ps1. Next: local install test, CI installer, v0.1.0 draft
-release, Gate 9 review.
+Gate 9 closure: Gate 9 review fixes are pushed (1c10c83). The release workflow is building the final installer
+from main as draft release `v0.1.0-dev`; next is the CI-installer install test, then Phase 10 (clean-clone build,
+final review, report).
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -50,6 +50,12 @@ release, Gate 9 review.
   desktop monitor and AV-receiver checks go to MANUAL_TEST_CHECKLIST.md. PresentMon not installed (independent flip
   cannot be measured automatically).
 - Distribution to third parties requires a complete libmpv dependency source set (ADR-0005 known gap).
+- Tag `v0.1.0` (and its draft release) points to 1257c5f, from before the Gate 9 review fixes. Moving a pushed tag was
+  refused by the session's safety policy, so the final build is the draft release `v0.1.0-dev`, built from main by the
+  release workflow (workflow_dispatch). Before publishing 0.1.0: delete the old draft, then move the tag to the
+  final commit:
+  `git tag -f -a v0.1.0 -m "Granary 0.1.0" <sha>`, then `git push -f origin v0.1.0`. The release workflow then
+  rebuilds the draft.
 
 ## Known issues
 - One `cargo test --workspace` run inside verify.ps1 exited 101 on 2026-11-07 (right after `cargo fmt`); it was not
@@ -73,7 +79,8 @@ release, Gate 9 review.
   Remove confirmation (Phase 5 shell + Phase 8 polish), L10 Rust-side auth://revoked emit test, L11 request_origin
   mismatch as warning tone + ADR note.
 - Phase 5 review lows: L7 done in Phase 8, L11 (ContextMenu refocus) fixed at Gate 8, L3 done in Phase 6.
-  → Phase 10 security review: L8 IPC/capability-level test, L12 artwork host allow-list.
+  L8 IPC/capability-level test (`ipc-contract.test.ts`) and L12 artwork hosts limited to the server origin or public
+  https hosts: fixed in the Phase 10 security review (docs/security.md).
   Accepted for 0.1 (Gate 8 review M2): L1 ItemGrid key omits serverId (a server switch remounts the route anyway);
   L2 sub-loader errors skip needsReauth (the session refreshes tokens itself; a revoked session is caught by the item
   load and the next navigation); L4 video_with_episodes without getCatalogSearchCapabilities (the server ignores an
@@ -90,8 +97,8 @@ release, Gate 9 review.
   evidence runs); L5 evidence tightening (instant-EOF resume in the mock, auto-hide by CSS opacity, hwdec `.some()`);
   L10 duplicate sidecar on re-selecting the same external subtitle, events back-off reset on every connect,
   `Ended` while an up-next start is in flight (rare, harmless: mpv ignores the duplicate, the next start wins).
-- Phase 8 review lows: L1, L5, L6 fixed at Gate 8. → Phase 10: L4 relay-route token redaction (security review),
-  L9 About source link with the build commit (docs/release). Accepted for 0.1: L2 About shows CARGO_PKG_VERSION
+- Phase 8 review lows: L1, L5, L6 fixed at Gate 8; L4 relay-route token redaction and L9 About source link with the
+  build commit fixed in Phases 9/10. Accepted for 0.1: L2 About shows CARGO_PKG_VERSION
   (verify.ps1 fails when it differs from the bundle version); L3 standalone /about and /settings have no back link
   (reached from the start screen only; a back link is a 0.2 item); L7 loading texts without role="status"; L8 log export to %USERPROFILE%\Downloads
   rather than the known folder; L10 onboarding shown when the server list fails to load.
@@ -99,6 +106,10 @@ release, Gate 9 review.
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 Final review (docs/reviews/final.md, PASS WITH FINDINGS): M1 release.yml split into libmpv / installer (read-only, no persisted credentials) / draft jobs; L1 draft target and notes follow re-runs; L2 display repair before anything that can fail at startup; L3 doc corrections; L4 this header and log; L5 README states what is untested. Clean clone found a parallel-test race in crates/player/tests/libmpv_options.rs (DLL copy once per process).
+- 2026-11-08 Phase 10 (1c10c83, d1336dd, 950ca33): security review in docs/security.md (CSP, capabilities, IPC contract test, artwork host check, relay token and command-error redaction, cargo audit 0 vulnerabilities, pnpm audit clean), ARCHITECTURE.md, CONTRIBUTING.md, README rewrite, CHANGELOG 0.1.0.
+- 2026-11-08 Gate 9 review fixes (5f563ae): H1 bundled THIRD_PARTY_LICENSES.txt (gen-licenses.mjs, verify step), M2 uninstall removes the HKCU product key, L1 forced host options, L2 test, L3 dirty build marker, L5 install-test robustness.
+- 2026-11-07 Phase 9 (309d2af, 1257c5f): bundled + user mpv.conf, NSIS uninstall data hook, install-test.ps1, docs/signing.md, About build commit; tag v0.1.0 pushed, draft release built by release.yml.
 - 2026-11-07 Gate 8: review M1 (retry tick on `online` + Retry button, ServerHome clears its error), M2 (ToUnicode layout characters from the video window, ContextMenu focus, next/previous episode across seasons, deferred items re-targeted), L1/L5/L6; verify.ps1 exit 0; GATE 8 PASSED.
 - 2026-11-07 Phase 8: docs/perf.md, `scripts/measure-ttff.mjs`, persistent libplacebo shader cache (TTFF −12 %/−22 %), release-build TTFF checklist item; verify.ps1 exit 0.
 - 2026-11-07 Gate 7 PASSED: review M1 (delivered range from `effective_recipe`, HDR declared when switchable), M2 (exit restores before the server stop), M3 (leftover marker entries kept), M4 (`panic = "abort"`), M5 (policy in reuse key, live retune), M6 (5 s HDR wait, refused switch remembered per power state, monitor move off the host task), M7 (checklist HDR10+/near-black/windowed+fullscreen); L1, L3, L6, L7; verify.ps1 exit 0, round trip + evidence 17/17 on battery.

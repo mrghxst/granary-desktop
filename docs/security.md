@@ -37,7 +37,7 @@ for 0.1, with the reason.
 - `img-src` allows only the app, `data:`/`blob:` and the host's `granary-img` scheme. No remote image origin is
   allowed.
 - `connect-src` allows only the app and Tauri IPC. The WebView never talks to the server itself (ADR-0004).
-- `style-src 'unsafe-inline'` is needed by Radix/Tailwind runtime styles. It is accepted because script injection,
+- `style-src 'unsafe-inline'` is needed by React inline `style` attributes (seek-bar positions, progress widths, menu placement). It is accepted because script injection,
   not style injection, is the risk here, and script is locked down.
 - `freezePrototype: true`.
 
@@ -182,5 +182,5 @@ Dev dependency: `minimatch` 10.2.6, GHSA-g3hv-75wg-m249 (ReDoS through glob patt
 | Unsigned installer (SmartScreen warning) | Private test release; signing is planned in `docs/signing.md` |
 | Plain `http://` servers can be added | Common on home LANs; the user is warned explicitly before adding one |
 | DNS names that resolve to private addresses pass the artwork host check | Blind, credential-less, image-only GET (section 3) |
-| `style-src 'unsafe-inline'` | Needed by the UI library; script stays `'self'` only |
+| `style-src 'unsafe-inline'` | Needed by React inline style attributes; script stays `'self'` only |
 | Linux-only crates with RustSec warnings | Not part of the Windows build (section 5) |

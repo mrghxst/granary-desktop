@@ -115,6 +115,9 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     // The bundler's version (tauri.conf.json → package.json) is the one users see in the installer (review M6).
     let version = app.package_info().version.to_string();
     tracing::info!(%version, "Granary starting");
+    // Repair a display left switched by a crash before anything that can fail and end startup (final review L2).
+    #[cfg(windows)]
+    repair_displays();
     app.manage(silo_state(&version)?);
     app.manage(settings::SettingsStore::load(paths::config_dir().join("settings.json")));
     let libmpv_ok = libmpv.error.is_none();
@@ -123,9 +126,6 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
         libmpv,
     });
     app.manage(playback::events::EventsState::default());
-
-    #[cfg(windows)]
-    repair_displays();
 
     let main = app
         .config()

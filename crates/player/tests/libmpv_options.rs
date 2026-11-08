@@ -8,22 +8,27 @@ use granary_player::mpv::Mpv;
 use granary_player::options::{BUNDLED_CONF, layered, parse_conf};
 use granary_player::probe::probe_libmpv;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 /// The probe only searches the exe folder and system folders (not PATH), like the installed app; put the pinned DLL
-/// next to the test binary.
+/// next to the test binary. Done once per process: the tests run in parallel, and once one of them has loaded the DLL
+/// it cannot be overwritten (sharing violation).
 fn libmpv_available() -> bool {
-    let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vendor-bin/libmpv/libmpv-2.dll");
-    let exe = std::env::current_exe().unwrap();
-    let dst = exe.parent().unwrap().join("libmpv-2.dll");
-    if !src.is_file() {
-        eprintln!("skipped: {} missing; run scripts/fetch-libmpv.ps1", src.display());
-        return false;
-    }
-    let stale = std::fs::metadata(&dst).map(|d| d.len()).ok() != std::fs::metadata(&src).map(|s| s.len()).ok();
-    if stale {
-        std::fs::copy(&src, &dst).unwrap();
-    }
-    probe_libmpv().is_ok()
+    static AVAILABLE: OnceLock<bool> = OnceLock::new();
+    *AVAILABLE.get_or_init(|| {
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vendor-bin/libmpv/libmpv-2.dll");
+        let exe = std::env::current_exe().unwrap();
+        let dst = exe.parent().unwrap().join("libmpv-2.dll");
+        if !src.is_file() {
+            eprintln!("skipped: {} missing; run scripts/fetch-libmpv.ps1", src.display());
+            return false;
+        }
+        let stale = std::fs::metadata(&dst).map(|d| d.len()).ok() != std::fs::metadata(&src).map(|s| s.len()).ok();
+        if stale {
+            std::fs::copy(&src, &dst).unwrap();
+        }
+        probe_libmpv().is_ok()
+    })
 }
 
 #[test]

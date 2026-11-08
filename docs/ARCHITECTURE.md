@@ -12,7 +12,7 @@ The decision records are the source of truth. This page is a map of them:
 
 | ADR | Decision |
 | --- | --- |
-| [0001](adr/0001-ui-strategy.md) | Own React UI on Silo's design tokens (midnight-cinema, Plus Jakarta Sans, Tailwind 4 + Radix) |
+| [0001](adr/0001-ui-strategy.md) | Own React UI on Silo's design tokens (midnight-cinema, Plus Jakarta Sans, Tailwind 4; Radix was planned but the 0.1 menus are own components) |
 | [0002](adr/0002-player-integration.md) | In-process libmpv via `libmpv2-sys`, own safe layer, option layering |
 | [0003](adr/0003-window-overlay-architecture.md) | Video child window under a transparent WebView2 in one main window |
 | [0004](adr/0004-http-auth-token-storage.md) | Rust-side HTTP/WebSocket, tokens in Windows Credential Manager, credential scoping |

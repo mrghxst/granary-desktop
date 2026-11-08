@@ -57,7 +57,7 @@ The WebView2 runtime is part of Windows 11 and is not redistributed by Granary.
 
 ## Silo API contract excerpt (tests only, not shipped)
 
-`crates/silo-api/tests/fixtures/openapi-subset.json` is an excerpt (29 operations, 125 schemas) of
+`crates/silo-api/tests/fixtures/openapi-subset.json` is an excerpt (30 operations, 125 schemas) of
 `silo-server/contracts/api/v2/openapi.json` at commit 6791aac, Copyright (c) Silo contributors, AGPL-3.0-or-later,
 https://github.com/Silo-Server/silo-server. The `upstream_*.json` fixtures are copied verbatim from
 `silo-server/contracts/api/v2/fixtures/` at the same commit (same copyright and licence). The other fixtures next to it

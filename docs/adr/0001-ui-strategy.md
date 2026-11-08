@@ -65,3 +65,8 @@ supported by the evidence.
   `sync-upstream-web` skill (they exist only for option B).
 - Granary adds its own token variant: a **true-black OLED theme** (`--background: #000000`, sidebar/surfaces shifted
   accordingly) selectable in settings, alongside the upstream-derived `midnight-cinema` default.
+
+## Amendment 1 (Phase 10, final review L3)
+Radix primitives were not needed for 0.1. The few menus and dialogs (context menu, player track menus, shortcuts
+dialog) are own components with keyboard handling and ARIA roles checked by `eslint-plugin-jsx-a11y` and tests. Adding
+Radix later stays within this decision.
