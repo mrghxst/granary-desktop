@@ -2,18 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { player } from "../lib/player";
 
 /** Hover must rest this long on an uncached spot before a frame is requested (a sweep over the bar asks nothing). */
-const SETTLE_MS = 140;
+const SETTLE_MS = 60;
 /** While a frame loads, show a decoded neighbour at most this many intervals away. */
 const NEAR = 2;
 
 /**
- * Seconds between preview frames: at least 30 s, and about 120 frames over the whole file for long ones (rounded to
- * 10 s, at most 2 min). Every frame is a seek in the remote file, so fewer, coarser frames keep previews quick on
- * slow or high-latency sources and keep the playing stream undisturbed.
+ * Seconds between preview frames: about 400 spots over the file, between 2 s and 10 s. Matroska files are previewed
+ * from their keyframe index (one small range read per frame, cached per keyframe on the host), so spots can be close
+ * together without loading the playing stream; the host answers repeated spots inside one keyframe from its cache.
  */
 export function previewInterval(duration: number): number {
-  if (!Number.isFinite(duration) || duration <= 0) return 30;
-  return Math.min(120, Math.max(30, Math.ceil(duration / 120 / 10) * 10));
+  if (!Number.isFinite(duration) || duration <= 0) return 10;
+  return Math.min(10, Math.max(2, Math.ceil(duration / 400)));
 }
 
 /**

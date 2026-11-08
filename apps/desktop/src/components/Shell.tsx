@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { useTranslation } from "react-i18next";
 import { NavigationType, NavLink, Outlet, useLocation, useNavigate, useNavigationType, useParams } from "react-router";
 import { goReauth, needsReauth } from "../lib/nav";
+import { BackButton } from "./ui";
 import { bumpRefresh, serverEvents } from "../lib/events";
 import { silo, type LibraryView } from "../lib/silo";
 
@@ -53,26 +54,52 @@ export function Shell() {
   const base = `/servers/${encodeURIComponent(serverId)}`;
   const [libraries, setLibraries] = useState<LibraryView[]>([]);
   const mainRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navType = useNavigationType();
   const scrolls = useRef(new Map<string, number>());
+  // Detail pages are reached from many places and have no sidebar entry: they get Back, in one fixed spot that is
+  // there before the page has loaded. Top-level destinations (sidebar) have none.
+  const detail = /\/(item|person)\//.test(location.pathname);
 
   // Each history entry keeps its scroll position: Back returns to the same spot, a new page starts at the top.
+  // Content loads after the first paint, so the saved position is re-applied while the page grows, until it is
+  // reached, the user scrolls themselves, or 2 s pass (one jump to the right spot instead of top-then-jump).
   useLayoutEffect(() => {
     const main = mainRef.current;
+    const content = contentRef.current;
     if (!main) return;
     const key = location.key;
     const saved = navType === NavigationType.Pop ? scrolls.current.get(key) : undefined;
+    let restoring = saved !== undefined && saved > 0;
     main.scrollTop = saved ?? 0;
-    // Content loads after the first paint; try again once it had time to grow.
-    const retry = saved ? window.setTimeout(() => (main.scrollTop = saved), 350) : undefined;
+    const stop = () => {
+      restoring = false;
+    };
+    const deadline = window.setTimeout(stop, 2000);
+    const grow =
+      restoring && content && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            if (!restoring || saved === undefined) return;
+            main.scrollTop = saved;
+            if (Math.abs(main.scrollTop - saved) < 2) stop();
+          })
+        : null;
+    if (content) grow?.observe(content);
     const onScroll = () => {
-      scrolls.current.set(key, main.scrollTop);
+      if (!restoring) scrolls.current.set(key, main.scrollTop);
     };
     main.addEventListener("scroll", onScroll, { passive: true });
+    main.addEventListener("wheel", stop, { passive: true });
+    main.addEventListener("pointerdown", stop, { passive: true });
+    main.addEventListener("keydown", stop);
     return () => {
-      window.clearTimeout(retry);
+      window.clearTimeout(deadline);
+      grow?.disconnect();
       main.removeEventListener("scroll", onScroll);
+      main.removeEventListener("wheel", stop);
+      main.removeEventListener("pointerdown", stop);
+      main.removeEventListener("keydown", stop);
     };
   }, [location.key, navType]);
 
@@ -169,7 +196,12 @@ export function Shell() {
         </ul>
       </nav>
       <main ref={mainRef} id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto focus:outline-none">
-        <div className="mx-auto w-full max-w-[2400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-12">
+        <div ref={contentRef} className="mx-auto w-full max-w-[2400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-12">
+          {detail ? (
+            <div className="sticky top-3 z-30 mb-5 h-9">
+              <BackButton fallback={`${base}/home`} />
+            </div>
+          ) : null}
           <Outlet />
         </div>
       </main>

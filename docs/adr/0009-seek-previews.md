@@ -34,6 +34,25 @@
   a decoded neighbour up to two intervals away. Revised 2026-11-08: the first version used 2 s buckets and asked on
   every bucket crossed, which on slow, high-latency remote sources meant many seeks and frames that arrived late or
   timed out on large files. Open and frame timeouts are now 20 s and 15 s.
+- **Revision 2 (2026-11-08, 0.4.0): keyframe index first.** The seek-based previews still felt slow on large remote
+  files: every spot was a seek in a multi-GB stream, so frames were coarse (30 s+) and late. Granary now follows the
+  same idea as AIOStreams with its own implementation (no code or crate taken from it) and without a second FFmpeg:
+  - `granary_player::mkv` parses the Matroska SeekHead, Info (timestamp scale), the first video TrackEntry (codec
+    private data, colour transfer) and the video Cues with byte-range reads (`granary_player::range`: plain
+    HTTP/1.1 `Range` requests to the loopback relay, or a local file), read in 256 KiB windows.
+  - Each preview takes the cue at or before the hovered time, reads only that keyframe block (CueRelativePosition,
+    or a bounded cluster scan), and wraps it in a minimal single-frame Matroska file (EBML header, Info, the original
+    TrackEntry, one Cluster with one SimpleBlock). The headless handle `loadfile`s that local temp file
+    (`keep-open=yes`), so the decode never touches the network or the playing stream. The previous temp file is
+    deleted once mpv has moved on, the last one when the handle is dropped.
+  - HDR is known from the track TransferCharacteristics (16 PQ, 18 HLG) before the first decode, and confirmed once
+    from `video-params/gamma` for files without colour metadata.
+  - The host caches frames per keyframe (`Thumbnailer::snap`) as well as per requested time, so hovering anywhere
+    between two keyframes costs one fetch.
+  - The overlay snaps to about 400 spots per file (2–10 s) and waits 60 ms for the pointer to rest.
+  - Decoding is kept cheap so playback keeps priority: `vd-lavc-threads=2`, `vd-lavc-skiploopfilter=all`,
+    `vd-lavc-fast`.
+  - Files without Cues, laced blocks, and non-Matroska containers (MP4, AVI, ...) keep the seek mode above.
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 
@@ -41,7 +60,9 @@
 - Measured on the dev machine (test media, mock server through the relay): open 0.24 s, a new frame 35–90 ms (SDR
   1080p to HDR10 2160p), cached 4 ms. Integration test `preview_frames_from_real_files` checks SDR and HDR against the
   pinned DLL.
-- Extra traffic only while hovering: each new preview spot reads around one keyframe (the demuxer readahead is off).
+- Extra traffic only while hovering: the index once (Cues are usually tens to hundreds of KiB), then one keyframe per
+  new spot. Integration test `preview_frames_from_real_files` asserts index mode on the generated test media: open
+  plus two frames each for SDR 1080p and HDR10 2160p in about 0.5 s.
 - Dolby Vision profile 5 (no HDR10 base layer) is not reshaped by libavfilter, so its previews have wrong colours;
   profiles 7/8 use the HDR10 base and look right. Known issue, low impact (previews only).
 - No new dependency or licence: the bundled libmpv/FFmpeg already provide everything (zscale/zimg is part of the

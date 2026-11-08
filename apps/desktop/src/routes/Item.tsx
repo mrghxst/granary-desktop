@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
-import { Alert, BackButton } from "../components/ui";
+import { Alert } from "../components/ui";
 import {
   artwork,
   catalog,
@@ -461,10 +461,15 @@ function MenuItem({ onClick, children }: { onClick: () => void; children: ReactN
 function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail }) {
   const { t } = useTranslation();
   const backdrop = artwork(serverId, item.backdrop_url);
+  // No backdrop: the poster (an episode still, for episodes) fills the frame, blurred when it is a portrait poster.
+  const fallback = backdrop ? undefined : artwork(serverId, item.poster_url);
+  const blurred = !backdrop && item.type !== "episode";
+  const [artFailed, setArtFailed] = useState<string | null>(null);
+  const background = backdrop ?? fallback;
   const logo = artwork(serverId, item.logo_url);
-  const poster = artwork(serverId, item.poster_url);
-  const [posterFailed, setPosterFailed] = useState(false);
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [logoFailed, setLogoFailed] = useState<string | null>(null);
+  const showLogo = logo !== undefined && logoFailed !== logo;
+  const episode = item.type === "episode";
   const tmdb = item.ratings.find((r) => r.source === "tmdb") ?? item.ratings[0];
   const tags = qualityTags(item.overlay_summary);
   const directors = item.crew.filter((c) => c.job === "Director");
@@ -476,89 +481,124 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
     logo: item.logo_url ?? null,
     poster: item.poster_url ?? null,
   };
+  const facts = [
+    item.year ? String(item.year) : null,
+    runtimeLabel(item.runtime) || null,
+    item.type === "series" && item.season_count ? t("item.seasonCount", { count: item.season_count }) : null,
+    ...item.genres.slice(0, 3),
+  ].filter((x): x is string => Boolean(x));
+  const where = [
+    item.season_number != null ? t("item.seasonN", { n: item.season_number }) : null,
+    item.episode_number != null ? t("item.episodeN", { n: item.episode_number }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const credits: [string, typeof directors][] = [
+    [t("item.directedBy"), directors],
+    [t("item.createdBy"), creators],
+    [t("item.writtenBy"), writers],
+  ];
+  const logoImg = (alt: string, className: string) => (
+    <img
+      src={logo}
+      alt={alt}
+      draggable={false}
+      className={className}
+      onError={() => {
+        setLogoFailed(logo ?? null);
+      }}
+    />
+  );
 
   return (
     <section className="relative isolate z-10 rounded-2xl border border-border/60 bg-card">
       {/* Artwork is clipped to the box; the track popovers are not. */}
       <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden rounded-2xl">
-        {backdrop ? (
+        {background && artFailed !== background ? (
           <img
-            src={backdrop}
+            src={background}
             alt=""
-            className="absolute inset-0 size-full animate-[fade-in_600ms_ease-out] object-cover object-top"
-          />
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-card/10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
-      </div>
-      <div className="flex min-h-[26rem] items-end gap-8 p-6 lg:gap-10 lg:p-10">
-        {poster && !posterFailed ? (
-          <img
-            src={poster}
-            alt=""
-            className="hidden w-44 shrink-0 animate-[fade-in_400ms_ease-out] self-end rounded-xl border border-white/10 shadow-2xl md:block lg:w-56"
+            draggable={false}
+            className={`absolute inset-y-0 right-0 h-full w-full animate-[fade-in_600ms_ease-out] object-cover object-[center_25%] lg:w-[80%] ${
+              blurred ? "scale-110 opacity-50 blur-2xl" : ""
+            }`}
             onError={() => {
-              setPosterFailed(true);
+              setArtFailed(background);
             }}
           />
         ) : null}
-        <div className="flex min-w-0 max-w-3xl flex-1 flex-col justify-end gap-4">
-          {item.series_title && item.series_id ? (
+        <div className="absolute inset-0 bg-gradient-to-r from-card from-20% via-card/80 via-50% to-card/0" />
+        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 via-45% to-transparent" />
+      </div>
+      <div className="flex min-h-[28rem] flex-col justify-end gap-6 p-6 lg:min-h-[32rem] lg:p-10">
+        <div className="flex max-w-2xl flex-col gap-4">
+          {episode && item.series_id ? (
             <Link
               to={itemPath(serverId, item.series_id)}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              className="flex w-fit flex-col gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              {showLogo ? (
+                logoImg(item.series_title ?? "", "max-h-14 max-w-60 object-contain object-left drop-shadow-xl")
+              ) : (
+                <span className="text-sm font-semibold tracking-wide text-foreground/90 uppercase hover:text-foreground">
+                  {item.series_title}
+                </span>
+              )}
+              {where ? <span className="text-xs font-medium text-muted-foreground">{where}</span> : null}
+            </Link>
+          ) : item.series_title && item.series_id ? (
+            <Link
+              to={itemPath(serverId, item.series_id)}
+              className="w-fit text-sm font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
             >
               {item.series_title}
-              {item.season_number != null ? ` · ${t("item.seasonN", { n: item.season_number })}` : ""}
-              {item.episode_number != null ? ` · ${t("item.episodeN", { n: item.episode_number })}` : ""}
             </Link>
           ) : null}
-          {logo && !logoFailed ? (
-            <img
-              src={logo}
-              alt={item.title}
-              className="max-h-28 max-w-sm object-contain object-left drop-shadow-2xl"
-              onError={() => {
-                setLogoFailed(true);
-              }}
-            />
+          {!episode && showLogo ? (
+            <h1 className="flex h-24 items-end lg:h-28">
+              {logoImg(
+                item.title,
+                "max-h-full max-w-[min(26rem,100%)] object-contain object-left-bottom drop-shadow-2xl",
+              )}
+            </h1>
           ) : (
-            <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">{item.title}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-balance lg:text-5xl">{item.title}</h1>
           )}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {item.year ? <Badge strong>{item.year}</Badge> : null}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-foreground/85">
+            {facts.length > 0 ? <span>{facts.join(" · ")}</span> : null}
             {item.content_rating ? <Badge strong>{item.content_rating}</Badge> : null}
-            {runtimeLabel(item.runtime) ? <Badge strong>{runtimeLabel(item.runtime)}</Badge> : null}
-            {item.type === "series" && item.season_count ? (
-              <Badge strong>{t("item.seasonCount", { count: item.season_count })}</Badge>
-            ) : null}
-            {tags.map((x) => (
-              <Badge key={x}>{x}</Badge>
-            ))}
             {tmdb ? (
-              <span className="ml-1 inline-flex items-center gap-1 text-xs font-semibold" title={tmdb.name}>
-                <Star className="size-3.5 fill-foreground" />
+              <span className="inline-flex items-center gap-1 font-semibold" title={tmdb.name}>
+                <Star className="size-3.5 fill-current text-amber-300" />
                 {tmdb.display}
-                <span className="font-medium text-muted-foreground">{tmdb.name}</span>
+              </span>
+            ) : null}
+            {tags.length > 0 ? (
+              <span className="flex flex-wrap gap-1.5">
+                {tags.map((x) => (
+                  <Badge key={x}>{x}</Badge>
+                ))}
               </span>
             ) : null}
           </div>
-          {item.genres.length > 0 ? (
-            <p className="text-sm text-muted-foreground">{item.genres.slice(0, 4).join(" · ")}</p>
+          {item.overview || item.tagline ? (
+            <p className="line-clamp-3 max-w-[62ch] text-sm leading-relaxed text-foreground/90 lg:text-[15px]">
+              {item.overview || item.tagline}
+            </p>
           ) : null}
-          {item.tagline ? <p className="text-sm text-foreground/80 italic">{item.tagline}</p> : null}
-          {item.overview ? <p className="line-clamp-4 text-sm leading-relaxed lg:text-base">{item.overview}</p> : null}
-          <CreditLine serverId={serverId} label={t("item.directedBy")} people={directors} />
-          <CreditLine serverId={serverId} label={t("item.createdBy")} people={creators} />
-          <CreditLine serverId={serverId} label={t("item.writtenBy")} people={writers} />
-          <div className="pt-2">
-            {PLAYABLE.has(item.type) ? (
-              <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
-            ) : (
-              <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />
-            )}
-          </div>
+          {credits.some(([, people]) => people.length > 0) ? (
+            <dl className="grid w-fit grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+              {credits.map(([label, people]) => (
+                <CreditLine key={label} serverId={serverId} label={label} people={people} />
+              ))}
+            </dl>
+          ) : null}
         </div>
+        {PLAYABLE.has(item.type) ? (
+          <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
+        ) : (
+          <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />
+        )}
       </div>
     </section>
   );
@@ -580,21 +620,23 @@ function CreditLine({
 }) {
   if (people.length === 0) return null;
   return (
-    <p className="text-sm">
-      <span className="text-muted-foreground">{label} </span>
-      {people.slice(0, 3).map((p, i) => (
-        <span key={p.name}>
-          {i > 0 ? ", " : ""}
-          {p.person_id ? (
-            <Link to={personPath(serverId, p.person_id)} className="font-medium hover:underline">
-              {p.name}
-            </Link>
-          ) : (
-            <span className="font-medium">{p.name}</span>
-          )}
-        </span>
-      ))}
-    </p>
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0">
+        {people.slice(0, 3).map((p, i) => (
+          <span key={p.name}>
+            {i > 0 ? ", " : ""}
+            {p.person_id ? (
+              <Link to={personPath(serverId, p.person_id)} className="font-medium hover:underline">
+                {p.name}
+              </Link>
+            ) : (
+              <span className="font-medium">{p.name}</span>
+            )}
+          </span>
+        ))}
+      </dd>
+    </>
   );
 }
 
@@ -935,13 +977,12 @@ export function Item() {
   }, [error, navigate, serverId]);
 
   if (error) return <Alert onRetry={retryLoads}>{errorMessage(t, error)}</Alert>;
-  if (!item) return <div className="h-[26rem] animate-pulse rounded-2xl border border-border/60 bg-card" />;
+  if (!item) return <div className="h-[32rem] animate-pulse rounded-2xl border border-border/60 bg-card" />;
 
   const seriesId = item.type === "series" ? item.content_id : item.type === "season" ? item.series_id : null;
 
   return (
     <article className="flex flex-col gap-6">
-      <BackButton fallback={`/servers/${encodeURIComponent(serverId)}/home`} />
       <div className="flex flex-col gap-10">
         <Hero serverId={serverId} item={item} />
         {seriesId ? (

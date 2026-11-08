@@ -180,6 +180,10 @@ pub struct Controller {
     progress_inflight: Option<tokio::task::JoinHandle<ProgressResult>>,
     /// A sample was asked for while one was in flight; send it when that one finishes.
     progress_due: bool,
+    /// An audio switch paused playback for its resync seek; resume when that seek lands.
+    resume_after_switch: bool,
+    /// Sidecar subtitle URLs already handed to mpv for this load (server URL, local URL).
+    sidecars: Vec<(String, String)>,
 }
 
 /// Outcome of delivering a stop.
@@ -240,6 +244,8 @@ impl Controller {
             last_progress: None,
             last_source_position: 0.0,
             tracks_applied: false,
+            resume_after_switch: false,
+            sidecars: Vec::new(),
             stop_id: None,
             stopped: false,
             server_ended: false,
@@ -360,6 +366,8 @@ impl Controller {
         }
         self.stream_url = url;
         self.tracks_applied = false;
+        self.resume_after_switch = false;
+        self.sidecars.clear();
         let info = self.plan_info(relayed);
         tracing::info!(
             session = %self.session_id,
@@ -460,6 +468,9 @@ impl Controller {
                 self.reloads_succeeded();
             }
             MpvEvent::PlaybackRestart => {
+                if std::mem::take(&mut self.resume_after_switch) {
+                    self.set("pause", "no");
+                }
                 // First frame of the load, or a seek finished.
                 if !self.started_reported || before.phase == Phase::Seeking {
                     self.started_reported = true;
@@ -574,11 +585,33 @@ impl Controller {
         })
     }
 
-    fn add_sidecar(&self, raw: &str) -> Result<(), ControllerError> {
-        let (url, _) = self.media_url(raw)?;
+    fn add_sidecar(&mut self, raw: &str) -> Result<(), ControllerError> {
+        let url = match self.sidecars.iter().find(|(r, _)| r == raw) {
+            Some((_, local)) => local.clone(),
+            None => self.media_url(raw)?.0,
+        };
+        // Picked before: select the loaded track instead of downloading and stacking another copy.
+        if let Some(count) = self
+            .backend
+            .get_property("track-list/count")
+            .and_then(|c| c.parse::<usize>().ok())
+        {
+            let existing = (0..count).find_map(|n| {
+                let get = |k: &str| self.backend.get_property(&format!("track-list/{n}/{k}"));
+                (get("type").as_deref() == Some("sub") && get("external-filename").as_deref() == Some(url.as_str()))
+                    .then(|| get("id"))
+                    .flatten()
+            });
+            if let Some(id) = existing {
+                self.set("sid", &id);
+                return Ok(());
+            }
+        }
         self.backend
             .command(&["sub-add", &url, "select"])
-            .map_err(|e| ControllerError::Player(e.to_string()))
+            .map_err(|e| ControllerError::Player(e.to_string()))?;
+        self.sidecars.push((raw.to_owned(), url));
+        Ok(())
     }
 
     /// UI subtitle menu. Direct play switches in mpv; a remux/transcode only carries the negotiated tracks, so the
@@ -638,18 +671,30 @@ impl Controller {
             return Ok(());
         }
         self.args.audio_index = Some(index);
-        self.set("aid", &aid);
-        // A new audio track on a network stream makes mpv refill only that track while video runs on, then catch
-        // audio up (silence, then audio/video drifting back together). One exact seek to the same position restarts
-        // both in sync instead.
-        if let Some(pos) = self
+        // A new audio track on a network stream makes mpv refill only that track while video runs on; audio then
+        // joins late and display-resample pulls it back with up to 12.5 % faster audio (heard as a speed-up), or it
+        // stays silent on slow sources. Instead: hold playback, switch, seek exactly to the same position so both
+        // streams preroll from one point, and resume when that seek lands (`PlaybackRestart`).
+        let pos = self
             .backend
             .get_property("time-pos")
-            .and_then(|p| p.parse::<f64>().ok())
-            && let Err(e) = self.backend.seek_absolute(pos)
-        {
-            tracing::warn!(error = %e, "resync after the audio switch failed");
+            .and_then(|p| p.parse::<f64>().ok());
+        let was_playing = self.backend.get_property("pause").as_deref() == Some("no");
+        if was_playing && pos.is_some() {
+            self.set("pause", "yes");
         }
+        self.set("aid", &aid);
+        match pos.map(|p| self.backend.seek_absolute(p)) {
+            Some(Ok(())) => self.resume_after_switch |= was_playing,
+            Some(Err(e)) => {
+                tracing::warn!(error = %e, "resync after the audio switch failed");
+                if was_playing {
+                    self.set("pause", "no");
+                }
+            }
+            None => {}
+        }
+        tracing::info!(index, "audio track switched in the player");
         Ok(())
     }
 

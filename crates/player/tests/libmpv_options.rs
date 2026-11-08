@@ -104,7 +104,9 @@ fn preview_frames_from_real_files() {
             eprintln!("skipped {name}: run scripts/gen-test-media.ps1");
             continue;
         }
-        let t = Thumbnailer::open(file.to_str().unwrap(), &dir, Duration::from_secs(15)).unwrap();
+        let mut t = Thumbnailer::open(file.to_str().unwrap(), &dir, Duration::from_secs(15)).unwrap();
+        assert!(t.indexed(), "{name}: test media has a keyframe index");
+        assert!(t.snap(5.0).is_some_and(|k| k <= 5.0));
         for at in [1.0, 5.0] {
             let jpg = t.frame(at, Duration::from_secs(10)).unwrap();
             assert!(jpg.starts_with(&[0xFF, 0xD8]), "{name} @ {at}: not a JPEG");

@@ -47,8 +47,10 @@ pub fn desktop_baseline() -> Vec<(String, String)> {
         ("video-sync", "display-resample"),
         ("audio-channels", "auto-safe"),
         ("cache", "yes"),
-        ("demuxer-max-bytes", "256MiB"),
-        ("demuxer-max-back-bytes", "64MiB"),
+        ("demuxer-max-bytes", "768MiB"),
+        ("demuxer-max-back-bytes", "128MiB"),
+        ("stream-buffer-size", "4MiB"),
+        ("cache-pause-wait", "3"),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v.to_string()))

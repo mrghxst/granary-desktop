@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { Badge } from "../components/Popover";
-import { Alert, BackButton } from "../components/ui";
+import { Alert } from "../components/ui";
 import { artwork, catalog, type CatalogQuery } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { retryLoads } from "../lib/events";
@@ -53,7 +53,6 @@ export function Person() {
 
   return (
     <article className="flex flex-col gap-10">
-      <BackButton fallback={`/servers/${encodeURIComponent(serverId)}/home`} />
       <section className="flex flex-col gap-8 md:flex-row">
         <div className="aspect-[2/3] w-48 shrink-0 overflow-hidden rounded-2xl bg-surface-raised shadow-2xl lg:w-60">
           {photo ? (

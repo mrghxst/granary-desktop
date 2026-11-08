@@ -75,6 +75,11 @@ fn probe_libmpv() -> Result<u64, String> {
 ///
 /// Debug builds only: `GRANARY_MOCK_SERVER=1` swaps in the in-process mock server and an in-memory credential store
 /// (UI development and end-to-end tests without a Silo server; user `alice` / `pw`, Kids PIN `1234`).
+/// Debug build with `GRANARY_MOCK_SERVER=1`.
+fn mock_mode() -> bool {
+    cfg!(debug_assertions) && std::env::var("GRANARY_MOCK_SERVER").is_ok_and(|v| v == "1")
+}
+
 fn silo_state(version: &str) -> Result<silo::SiloState, Box<dyn std::error::Error>> {
     use granary_silo_api::credentials::{CredentialStore, MemoryStore};
     use granary_silo_api::device::DeviceIdentity;
@@ -82,7 +87,7 @@ fn silo_state(version: &str) -> Result<silo::SiloState, Box<dyn std::error::Erro
     use std::sync::Arc;
 
     let registry = paths::config_dir().join("servers.json");
-    if cfg!(debug_assertions) && std::env::var("GRANARY_MOCK_SERVER").is_ok_and(|v| v == "1") {
+    if mock_mode() {
         tracing::warn!("GRANARY_MOCK_SERVER=1: using the in-process mock server");
         // The mock streams the generated test clips (scripts/gen-test-media.ps1) for real playback in debug builds.
         let media = std::env::var_os("GRANARY_MOCK_MEDIA")
@@ -117,7 +122,10 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     tracing::info!(%version, "Granary starting");
     // Repair a display left switched by a crash before anything that can fail and end startup (final review L2).
     #[cfg(windows)]
-    repair_displays();
+    // A mock-mode dev build may run beside the installed app, whose marker is not ours to repair.
+    if !mock_mode() {
+        repair_displays();
+    }
     app.manage(silo_state(&version)?);
     app.manage(settings::SettingsStore::load(paths::config_dir().join("settings.json")));
     let libmpv_ok = libmpv.error.is_none();
@@ -196,16 +204,19 @@ pub fn run() {
         Some(e) => tracing::error!(error = %e, "libmpv unavailable; playback disabled"),
     }
 
-    let app = tauri::Builder::default()
-        // Must be the first plugin: a second launch focuses the running window and exits during plugin setup,
-        // before `setup` (display repair) runs.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let mut builder = tauri::Builder::default();
+    // Must be the first plugin: a second launch focuses the running window and exits during plugin setup, before
+    // `setup` (display repair) runs. A mock-mode dev build skips it so it can run beside the installed app.
+    if !mock_mode() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.unminimize();
                 let _ = w.show();
                 let _ = w.set_focus();
             }
-        }))
+        }));
+    }
+    let app = builder
         // Never restore fullscreen/hidden state: quitting during fullscreen playback must reopen a normal window.
         .plugin(
             tauri_plugin_window_state::Builder::default()

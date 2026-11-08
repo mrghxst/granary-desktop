@@ -18,7 +18,8 @@ static stays on an OLED panel.
 
 - **Seek bar** with chapter ticks and intro/credits ranges. Hover it for a **preview image**: the server's trickplay
   sheets when it has them, otherwise frames decoded from the file itself (direct play only; turn off under
-  **Settings → Player → Seek-bar previews**).
+  **Settings → Player → Seek-bar previews**). For MKV files Granary reads the keyframe index and fetches one keyframe
+  per preview, so previews are fine-grained and quick even for large remote files.
 - **Audio** and **Subtitles** menus show the language first, then codec, channels and flags such as Atmos, forced,
   SDH and default. Your picks carry over to the next episodes of the same series.
 - **Skip intro** and **Skip credits** when the server knows the ranges. Credits followed by an epilogue offer both

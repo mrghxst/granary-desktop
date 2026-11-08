@@ -5,6 +5,24 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Detail pages have a cleaner, more consistent banner: the artwork fills the frame (a blurred poster when there is no
+  backdrop), the logo sits in a fixed-height slot, facts and quality tags share one line, credits are aligned, and the
+  small poster beside the title is gone. Episodes show the show (logo or name) and season/episode above their title.
+- Seek-bar previews read the keyframe index of Matroska files and fetch only one keyframe per preview, so they are
+  much finer (every 2–10 s) and quicker on large remote files; other containers keep the previous method.
+- Playback gets priority: a larger read-ahead buffer for big files, a short wait to refill the cache instead of
+  stuttering, and seek-preview decoding limited to two threads with cheaper settings.
+- Back sits in one fixed place on detail and person pages, is there before the page has loaded, and stays reachable
+  while you scroll; pages from the sidebar have none. Going back restores the scroll position in one step.
+- Long filter lists (studios, networks, countries, languages, genres) get a search field and show only the best
+  matches instead of filling the whole panel.
+
+### Fixed
+- Switching audio tracks during playback no longer speeds up or breaks audio: the player pauses, switches and
+  resyncs at the same spot, then continues.
+- Picking the same external subtitle again reuses it instead of downloading another copy.
+
 ## [0.3.0] - 2026-11-08
 Fixes from the 0.2 test round: filters, navigation, a calmer player and lighter seek previews.
 

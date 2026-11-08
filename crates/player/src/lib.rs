@@ -3,7 +3,9 @@
 
 pub mod backend;
 pub mod events;
+pub mod mkv;
 pub mod options;
+pub mod range;
 pub mod state;
 
 #[cfg(windows)]

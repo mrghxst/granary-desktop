@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUp, Check, ChevronDown, Layers, Shuffle, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowUp, Check, ChevronDown, Layers, Search, Shuffle, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
@@ -723,7 +723,12 @@ const chip = (on: boolean) =>
       : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
   }`;
 
-function FilterChips({
+/** Facets with more values than this get a search field and show only the best matches. */
+const SEARCH_AT = 16;
+/** Matches shown at once in a searchable facet (the selected value is always among them). */
+const SHOW = 14;
+
+export function FilterChips({
   title,
   values,
   value,
@@ -736,12 +741,48 @@ function FilterChips({
   onChange: (v: string | null) => void;
   format?: (v: string) => string;
 }) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState("");
   if (values.length === 0) return null;
+  const searchable = values.length > SEARCH_AT;
+  const q = query.trim().toLocaleLowerCase();
+  let shown = values;
+  let more = 0;
+  if (searchable) {
+    const hits = q
+      ? values
+          .map((v) => ({ v, at: format(v).toLocaleLowerCase().indexOf(q) }))
+          .filter((x) => x.at >= 0)
+          // Prefix matches first, then the rest in the server's order.
+          .sort((x, y) => Number(x.at !== 0) - Number(y.at !== 0))
+          .map((x) => x.v)
+      : values;
+    const head = hits.filter((v) => v !== value).slice(0, value === null ? SHOW : SHOW - 1);
+    shown = value !== null ? [value, ...head] : head;
+    more = Math.max(0, hits.length - head.length - (value !== null && hits.includes(value) ? 1 : 0));
+  }
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{title}</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{title}</span>
+        {searchable ? (
+          <label className="flex h-7 w-44 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs focus-within:border-foreground/50">
+            <Search className="size-3.5 shrink-0 text-muted-foreground" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+              }}
+              placeholder={t("browse.searchFacet", { title })}
+              aria-label={t("browse.searchFacet", { title })}
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground/70"
+            />
+          </label>
+        ) : null}
+      </div>
       <div className="flex flex-wrap gap-1.5">
-        {values.map((v) => (
+        {shown.map((v) => (
           <button
             key={v}
             type="button"
@@ -754,7 +795,13 @@ function FilterChips({
             {format(v)}
           </button>
         ))}
+        {searchable && shown.length === 0 ? (
+          <span className="py-1 text-xs text-muted-foreground">{t("browse.noFacetMatch")}</span>
+        ) : null}
       </div>
+      {more > 0 ? (
+        <span className="text-[11px] text-muted-foreground">{t("browse.moreFacets", { count: more })}</span>
+      ) : null}
     </div>
   );
 }

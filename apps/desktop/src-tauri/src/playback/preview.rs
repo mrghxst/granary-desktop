@@ -1,7 +1,7 @@
 //! Seek-bar previews for direct-played files without server trickplay (ADR-0009). One headless libmpv handle per
-//! source, opened on first hover and dropped when playback moves on. The overlay snaps hover positions to an interval of
-//! at least 30 s (longer for long files, `useLocalPreview.ts`), so a sweep over the bar seeks a remote file only a
-//! few dozen times; frames are cached per requested time so each spot is decoded once.
+//! source, opened on first hover and dropped when playback moves on. Matroska files are previewed from their keyframe
+//! index (one small range request per frame, `granary_player::mkv`); frames are cached per keyframe and per requested
+//! time so each spot is fetched and decoded once.
 use super::host::{Cmd, PlayerHost};
 use crate::settings::SettingsStore;
 use crate::silo::CmdResult;
@@ -124,10 +124,17 @@ fn frame(app: &AppHandle, source: &str, bucket: u64, at: f64) -> Option<Arc<Stri
             }
         }
     }
-    let jpg = p.thumb.as_ref()?.frame(at, Duration::from_secs(15));
+    // With a keyframe index every time between two keyframes shows the same frame: cache per keyframe.
+    let key = p.thumb.as_ref()?.snap(at).and_then(self::bucket).unwrap_or(bucket);
+    if let Some(hit) = p.cache.get(&key).cloned() {
+        p.remember(bucket, Arc::clone(&hit));
+        return Some(hit);
+    }
+    let jpg = p.thumb.as_mut()?.frame(at, Duration::from_secs(15));
     match jpg {
         Ok(bytes) => {
             let url = Arc::new(format!("data:image/jpeg;base64,{}", base64(&bytes)));
+            p.remember(key, Arc::clone(&url));
             p.remember(bucket, Arc::clone(&url));
             Some(url)
         }
