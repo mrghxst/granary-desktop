@@ -53,6 +53,27 @@
   - Decoding is kept cheap so playback keeps priority: `vd-lavc-threads=2`, `vd-lavc-skiploopfilter=all`,
     `vd-lavc-fast`.
   - Files without Cues, laced blocks, and non-Matroska containers (MP4, AVI, ...) keep the seek mode above.
+- **Revision 3 (2026-11-08, after 0.4.0): never wait on the hover.** On remote sources, the first byte of a cold range
+  can take a second or more, so even one keyframe per spot left the tile empty for seconds. What others do:
+  - Jellyfin, Plex, Netflix and YouTube pre-generate sprite sheets on the server. YouTube keeps several storyboard
+    levels, coarse to fine, so something is always there (spec format as reverse-engineered by Invidious and others).
+    Granary already uses server sheets when they exist.
+  - Client-side generators on network files are known to be slow and heavy. mpv's thumbfast ships with `network=no`
+    by default, and mpv_thumbnail_script recommends fewer thumbnails for remote files (`remote_thumbnail_count`).
+  - Granary keeps the index reads but splits the work into three paths:
+    - **Stand-in:** `player_preview_near` answers from the frame cache only (a separate lock from the decoder) with
+      the nearest decoded keyframe. The overlay shows it at once, dimmed, if it is within a twelfth of the file.
+    - **Exact:** `player_preview` fetches the hovered spot's keyframe as before. It goes ahead of everything else:
+      the background fill yields while a hover request waits.
+    - **Background fill:** `player_preview_warm` starts once per file, 4 s after the controls mount. Index mode only;
+      seek mode would compete with playback. It decodes 12, then 48, then 120 evenly spread keyframes (at most 180
+      fetches, minus those already cached), one at a time with a 300 ms pause. It runs only while the main player is
+      playing or paused and not buffering, and stops when the source changes. Each frame is one keyframe, typically
+      0.1–1.5 MB on 4K remuxes, so the fill costs well under 1 % of a remux and gives every hover a frame within a
+      120th of the file.
+  - Precision is not traded away: the exact keyframe still replaces the stand-in, usually within one range read.
+  - The tile has a fixed 240 px width (trickplay tiles are scaled to it) and is clamped inside the bar, so it never
+    shrinks at the right edge or leaves the screen at the left.
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 

@@ -256,12 +256,22 @@ impl MockSiloApi {
                     index: Some(i),
                 }),
             },
-            subtitle: match subtitle {
-                Some(i) => SubtitleDecision {
+            // Like the server (`playback_v3.go@6791aac` classifySubtitleIndexV3): the request index counts external
+            // subtitles first, then embedded tracks in order; the plan names the embedded track's stream index.
+            subtitle: match subtitle.and_then(|i| {
+                let externals = version.subtitle_tracks.iter().filter(|t| t.external).count() as i64;
+                let embedded: Vec<_> = version.subtitle_tracks.iter().filter(|t| !t.external).collect();
+                usize::try_from(i - externals)
+                    .ok()
+                    .and_then(|o| embedded.get(o))
+                    .and_then(|t| t.index)
+                    .map(|stream| (i, stream))
+            }) {
+                Some((i, stream)) => SubtitleDecision {
                     mode: "render".into(),
                     track_id: Some(format!("s{i}")),
                     embedded: Some(EmbeddedSubtitle {
-                        stream_index: i,
+                        stream_index: stream,
                         container_track_id: None,
                     }),
                     ..SubtitleDecision::default()

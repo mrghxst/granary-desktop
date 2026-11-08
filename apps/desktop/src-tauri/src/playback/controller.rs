@@ -182,8 +182,26 @@ pub struct Controller {
     progress_due: bool,
     /// An audio switch paused playback for its resync seek; resume when that seek lands.
     resume_after_switch: bool,
+    /// After an audio switch resumed: watch A/V sync for a few seconds and resync again if audio is missing or
+    /// drifting (the remedy a viewer would otherwise apply by seeking).
+    sync_check: Option<SyncCheck>,
     /// Sidecar subtitle URLs already handed to mpv for this load (server URL, local URL).
     sidecars: Vec<(String, String)>,
+}
+
+/// How long after an audio switch the sync watchdog runs, and how often it may resync.
+const SYNC_CHECK_WINDOW: Duration = Duration::from_secs(8);
+const SYNC_CHECK_RETRIES: u8 = 2;
+/// Audio this far from the video clock (s) after a switch counts as out of sync.
+const SYNC_TOLERANCE: f64 = 0.35;
+
+#[derive(Debug, Clone, Copy, Default)]
+struct SyncCheck {
+    /// Set on the first tick after the resume.
+    until: Option<Instant>,
+    /// Consecutive out-of-sync samples.
+    bad: u8,
+    retries: u8,
 }
 
 /// Outcome of delivering a stop.
@@ -245,6 +263,7 @@ impl Controller {
             last_source_position: 0.0,
             tracks_applied: false,
             resume_after_switch: false,
+            sync_check: None,
             sidecars: Vec::new(),
             stop_id: None,
             stopped: false,
@@ -367,6 +386,7 @@ impl Controller {
         self.stream_url = url;
         self.tracks_applied = false;
         self.resume_after_switch = false;
+        self.sync_check = None;
         self.sidecars.clear();
         let info = self.plan_info(relayed);
         tracing::info!(
@@ -470,6 +490,11 @@ impl Controller {
             MpvEvent::PlaybackRestart => {
                 if std::mem::take(&mut self.resume_after_switch) {
                     self.set("pause", "no");
+                    let retries = self.sync_check.map_or(0, |c| c.retries);
+                    self.sync_check = Some(SyncCheck {
+                        retries,
+                        ..SyncCheck::default()
+                    });
                 }
                 // First frame of the load, or a seek finished.
                 if !self.started_reported || before.phase == Phase::Seeking {
@@ -527,6 +552,7 @@ impl Controller {
             self.recover().await;
             return;
         }
+        self.check_sync(now);
         let interval = match self.state.phase {
             Phase::Playing | Phase::Buffering => PROGRESS_INTERVAL,
             Phase::Paused => PAUSED_HEARTBEAT,
@@ -553,10 +579,14 @@ impl Controller {
         match (&sub.mode[..], &sub.embedded, &sub.artifact) {
             (_, Some(e), _) if sub.mode != "off" && sub.mode != "burn_in" => match self.mpv_sub_id(e.stream_index) {
                 Some(sid) => self.set("sid", &sid),
-                None => tracing::warn!(
-                    stream_index = e.stream_index,
-                    "embedded subtitle not in the mpv track list"
-                ),
+                None => {
+                    tracing::warn!(
+                        stream_index = e.stream_index,
+                        "embedded subtitle not in the mpv track list"
+                    );
+                    // Never leave mpv's own pick (a default-flagged track in any language) on screen.
+                    self.set("sid", "no");
+                }
             },
             (_, _, Some(a)) if sub.mode != "off" && sub.mode != "burn_in" => {
                 if let Err(e) = self.add_sidecar(&a.url.clone()) {
@@ -671,10 +701,17 @@ impl Controller {
             return Ok(());
         }
         self.args.audio_index = Some(index);
-        // A new audio track on a network stream makes mpv refill only that track while video runs on; audio then
-        // joins late and display-resample pulls it back with up to 12.5 % faster audio (heard as a speed-up), or it
-        // stays silent on slow sources. Instead: hold playback, switch, seek exactly to the same position so both
-        // streams preroll from one point, and resume when that seek lands (`PlaybackRestart`).
+        self.sync_check = None;
+        self.resync_audio(Some(&aid));
+        tracing::info!(index, "audio track switched in the player");
+        Ok(())
+    }
+
+    /// A new audio track on a network stream makes mpv refill only that track while video runs on; audio then
+    /// joins late and display-resample pulls it back with up to 12.5 % faster audio (heard as a speed-up), or it
+    /// stays silent on slow sources. Instead: hold playback, (switch,) seek exactly to the same position so both
+    /// streams preroll from one point, and resume when that seek lands (`PlaybackRestart`).
+    fn resync_audio(&mut self, aid: Option<&str>) {
         let pos = self
             .backend
             .get_property("time-pos")
@@ -683,7 +720,9 @@ impl Controller {
         if was_playing && pos.is_some() {
             self.set("pause", "yes");
         }
-        self.set("aid", &aid);
+        if let Some(aid) = aid {
+            self.set("aid", aid);
+        }
         match pos.map(|p| self.backend.seek_absolute(p)) {
             Some(Ok(())) => self.resume_after_switch |= was_playing,
             Some(Err(e)) => {
@@ -694,8 +733,56 @@ impl Controller {
             }
             None => {}
         }
-        tracing::info!(index, "audio track switched in the player");
-        Ok(())
+    }
+
+    /// Sync watchdog after an audio switch (see `sync_check`): two out-of-sync samples in a row (about a second)
+    /// trigger another exact resync, at most `SYNC_CHECK_RETRIES` times within `SYNC_CHECK_WINDOW`.
+    fn check_sync(&mut self, now: Instant) {
+        let Some(mut c) = self.sync_check else { return };
+        // The first tick after the resume only arms the window: audio needs a moment to start.
+        let Some(until) = c.until else {
+            c.until = Some(now + SYNC_CHECK_WINDOW);
+            self.sync_check = Some(c);
+            return;
+        };
+        if now >= until || self.resume_after_switch {
+            self.sync_check = if now >= until { None } else { Some(c) };
+            return;
+        }
+        if self.state.phase != Phase::Playing {
+            self.sync_check = Some(c);
+            return;
+        }
+        let num = |k: &str| self.backend.get_property(k).and_then(|v| v.parse::<f64>().ok());
+        let audio_on = self
+            .backend
+            .get_property("aid")
+            .is_some_and(|a| a != "no" && a != "false");
+        if !audio_on {
+            self.sync_check = None;
+            return;
+        }
+        let off = match (num("time-pos"), num("audio-pts"), num("avsync")) {
+            (Some(v), Some(a), sync) => (v - a).abs().max(sync.unwrap_or(0.0).abs()) > SYNC_TOLERANCE,
+            // Playing with an audio track selected but no audio clock: audio never started.
+            _ => true,
+        };
+        c.bad = if off { c.bad + 1 } else { 0 };
+        if c.bad >= 2 {
+            if c.retries >= SYNC_CHECK_RETRIES {
+                tracing::warn!("audio still out of sync after resyncs; leaving it to the player");
+                self.sync_check = None;
+                return;
+            }
+            c.retries += 1;
+            c.bad = 0;
+            c.until = Some(now + SYNC_CHECK_WINDOW);
+            tracing::warn!(attempt = c.retries, "audio out of sync after a track switch; resyncing");
+            self.sync_check = Some(c);
+            self.resync_audio(None);
+            return;
+        }
+        self.sync_check = Some(c);
     }
 
     /// The protocol identity of a subtitle menu choice, from the plan's inventory (`None` = off).
@@ -1358,8 +1445,9 @@ mod tests {
 
     #[tokio::test]
     async fn embedded_subtitle_is_selected_by_stream_index() {
+        // Protocol ordinal 1 = the second embedded track (no externals), stream index 3 in the mock's version.
         let r = rig(StartArgs {
-            subtitle_index: Some(3),
+            subtitle_index: Some(1),
             ..args()
         })
         .await;
@@ -1395,6 +1483,70 @@ mod tests {
         c.select_audio(0).await.unwrap();
         assert_eq!(r.backend.calls().last().unwrap(), "set aid=1");
         assert!(r.api.playback_log().replans.is_empty(), "direct play switches locally");
+    }
+
+    #[tokio::test]
+    async fn unmatched_embedded_subtitle_turns_subtitles_off() {
+        let r = rig(StartArgs {
+            subtitle_index: Some(1),
+            ..args()
+        })
+        .await;
+        r.backend
+            .properties
+            .lock()
+            .unwrap()
+            .push(("track-list/count".into(), "0".into()));
+        let mut c = r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        assert_eq!(r.backend.calls().last().unwrap(), "set sid=no");
+    }
+
+    #[tokio::test]
+    async fn audio_switch_resyncs_again_when_audio_does_not_start() {
+        let r = rig(args()).await;
+        let mut c = r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        r.backend.set_property("time-pos", "50.000").unwrap();
+        r.backend.set_property("pause", "no").unwrap();
+        c.on_event(&prop("pause", PropValue::Flag(false))).await;
+        play_to(&mut c, 50.0).await;
+        let seeks = |r: &MockBackend| r.calls().iter().filter(|c| c.starts_with("cmd seek")).count();
+
+        c.select_audio(0).await.unwrap();
+        let calls = r.backend.calls();
+        assert_eq!(
+            &calls[calls.len() - 3..],
+            ["set pause=yes", "set aid=1", "cmd seek 50.000 absolute"]
+        );
+        c.on_event(&MpvEvent::Seek).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        assert_eq!(
+            r.backend.calls().last().unwrap(),
+            "set pause=no",
+            "resumes when the seek lands"
+        );
+
+        // Audio never starts (no audio clock): the watchdog arms, then resyncs after two bad samples.
+        let t0 = Instant::now();
+        let ms = Duration::from_millis;
+        c.tick(t0).await;
+        c.tick(t0 + ms(500)).await;
+        assert_eq!(seeks(&r.backend), 1, "one bad sample is not enough");
+        c.tick(t0 + ms(1000)).await;
+        assert_eq!(seeks(&r.backend), 2, "resynced");
+        c.on_event(&MpvEvent::Seek).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+
+        // Now in sync: no further resyncs, and the window ends.
+        r.backend.set_property("audio-pts", "50.020").unwrap();
+        r.backend.set_property("avsync", "0.010").unwrap();
+        for i in 0..30 {
+            c.tick(t0 + ms(1500 + 500 * i)).await;
+        }
+        assert_eq!(seeks(&r.backend), 2);
+        assert!(c.sync_check.is_none(), "watchdog window closed");
     }
 
     #[tokio::test]

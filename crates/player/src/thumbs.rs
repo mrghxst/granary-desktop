@@ -177,6 +177,14 @@ impl Thumbnailer {
         }
     }
 
+    /// Every keyframe time in the index (index mode), for background prefetching; `None` in seek mode.
+    pub fn keyframes(&self) -> Option<Vec<f64>> {
+        match &self.mode {
+            Mode::Index { index, .. } => Some(index.cues().iter().map(|c| index.seconds(c)).collect()),
+            Mode::Seek => None,
+        }
+    }
+
     fn wait(&self, timeout: Duration, want: impl Fn(&MpvEvent) -> bool) -> Result<(), PlayerError> {
         let end = Instant::now() + timeout;
         loop {

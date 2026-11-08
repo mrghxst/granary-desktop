@@ -1,33 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import { player } from "../lib/player";
 
-/** Hover must rest this long on an uncached spot before a frame is requested (a sweep over the bar asks nothing). */
+/** Hover must rest this long on an uncached spot before the exact frame is requested (a sweep asks nothing). */
 const SETTLE_MS = 60;
-/** While a frame loads, show a decoded neighbour at most this many intervals away. */
-const NEAR = 2;
+/** A nearby frame stands in for the exact one only up to this share of the file away. */
+const NEAR_SHARE = 1 / 12;
 
 /**
- * Seconds between preview frames: about 400 spots over the file, between 2 s and 10 s. Matroska files are previewed
- * from their keyframe index (one small range read per frame, cached per keyframe on the host), so spots can be close
- * together without loading the playing stream; the host answers repeated spots inside one keyframe from its cache.
+ * Seconds between preview spots: about 400 over the file, between 2 s and 10 s. Matroska files are previewed from their
+ * keyframe index (one small range read per frame, cached per keyframe on the host), so spots can be close together;
+ * the host answers repeated spots inside one keyframe from its cache.
  */
 export function previewInterval(duration: number): number {
   if (!Number.isFinite(duration) || duration <= 0) return 10;
   return Math.min(10, Math.max(2, Math.ceil(duration / 400)));
 }
 
+export interface LocalPreview {
+  url: string;
+  /** A nearby frame shown while the exact one loads (or when it could not be decoded). */
+  approx: boolean;
+}
+
 /**
- * Seek-bar previews decoded from the playing file when the server has no trickplay sheets (ADR-0009). Hover positions
- * snap to `previewInterval`; at most one request is in flight and, when it returns, the newest hover position is
- * fetched next, so sweeping the bar never queues a backlog. Frames are cached for the lifetime of the controls.
+ * Seek-bar previews decoded from the playing file when the server has no trickplay sheets (ADR-0009 revision 3):
+ * - once per file the host starts a paced background fill of a coarse-to-fine keyframe grid;
+ * - every hover shows the nearest frame the host already has, at once (a cache read, no network);
+ * - when the pointer rests, the exact frame for the spot is fetched (one request in flight, newest spot next) and
+ *   replaces the stand-in.
  */
-export function useLocalPreview(enabled: boolean, at: number | null, duration: number): string | null {
+export function useLocalPreview(enabled: boolean, at: number | null, duration: number): LocalPreview | null {
   const cache = useRef(new Map<number, string | null>());
   const inflight = useRef(false);
   const mounted = useRef(true);
   const wanted = useRef<number | null>(null);
   // The ref serves the request pump; the state copy is what render reads.
   const [frames, setFrames] = useState<ReadonlyMap<number, string | null>>(() => new Map());
+  const [near, setNear] = useState<{ spot: number; at: number; url: string } | null>(null);
   const step = previewInterval(duration);
   const spot = enabled && at !== null && Number.isFinite(at) && at >= 0 ? Math.floor(at / step) * step : null;
 
@@ -39,7 +48,19 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
   }, []);
 
   useEffect(() => {
+    if (enabled && duration > 0) void player.previewWarm().catch(() => undefined);
+  }, [enabled, duration]);
+
+  useEffect(() => {
     wanted.current = spot;
+    if (spot === null || cache.current.has(spot)) return;
+    // Stand-in first: answered from the host's cache, so it is there before the exact frame could be.
+    void player
+      .previewNear(spot)
+      .catch(() => null)
+      .then((n) => {
+        if (mounted.current && n && wanted.current === spot) setNear({ spot, ...n });
+      });
     const pump = () => {
       const s = wanted.current;
       if (!mounted.current || inflight.current || s === null || cache.current.has(s)) return;
@@ -55,7 +76,6 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
           pump();
         });
     };
-    if (spot === null || cache.current.has(spot)) return;
     const id = setTimeout(pump, SETTLE_MS);
     return () => {
       clearTimeout(id);
@@ -64,15 +84,10 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
 
   if (spot === null) return null;
   const exact = frames.get(spot);
-  if (exact !== undefined) return exact;
-  let best: string | null = null;
-  let dist = Infinity;
-  for (const [s, url] of frames) {
-    const d = Math.abs(s - spot);
-    if (url && d < dist && d <= NEAR * step) {
-      dist = d;
-      best = url;
-    }
+  if (exact) return { url: exact, approx: false };
+  // The last stand-in stays up while the next one is asked for, so the tile does not flicker between spots.
+  if (near && Math.abs(near.at - spot) <= Math.max(2 * step, duration * NEAR_SHARE)) {
+    return { url: near.url, approx: true };
   }
-  return best;
+  return null;
 }

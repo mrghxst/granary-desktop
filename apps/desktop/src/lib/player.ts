@@ -130,6 +130,10 @@ export const player = {
   window: () => call<WindowState>("player_window"),
   /** JPEG data URL of the frame near `seconds` in the playing file (no server trickplay), or null. */
   preview: (seconds: number) => call<string | null>("player_preview", { seconds }),
+  /** The nearest frame already decoded (never waits for the network). */
+  previewNear: (seconds: number) => call<{ at: number; url: string } | null>("player_preview_near", { seconds }),
+  /** Start the paced background fill of preview frames for the playing file. */
+  previewWarm: () => call<null>("player_preview_warm"),
   trickplay: (serverId: string, itemId: string, fileId: string) =>
     call<Trickplay>("watch_trickplay", { serverId, itemId, fileId }),
   onState: (f: (s: PlayerState) => void) => on("player://state", f),

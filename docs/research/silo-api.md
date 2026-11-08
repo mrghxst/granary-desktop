@@ -307,6 +307,7 @@ Optional fields:
 
 - Position: `start_position` (number, seconds). When it is omitted the server uses the stored resume position (`playback-protocol-v3.md` §2 start semantics).
 - Tracks: `audio_track_id`, `audio_track_index`, `subtitle_track_id` and `subtitle_track_index`. Omitting the subtitle fields means subtitles **off**, which is how Android requests no subtitle.
+- **Subtitle index spaces differ.** In a start or replan request, `subtitle_track_index` is an ordinal: the file's external subtitles first, then its embedded subtitle streams in order, then downloaded ones (`internal/api/handlers/playback_v3.go@6791aac` classifySubtitleIndexV3, L6469). The catalog's `VersionSubtitleTrack.index` is the probed stream index for embedded tracks, with externals numbered after them (`internal/catalog/detail.go@6791aac` buildVersionSubtitleTracks, L4913). A client must convert, as Granary does in `protocolSubtitleIndex` (`apps/desktop/src/lib/play.ts`). Sending the catalog index unchanged selects another track, for example an Arabic one instead of forced English. The plan's `subtitle.embedded.stream_index` is again the absolute stream index (mpv `track-list/N/ff-index`).
 - Versions: `allow_alternate_versions` (bool). Setting it to false pins the source file.
 - Bandwidth: `bandwidth_estimate_kbps`, `bandwidth_estimate_source` (`probe|observed_rebuffer`), `bandwidth_cap_kbps` and `observed_throughput_kbps`.
 - `learned_limit` (`ignore|clear`).

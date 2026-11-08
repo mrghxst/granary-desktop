@@ -45,6 +45,8 @@
     "allow-player-subtitle",
     "allow-player-stats",
     "allow-player-preview",
+    "allow-player-preview-near",
+    "allow-player-preview-warm",
     "allow-player-state",
     "allow-player-overlay",
     "allow-player-fullscreen",

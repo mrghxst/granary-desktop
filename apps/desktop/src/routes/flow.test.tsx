@@ -376,7 +376,8 @@ describe("connect flow", () => {
         startSeconds: 1520,
         audioIndex: 1,
         // Mode "off" with German audio picked: only the forced German track shows (web-app rule).
-        subtitleIndex: 3,
+        // Catalog stream 3 is the second embedded track (no externals): protocol ordinal 1.
+        subtitleIndex: 1,
         // Media flyout lines; a movie has no previous/next episode.
         title: "Northern Lights",
         hasPrevious: false,

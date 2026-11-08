@@ -44,6 +44,8 @@ const COMMANDS: &[&str] = &[
     "player_subtitle",
     "player_stats",
     "player_preview",
+    "player_preview_near",
+    "player_preview_warm",
     "player_state",
     "player_overlay",
     "player_fullscreen",

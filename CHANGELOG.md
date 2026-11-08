@@ -5,6 +5,30 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Search has type filters: All, Movies, Shows or Episodes. The choice is remembered, so going back to search
+  restores it.
+- Seek previews feel instant. Once a file has played for a few seconds, a paced background fill fetches a
+  coarse-to-fine grid of keyframes (12, then 48, then 120 over the file). It runs only while playback is healthy and
+  never while you hover. Hovering shows the nearest decoded frame right away, slightly dimmed, and swaps in the exact
+  keyframe for that spot a moment later.
+
+### Changed
+- Seek previews always have the same size (sheets of any tile size are scaled to it) and stay inside the bar at both
+  ends instead of shrinking or going off-screen.
+- The loading spinner stays visible while the controls are hidden, so a stalled picture always shows that it is
+  loading.
+
+### Fixed
+- The right subtitle starts with the video. The player sent the catalog's track number where the server expects
+  its own track order, which could switch on an unrelated language (for example Arabic instead of forced English).
+  The "forced only" subtitle mode now picks forced tracks, and when the server's pick cannot be matched, subtitles
+  stay off instead of mpv choosing one.
+- Starting the next episode (manually or by autoplay) shows the launch screen instead of a see-through window when
+  the controls were hidden.
+- After an audio-track switch on large remote files, the player checks that audio actually resumed in sync and
+  resyncs on its own if it did not (no more seeking by hand to get sound back).
+
 ## [0.4.0] - 2026-11-08
 First public beta: finer seek previews, a cleaner detail page and steadier playback.
 

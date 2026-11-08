@@ -287,6 +287,8 @@ pub fn run() {
             playback::commands::player_subtitle,
             playback::commands::player_stats,
             playback::preview::player_preview,
+            playback::preview::player_preview_near,
+            playback::preview::player_preview_warm,
             playback::commands::player_state,
             playback::commands::player_overlay,
             playback::commands::player_fullscreen,

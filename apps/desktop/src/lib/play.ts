@@ -214,6 +214,19 @@ export function defaultSubtitle(
       if (!want || sameLanguage(audioLang, want)) return forcedForAudio();
       return bestForLanguage(tracks, want, signature);
     }
+    // Profile vocabulary (`silo-api.md` Phase 5 facts): only forced tracks, in the subtitle language if one is set,
+    // else in the language of the audio.
+    case "forced_only": {
+      if (preferred === "") return null;
+      const want = concreteLanguage(preferred) ?? audioLang;
+      return want
+        ? bestForLanguage(
+            tracks.filter((t) => t.forced),
+            want,
+            null,
+          )
+        : null;
+    }
     default:
       return null;
   }
@@ -236,6 +249,22 @@ export function defaultChoice(w: WatchDetail): PlayChoice | undefined {
   return { version, audioIndex, subtitleIndex: defaultSubtitle(w, version, audioIndex) };
 }
 
+/**
+ * The playback protocol's `subtitle_track_index` for a catalog subtitle. The catalog numbers embedded tracks by
+ * their probed stream index and appends externals after them (`catalog/detail.go@6791aac` buildVersionSubtitleTracks),
+ * while a start request counts the file's external subtitles first, then its embedded tracks in order
+ * (`playback_v3.go@6791aac` classifySubtitleIndexV3). Sending the catalog index as is selected another track.
+ */
+export function protocolSubtitleIndex(v: FileVersion, catalogIndex: number | null): number | null {
+  if (catalogIndex === null) return null;
+  const embedded = v.subtitle_tracks.filter((t) => !t.external);
+  const external = v.subtitle_tracks.filter((t) => t.external);
+  const e = embedded.findIndex((t) => t.index === catalogIndex);
+  if (e >= 0) return external.length + e;
+  const x = external.findIndex((t) => t.index === catalogIndex);
+  return x >= 0 ? x : null;
+}
+
 export function playRequest(serverId: string, w: WatchDetail, choice: PlayChoice, fromStart: boolean): PlayRequest {
   return {
     serverId,
@@ -243,7 +272,7 @@ export function playRequest(serverId: string, w: WatchDetail, choice: PlayChoice
     fileId: choice.version.file_id,
     startSeconds: fromStart ? 0 : resumePosition(w),
     audioIndex: choice.audioIndex,
-    subtitleIndex: choice.subtitleIndex,
+    subtitleIndex: protocolSubtitleIndex(choice.version, choice.subtitleIndex),
   };
 }
 

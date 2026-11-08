@@ -106,6 +106,11 @@ fn preview_frames_from_real_files() {
         }
         let mut t = Thumbnailer::open(file.to_str().unwrap(), &dir, Duration::from_secs(15)).unwrap();
         assert!(t.indexed(), "{name}: test media has a keyframe index");
+        let keys = t.keyframes().unwrap_or_default();
+        assert!(
+            !keys.is_empty() && keys.windows(2).all(|w| w[0] <= w[1]),
+            "{name}: keyframe times in order"
+        );
         assert!(t.snap(5.0).is_some_and(|k| k <= 5.0));
         for at in [1.0, 5.0] {
             let jpg = t.frame(at, Duration::from_secs(10)).unwrap();

@@ -1,5 +1,13 @@
 import type { FileVersion, WatchDetail } from "./catalog";
-import { defaultAudio, defaultChoice, defaultSubtitle, formatTime, playRequest, resumePosition } from "./play";
+import {
+  defaultAudio,
+  defaultChoice,
+  defaultSubtitle,
+  formatTime,
+  playRequest,
+  protocolSubtitleIndex,
+  resumePosition,
+} from "./play";
 
 const version = (over: Partial<FileVersion> = {}): FileVersion => ({
   file_id: "f1",
@@ -31,6 +39,28 @@ const watch = (over: Partial<WatchDetail> = {}): WatchDetail => ({
 });
 
 describe("play hand-off defaults", () => {
+  it("maps catalog subtitle indexes to the protocol ordinal: externals first, then embedded", () => {
+    const v = version();
+    expect(protocolSubtitleIndex(v, 5)).toBe(0);
+    expect(protocolSubtitleIndex(v, 3)).toBe(1);
+    expect(protocolSubtitleIndex(v, 4)).toBe(2);
+    expect(protocolSubtitleIndex(v, null)).toBeNull();
+    expect(protocolSubtitleIndex(v, 9)).toBeNull();
+    const noExternal = version({ subtitle_tracks: v.subtitle_tracks.filter((t) => !t.external) });
+    expect(protocolSubtitleIndex(noExternal, 4)).toBe(1);
+  });
+
+  it("forced_only picks only forced tracks, never another language", () => {
+    const v = version();
+    const w = (language?: string) =>
+      watch({ effective_subtitle_mode: "forced_only", effective_subtitle_language: language ?? null });
+    expect(defaultSubtitle(w("de"), v)).toBe(3);
+    expect(defaultSubtitle(w("en"), v)).toBeNull();
+    // No subtitle language: the audio's (default track, German).
+    expect(defaultSubtitle(w(), v)).toBe(3);
+    expect(defaultSubtitle(w(), v, 0)).toBeNull();
+  });
+
   it("prefers the last watched version", () => {
     const w = watch({
       user_data: {
@@ -89,11 +119,10 @@ describe("play hand-off defaults", () => {
         v,
       ),
     ).toBe(3);
-    // Unknown or unratified modes select nothing.
+    // Unknown modes select nothing (forced_only has its own test).
     expect(
       defaultSubtitle(w({ effective_subtitle_mode: "default", effective_subtitle_language: "en" }), v, 1),
     ).toBeNull();
-    expect(defaultSubtitle(w({ effective_subtitle_mode: "forced_only" }), v, 1)).toBeNull();
     expect(defaultSubtitle(w({ effective_subtitle_mode: "always" }), version({ subtitle_tracks: [] }))).toBeNull();
   });
 
@@ -158,7 +187,8 @@ describe("play hand-off defaults", () => {
       fileId: "f1",
       startSeconds: 754,
       audioIndex: 1,
-      subtitleIndex: 5,
+      // Catalog index 5 is the only external subtitle: protocol ordinal 0 (externals count first).
+      subtitleIndex: 0,
     });
     expect(playRequest("s1", w, choice, true).startSeconds).toBe(0);
   });

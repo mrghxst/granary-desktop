@@ -57,6 +57,7 @@ import { LaunchScreen } from "./LaunchScreen";
 import { useLocalPreview } from "./useLocalPreview";
 
 const HIDE_PLAYING_MS = 2500;
+const SPINNER_DELAY_MS = 350;
 /** OLED: static controls do not stay on a paused picture for long either. */
 const HIDE_PAUSED_MS = 30000;
 /** A paused picture dims the controls first. */
@@ -202,6 +203,9 @@ function Stepper({
   );
 }
 
+/** Width of the seek preview tile in CSS pixels, the same for trickplay sheets and local frames. */
+const PREVIEW_WIDTH = 240;
+
 /** Seek bar with chapter ticks, marker ranges and a hover preview (trickplay thumbnail, time, chapter). */
 function SeekBar({
   position,
@@ -223,6 +227,7 @@ function SeekBar({
   const { ctx } = usePlayer();
   const bar = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const [barWidth, setBarWidth] = useState(0);
   const [drag, setDrag] = useState<number | null>(null);
   const chapters = ctx?.version.chapters ?? [];
   const markers = ctx?.version.marker_segments ?? [];
@@ -230,27 +235,39 @@ function SeekBar({
   const at = (clientX: number) => {
     const r = bar.current?.getBoundingClientRect();
     if (!r || r.width <= 0) return 0;
+    if (r.width !== barWidth) setBarWidth(r.width);
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * duration;
   };
   const pct = (s: number) => `${String(duration > 0 ? Math.min(100, (s / duration) * 100) : 0)}%`;
   const shown = drag ?? position;
   const preview = drag ?? hover;
   const tile = preview !== null && trickplay ? trickplayTile(trickplay, preview) : undefined;
-  const scale = tile ? Math.min(1, 240 / tile.width) : 1;
+  // Every preview has the same width (sheets of any tile size are scaled to it) and the box stays inside the bar.
+  const scale = tile ? PREVIEW_WIDTH / tile.width : 1;
   const local = useLocalPreview(localPreviews && !trickplay, preview, duration);
+  const previewLeft =
+    preview !== null && duration > 0 && barWidth > 0
+      ? Math.min(barWidth - PREVIEW_WIDTH / 2, Math.max(PREVIEW_WIDTH / 2, (preview / duration) * barWidth)) -
+        PREVIEW_WIDTH / 2
+      : null;
   const chapter = preview !== null ? chapterAt(chapters, preview) : undefined;
 
   return (
     <div className="group relative py-2">
       {preview !== null ? (
         <div
-          className="pointer-events-none absolute bottom-6 flex -translate-x-1/2 flex-col items-center gap-1"
-          style={{ left: pct(preview) }}
+          className={`pointer-events-none absolute bottom-6 flex flex-col items-center gap-1 ${
+            previewLeft === null ? "-translate-x-1/2" : ""
+          }`}
+          style={{
+            width: PREVIEW_WIDTH,
+            left: previewLeft === null ? pct(preview) : `${String(previewLeft)}px`,
+          }}
         >
           {tile ? (
             <div
-              className="overflow-hidden rounded-md border border-white/20 shadow-lg"
-              style={{ width: tile.width * scale, height: tile.height * scale }}
+              className="shrink-0 overflow-hidden rounded-md border border-white/20 shadow-lg"
+              style={{ width: PREVIEW_WIDTH, height: tile.height * scale }}
             >
               <div
                 style={{
@@ -265,10 +282,14 @@ function SeekBar({
             </div>
           ) : local ? (
             <img
-              src={local}
+              src={local.url}
               alt=""
               data-testid="seek-preview"
-              className="aspect-video w-60 rounded-md border border-white/20 bg-black object-cover shadow-lg"
+              data-approx={local.approx ? "true" : undefined}
+              className={`aspect-video shrink-0 rounded-md border border-white/20 bg-black object-cover shadow-lg transition-[filter] duration-150 ${
+                local.approx ? "brightness-75 saturate-50" : ""
+              }`}
+              style={{ width: PREVIEW_WIDTH }}
             />
           ) : null}
           <span className="rounded bg-black/80 px-2 py-0.5 text-xs text-white tabular-nums">
@@ -371,8 +392,21 @@ function PlayerControls() {
   const markers = useMemo(() => ctx?.version.marker_segments ?? [], [ctx]);
   const marker = activeMarker(markers, position);
   const lines = ctx ? mediaLines(ctx.watch) : null;
-  const loading =
+  const loadingNow =
     state.buffering || state.phase === "loading" || state.phase === "seeking" || state.phase === "buffering";
+  // Shown after a short delay so quick seeks do not flash a spinner (or the overlay) over the picture.
+  const [delayed, setDelayed] = useState(false);
+  useEffect(() => {
+    if (!loadingNow) return;
+    const id = setTimeout(() => {
+      setDelayed(true);
+    }, SPINNER_DELAY_MS);
+    return () => {
+      clearTimeout(id);
+      setDelayed(false);
+    };
+  }, [loadingNow]);
+  const loading = loadingNow && delayed;
   const audioIndex = props.aid !== undefined && props.aid !== null ? num(props.aid, 0) - 1 : (ctx?.audioIndex ?? -1);
 
   const subtitleOptions = useMemo<SubtitleOption[]>(() => {
@@ -485,7 +519,6 @@ function PlayerControls() {
     hideTimer.current = setTimeout(
       () => {
         setVisible(false);
-        void player.overlay(false).catch(() => undefined);
       },
       paused ? HIDE_PAUSED_MS : HIDE_PLAYING_MS,
     );
@@ -499,6 +532,16 @@ function PlayerControls() {
     setDimmed(false);
     schedule();
   }, [schedule]);
+
+  // The WebView overlay is hidden with the controls (independent flip for the video, ADR-0003), but stays up while
+  // the player is loading or buffering so the spinner says why the picture stopped, as in other players.
+  // It also comes back with every new file (this component remounts per file while the previous one may have hidden
+  // the overlay), so the launch screen covers the transparent window instead of showing the desktop through it.
+  const launching = p.launch !== null;
+  useEffect(() => {
+    if (!active) return;
+    void player.overlay(visible || loading || launching).catch(() => undefined);
+  }, [active, visible, loading, launching]);
 
   useEffect(() => {
     if (!active) return;
@@ -1444,6 +1487,13 @@ export function PlayerView() {
       })
       .catch(() => undefined);
   }, [state.active, setWindow]);
+
+  // A new attempt (next episode, autoplay) can start while the controls had hidden the WebView over the video: the
+  // launch card lives in the WebView, so it must be shown, or the desktop shows through the transparent window.
+  const launching = launch !== null;
+  useEffect(() => {
+    if (launching) void player.overlay(true).catch(() => undefined);
+  }, [launching]);
 
   return (
     <>
