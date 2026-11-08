@@ -94,10 +94,13 @@ fn mpv_factory(app_version: String, hwdec: String) -> BackendFactory {
         }
         let extra: Vec<(String, String)> = [
             ("hwdec", hwdec.as_str()),
-            // FFmpeg reconnects dropped HTTP connections itself before mpv reports an error (ADR-0008).
+            // FFmpeg reconnects dropped HTTP connections itself before mpv reports an error (ADR-0008), and retries
+            // transient statuses (timeout, rate limit, gateway errors from a reverse proxy) in place, keeping the
+            // demuxer cache, before the controller's heavier reload takes over. `%23%` quotes the 23-character list.
             (
                 "stream-lavf-o",
-                "reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,reconnect_delay_max=8",
+                "reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,\
+                 reconnect_on_http_error=%23%408,429,500,502,503,504,reconnect_delay_max=8",
             ),
             ("network-timeout", "30"),
             ("idle", "yes"),

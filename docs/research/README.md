@@ -19,6 +19,7 @@ silo-apple@77def09).
 - [shell-and-player.md](shell-and-player.md) — R3: Tauri 2 + mpv integration and window architecture
 - [windows-display-audio.md](windows-display-audio.md) — R4: HDR, refresh, DXGI luminance, WASAPI, mpv.conf baseline
 - [packaging-and-licensing.md](packaging-and-licensing.md) — R5: libmpv builds, licensing, Tauri bundling, CI
+- [reference-clients.md](reference-clients.md) — AIOStreams desktop, Nuvio desktop and Stremio shell compared for reliability, speed and efficiency (2026-11-08)
 
 ## Measurements made by the main agent
 - "Silo" in user-facing TSX string literals of the upstream web UI:

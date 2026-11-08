@@ -156,6 +156,11 @@ fn selecting_an_embedded_subtitle_over_http_shows_the_current_line() {
         ("demuxer-max-back-bytes", "128MiB"),
         ("stream-buffer-size", "4MiB"),
         ("cache-pause-wait", "3"),
+        // As in the app (commands.rs): the quoted status list must parse, or the stream would not open.
+        (
+            "stream-lavf-o",
+            "reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1,reconnect_on_http_error=%23%408,429,500,502,503,504,reconnect_delay_max=8",
+        ),
         ("sid", "no"),
     ]
     .iter()
