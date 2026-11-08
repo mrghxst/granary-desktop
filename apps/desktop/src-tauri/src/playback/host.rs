@@ -198,6 +198,8 @@ pub enum Cmd {
         reply: oneshot::Sender<Result<(), String>>,
     },
     Stats(oneshot::Sender<serde_json::Value>),
+    /// The stream a seek-preview handle may open, if any (ADR-0009).
+    PreviewSource(oneshot::Sender<Option<String>>),
     State(oneshot::Sender<UiState>),
     MediaKey(&'static str),
     Event(MpvEvent),
@@ -444,6 +446,13 @@ impl Runner {
             }
             Cmd::Stats(reply) => {
                 let _ = reply.send(self.stats());
+            }
+            Cmd::PreviewSource(reply) => {
+                let _ = reply.send(
+                    self.controller
+                        .as_ref()
+                        .and_then(|c| c.preview_url().map(str::to_owned)),
+                );
             }
             Cmd::State(reply) => {
                 let _ = reply.send(self.state.clone());

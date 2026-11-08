@@ -20,6 +20,8 @@ follow [Semantic Versioning](https://semver.org/).
 - Libraries have Recommended, Library and Collections tabs. The grid loads more as you scroll, and has an A–Z rail,
   genre and decade filters, sort and shuffle.
 - Optional quality tags (4K, HDR, audio) on posters (Settings → Appearance, off by default).
+- Seek-bar preview images for files without server preview sheets: Granary decodes a small frame from the file
+  itself (HDR tone-mapped), cached as you hover. Settings → Player → Seek-bar previews (on by default).
 
 ### Changed
 - Monochrome app icon (black and white) instead of the yellow one.

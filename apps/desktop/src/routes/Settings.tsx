@@ -279,6 +279,14 @@ export function Settings() {
             set((d) => ({ ...d, player: { ...d.player, autoplayNext } }));
           }}
         />
+        <Toggle
+          label={t("settings.seekPreviews")}
+          hint={t("settings.seekPreviewsHint")}
+          checked={s.player.seekPreviews}
+          onChange={(seekPreviews) => {
+            set((d) => ({ ...d, player: { ...d.player, seekPreviews } }));
+          }}
+        />
         <Choice
           label={t("settings.seekStep")}
           value={String(s.player.seekStep) as "5" | "10" | "15" | "30"}

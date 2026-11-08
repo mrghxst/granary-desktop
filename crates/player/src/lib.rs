@@ -10,6 +10,8 @@ pub mod state;
 pub mod mpv;
 #[cfg(windows)]
 pub mod probe;
+#[cfg(windows)]
+pub mod thumbs;
 
 pub use backend::{MockBackend, PlayerBackend};
 pub use events::{EndReason, MpvEvent, PropValue};

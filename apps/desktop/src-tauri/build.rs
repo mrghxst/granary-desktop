@@ -43,6 +43,7 @@ const COMMANDS: &[&str] = &[
     "player_audio",
     "player_subtitle",
     "player_stats",
+    "player_preview",
     "player_state",
     "player_overlay",
     "player_fullscreen",

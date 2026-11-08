@@ -128,6 +128,8 @@ export const player = {
   fullscreen: (fullscreen?: boolean) => call<WindowState>("player_fullscreen", { fullscreen: fullscreen ?? null }),
   mini: (enabled: boolean) => call<WindowState>("player_mini", { enabled }),
   window: () => call<WindowState>("player_window"),
+  /** JPEG data URL of the frame near `seconds` in the playing file (no server trickplay), or null. */
+  preview: (seconds: number) => call<string | null>("player_preview", { seconds }),
   trickplay: (serverId: string, itemId: string, fileId: string) =>
     call<Trickplay>("watch_trickplay", { serverId, itemId, fileId }),
   onState: (f: (s: PlayerState) => void) => on("player://state", f),

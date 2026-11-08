@@ -126,6 +126,7 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
         libmpv,
     });
     app.manage(playback::events::EventsState::default());
+    app.manage(playback::preview::PreviewState::default());
 
     let main = app
         .config()
@@ -274,6 +275,7 @@ pub fn run() {
             playback::commands::player_audio,
             playback::commands::player_subtitle,
             playback::commands::player_stats,
+            playback::preview::player_preview,
             playback::commands::player_state,
             playback::commands::player_overlay,
             playback::commands::player_fullscreen,

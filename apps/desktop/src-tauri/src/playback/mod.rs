@@ -7,6 +7,7 @@ pub mod host;
 pub mod output;
 #[cfg(windows)]
 pub mod platform;
+pub mod preview;
 pub mod relay;
 #[cfg(windows)]
 pub mod video;

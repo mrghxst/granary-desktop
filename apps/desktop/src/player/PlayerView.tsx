@@ -52,6 +52,7 @@ import {
 } from "../lib/player";
 import { usePlayer } from "./context";
 import { LaunchScreen } from "./LaunchScreen";
+import { useLocalPreview } from "./useLocalPreview";
 
 const HIDE_PLAYING_MS = 2500;
 /** OLED: static controls do not stay on a paused picture for long either. */
@@ -204,12 +205,15 @@ function SeekBar({
   onSeek,
   serverId,
   trickplay,
+  localPreviews,
 }: {
   position: number;
   duration: number;
   onSeek: (seconds: number) => void;
   serverId: string;
   trickplay: Trickplay | null;
+  /** Decode previews from the file when there are no trickplay sheets. */
+  localPreviews: boolean;
 }) {
   const { t } = useTranslation();
   const { ctx } = usePlayer();
@@ -229,6 +233,7 @@ function SeekBar({
   const preview = drag ?? hover;
   const tile = preview !== null && trickplay ? trickplayTile(trickplay, preview) : undefined;
   const scale = tile ? Math.min(1, 240 / tile.width) : 1;
+  const local = useLocalPreview(localPreviews && !trickplay, preview);
   const chapter = preview !== null ? chapterAt(chapters, preview) : undefined;
 
   return (
@@ -254,6 +259,13 @@ function SeekBar({
                 }}
               />
             </div>
+          ) : local ? (
+            <img
+              src={local}
+              alt=""
+              data-testid="seek-preview"
+              className="aspect-video w-60 rounded-md border border-white/20 bg-black object-cover shadow-lg"
+            />
           ) : null}
           <span className="rounded bg-black/80 px-2 py-0.5 text-xs text-white tabular-nums">
             {chapter ? `${chapter.title} · ` : ""}
@@ -937,6 +949,7 @@ function PlayerControls() {
               duration={duration}
               serverId={ctx?.serverId ?? ""}
               trickplay={trickplay}
+              localPreviews={settings.player.seekPreviews}
               onSeek={(s) => void player.seek(s).catch(fail)}
             />
           ) : null}

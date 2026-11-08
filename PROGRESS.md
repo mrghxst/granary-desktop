@@ -15,7 +15,7 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 - [x] 10 Final verification & handoff — DONE — gate: clean clone of dd9b7a8 (pnpm install --frozen-lockfile, fetch-libmpv, verify.ps1 12 steps, release build) all exit 0 (docs/evidence/phase-10/clean-clone.txt), reviewer docs/reviews/final.md PASS WITH FINDINGS → M1 + L1–L5 resolved, security review docs/security.md (cargo audit 0 vulnerabilities, pnpm audit clean), docs complete, CI green, FINAL REPORT printed
 
 ## Current step
-0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags done; next seek previews for files without trickplay, README + Pages site.
+0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags, seek previews done; next for files without trickplay, README + Pages site.
 All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
 ## Decisions (link ADRs)
@@ -27,6 +27,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaini
 - [ADR-0006](docs/adr/0006-display-refresh-hdr-restore-policy.md) Refresh/HDR policy and restore marker.
 - [ADR-0007](docs/adr/0007-workspace-toolchain-ci.md) Workspaces, frontend toolchain (TS 6.0.3 for typescript-eslint), Rust 1.99.1 pin, CI/release workflows.
 - [ADR-0008](docs/adr/0008-native-playback-pipeline.md) Playback: loopback media relay (no credentials in mpv), one controller per attempt, single-task player host, overlay hiding, up-next anchoring, events socket.
+- [ADR-0009](docs/adr/0009-seek-previews.md) Seek previews without server trickplay: second headless libmpv handle on the relay URL (direct play only), keyframe seek + screenshot, lavfi tone-mapping for HDR; AIOStreams' approach researched (container index + libavcodec), not used because our FFmpeg is static.
 - pnpm 12.18.0 via corepack shim installed to `%APPDATA%\npm` (corepack enable into Program Files needs admin).
 - Toolchain (Phase 0): git 2.53.0, node v24.18.0, pnpm 12.18.0, rustc 1.99.1 (host x86_64-pc-windows-msvc),
   VS Build Tools 2022 17.14 (MSVC 14.44.35207, Windows SDK 10.0.26100), gh 2.103.3, 7-Zip 26.01, ffmpeg 8.1.2,
@@ -57,6 +58,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaini
   rebuilds the draft.
 
 ## Known issues
+- Seek previews (ADR-0009) of Dolby Vision profile 5 files have wrong colours (libavfilter does not reshape DV); previews only, playback is unaffected.
 - One `cargo test --workspace` run inside verify.ps1 exited 101 on 2026-11-07 (right after `cargo fmt`); it was not
   reproduced in 7 later runs (5 × cargo test, 2 × verify.ps1). Watch for a flaky test; CI runs the same suite.
 - Phase 7 accepted risk (review L7): `WM_ENDSESSION` (log-off/shutdown during playback) is not handled; the marker
@@ -105,6 +107,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaini
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 0.2 step 3: seek-bar previews for direct-played files without trickplay (ADR-0009): granary_player::thumbs (vo=null handle, keyframe seek, screenshot-to-file, zscale+tonemap for PQ/HLG), player_preview command with 2 s bucket cache, overlay hook with one request in flight, setting player.seekPreviews (default on). Integration test against the pinned DLL (SDR+HDR JPEGs); in the running app: open 242 ms, new frame ~50 ms, cached 4 ms.
 - 2026-11-08 0.2 step 2: library tabs (Recommended rows, Library grid, Collections), infinite scroll (IntersectionObserver, button fallback), A–Z rail (namePrefix), genre/decade filters, sort popover, shuffle; poster quality tags setting (poster_tags, default off); monochrome icon regenerated with tauri icon. Verified in the running app against the mock server; verify.ps1 12/12.
 - 2026-11-08 0.2 step 1: 16 new OAS operations (flags, rating, person, library sections/collections, similar, filters) in silo-api with contract tests (14/14), docs/research/silo-api.md §13 + endpoint table; detail page redesign, person route, language-first track pickers (detail + player), launch screen until first frame, open_trailer command (YouTube key only). Verified in the running app against the mock server (screenshots not committed).
 - 2026-11-08 Fix 0.1.1 (user report on 0.1.0): video hidden while the overlay is shown. Cause: `WS_CLIPSIBLINGS` on the video child clipped it under the full-client WRY container. Removed it; on-screen pixel check (scripts/overlay-pixels.ps1) added to playback-evidence (shown 0 → 5 colour families, hidden 5); ADR-0003 Amendment 1; evidence docs/evidence/overlay-fix (19/19). Draft release v0.1.1 from 3436cac, CI asset SHA-256 6b45f2f2…5f5b verified; install-test not run because the user has 0.1.0 installed (manual upgrade).

@@ -415,6 +415,12 @@ impl Controller {
         &self.session_id
     }
 
+    /// The stream a seek-preview handle may open (ADR-0009): the original file over the local relay, direct play
+    /// only (a transcode's timeline is produced on demand and seeking it would start server work).
+    pub fn preview_url(&self) -> Option<&str> {
+        (self.plan.is_direct() && !self.stopped && !self.stream_url.is_empty()).then_some(self.stream_url.as_str())
+    }
+
     pub fn stream_url(&self) -> &str {
         &self.stream_url
     }

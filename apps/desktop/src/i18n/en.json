@@ -235,7 +235,9 @@
     "preferSdh": "Prefer subtitles for the hard of hearing",
     "about": "Granary is an independent desktop client, compatible with Silo media servers.",
     "posterTags": "Quality tags on posters",
-    "posterTagsHint": "Shows 4K, HDR and audio badges on poster cards."
+    "posterTagsHint": "Shows 4K, HDR and audio badges on poster cards.",
+    "seekPreviews": "Seek-bar previews",
+    "seekPreviewsHint": "When the server has no preview images, Granary reads frames from the file itself. Uses some extra bandwidth while you hover the seek bar."
   },
   "player": {
     "handoff": "Starting playback…",

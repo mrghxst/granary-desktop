@@ -44,6 +44,7 @@
     "allow-player-audio",
     "allow-player-subtitle",
     "allow-player-stats",
+    "allow-player-preview",
     "allow-player-state",
     "allow-player-overlay",
     "allow-player-fullscreen",

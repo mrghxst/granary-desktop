@@ -15,6 +15,8 @@ export interface Settings {
     autoplayNext: boolean;
     /** Seconds per arrow-key seek. */
     seekStep: number;
+    /** Seek-bar previews decoded locally when the server has no trickplay sheets. */
+    seekPreviews: boolean;
   };
   display: {
     /** Windows HDR switching: never, for HDR content only (default) or for all video. Always restored. */
@@ -98,7 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: "system",
   theme: "midnight-cinema",
   posterTags: false,
-  player: { hwdec: "auto-safe", autoplayNext: true, seekStep: 10 },
+  player: { hwdec: "auto-safe", autoplayNext: true, seekStep: 10, seekPreviews: true },
   display: { hdrMode: "content", refresh: "auto", monitors: {} },
   audio: {
     passthrough: false,

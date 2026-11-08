@@ -30,6 +30,8 @@ pub struct PlayerSettings {
     pub autoplay_next: bool,
     /// Seconds per arrow-key seek (1..=120).
     pub seek_step: u32,
+    /// Seek-bar previews decoded locally when the server has no trickplay sheets (ADR-0009).
+    pub seek_previews: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -104,6 +106,7 @@ impl Default for PlayerSettings {
             hwdec: "auto-safe".into(),
             autoplay_next: true,
             seek_step: 10,
+            seek_previews: true,
         }
     }
 }
