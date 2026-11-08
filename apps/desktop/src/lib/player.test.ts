@@ -14,6 +14,7 @@ import {
   mediaLines,
   neighbours,
   trickplayTile,
+  isFinalCredits,
   upNextAnchorFor,
   upNextRemaining,
   upNextStart,
@@ -115,6 +116,11 @@ describe("chapters and markers", () => {
     expect(upNextStart([{ kind: "credits", start_seconds: 1200, end_seconds: 1300 }], 1320)).toBe(1200);
     expect(upNextStart([{ kind: "credits", start_seconds: 1315, end_seconds: 1320 }], 1320)).toBe(1308);
     expect(upNextStart([], 1320)).toBe(1300);
+    // Credits mid-episode with an epilogue after them do not start the countdown; final credits do.
+    const ending = { kind: "credits", start_seconds: 1200, end_seconds: 1290 } as const;
+    expect(isFinalCredits(ending, 1440)).toBe(false);
+    expect(upNextStart([ending], 1440)).toBe(1420);
+    expect(upNextStart([ending, { kind: "credits", start_seconds: 1410, end_seconds: 1440 }], 1440)).toBe(1410);
   });
 
   it("anchors the up-next countdown where it is first seen, so a resume inside the window gets the full countdown", () => {

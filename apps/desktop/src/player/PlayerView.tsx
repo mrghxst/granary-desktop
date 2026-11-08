@@ -25,6 +25,7 @@ import { ContextMenu, type MenuAction } from "../components/ContextMenu";
 import { artwork } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { formatTime } from "../lib/play";
+import { rememberTracks } from "../lib/trackMemory";
 import { audioInfo, subtitleInfo, trackSummary, type TrackInfo } from "../lib/tracks";
 import {
   ASPECTS,
@@ -45,6 +46,7 @@ import {
   upNextAnchorFor,
   upNextRemaining,
   upNextStart,
+  isFinalCredits,
   UP_NEXT_SECONDS,
   type PlayerAction,
   type SubtitleChoice,
@@ -597,18 +599,22 @@ function PlayerControls() {
       if (o.choice.kind !== "off") {
         setSubVisible(true);
       }
-      p.updateCtx({ subtitleIndex: o.choice.kind === "embedded" ? o.choice.stream_index : null });
+      const subtitleIndex = o.choice.kind === "embedded" ? o.choice.stream_index : null;
+      p.updateCtx({ subtitleIndex });
+      // An external file has no stable description to match on the next episode: only embedded and off carry over.
+      if (ctx && o.choice.kind !== "external") rememberTracks(ctx.serverId, ctx.watch, ctx.version, { subtitleIndex });
       void player.subtitle(o.choice).catch(fail);
     },
-    [p, fail],
+    [p, ctx, fail],
   );
 
   const selectAudio = useCallback(
     (i: number) => {
       p.updateCtx({ audioIndex: i });
+      if (ctx) rememberTracks(ctx.serverId, ctx.watch, ctx.version, { audioIndex: i });
       void player.audio(i).catch(fail);
     },
-    [p, fail],
+    [p, ctx, fail],
   );
 
   const toggleFullscreen = useCallback(
@@ -850,9 +856,12 @@ function PlayerControls() {
   const skip =
     marker && (marker.kind === "intro" || marker.kind === "recap")
       ? { label: t(marker.kind === "intro" ? "player.skipIntro" : "player.skipRecap"), to: marker.end_seconds }
-      : marker && marker.kind === "credits" && !near.next
+      : marker && marker.kind === "credits" && (!near.next || !isFinalCredits(marker, duration))
         ? { label: t("player.skipCredits"), to: marker.end_seconds }
         : null;
+  // Next episode by hand: during credits (also mid-episode ones with an epilogue after them, next to Skip credits) and
+  // again in the final stretch whenever the countdown is not running (autoplay off or cancelled).
+  const showNext = near.next !== undefined && !counting && (marker?.kind === "credits" || inWindow);
 
   const contextActions: MenuAction[] = [
     {
@@ -1099,14 +1108,29 @@ function PlayerControls() {
         </div>
       ) : null}
 
-      {skip ? (
-        <button
-          type="button"
-          className="absolute right-8 bottom-32 rounded-lg border border-white/30 bg-black/70 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
-          onClick={() => void player.seek(skip.to).catch(fail)}
-        >
-          {skip.label}
-        </button>
+      {(skip || showNext) && !counting ? (
+        <div className="absolute right-8 bottom-32 flex gap-2">
+          {skip ? (
+            <button
+              type="button"
+              className="rounded-lg border border-white/30 bg-black/70 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20"
+              onClick={() => void player.seek(skip.to).catch(fail)}
+            >
+              {skip.label}
+            </button>
+          ) : null}
+          {showNext ? (
+            <button
+              type="button"
+              className="rounded-lg border border-white/30 bg-black/70 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20"
+              onClick={() => {
+                if (near.next) playEpisode(near.next.content_id);
+              }}
+            >
+              {t("player.nextEpisode")}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {counting && near.next ? (
@@ -1137,16 +1161,6 @@ function PlayerControls() {
             </button>
           </div>
         </div>
-      ) : marker?.kind === "credits" && near.next && !counting ? (
-        <button
-          type="button"
-          className="absolute right-8 bottom-32 rounded-lg border border-white/30 bg-black/70 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/20"
-          onClick={() => {
-            if (near.next) playEpisode(near.next.content_id);
-          }}
-        >
-          {t("player.nextEpisode")}
-        </button>
       ) : null}
 
       {menu === "audio" && ctx ? (

@@ -65,6 +65,6 @@
     </g>
     <path d="M512 160 C700 270 756 428 756 566 C756 732 648 858 512 876 C376 858 268 732 268 566 C268 428 324 270 512 160 Z"
           fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="3"/>
-    <path d="M474 474 L474 690 L650 582 Z" fill="url(#play)" stroke="url(#play)" stroke-width="34" stroke-linejoin="round"/>
+    <path d="M455 442 L455 658 L631 550 Z" fill="url(#play)" stroke="url(#play)" stroke-width="34" stroke-linejoin="round"/>
   </g>
 </svg>

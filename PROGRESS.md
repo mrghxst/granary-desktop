@@ -107,6 +107,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 0.3.0: per-series audio/subtitle memory (lib/trackMemory.ts, matched by description), epilogue-aware credits (isFinalCredits, Skip credits + Next episode, Next button after a cancelled countdown), icon play mark moved to the kernel centroid; version bump, tag v0.3.0 for the draft release.
 - 2026-11-08 UI and player fix round (14 owner reports): poster back on detail pages, menus above the cast row, Back button + scroll restore, drag-scroll rows, themed scrollbars + docked A–Z rail, web-app card hover, 9 more library filters via catalog `groups` rules (allowlisted host-side), player menus restyled and auto-close, per-context fullscreen memory, launch screen with poster until frames advance, audio switch resync (exact seek), seek previews at 30 s+ steps with a settle delay (ADR-0009 revised), new icon. verify.ps1 green before commit.
 - 2026-11-08 Repo made public at the owner's request (full-history secret scan clean, commit emails noreply only); GitHub Pages enabled (workflow source), `pages` run build+deploy green, https://mrghxst.github.io/granary-desktop/ checked live (landing, docs, search index, images). Draft releases stay unpublished.
 - 2026-11-08 0.2.0: version bump (package.json, Cargo.toml, CHANGELOG), verify.ps1 12/12 green, tag v0.2.0 pushed so the release workflow builds the draft release.

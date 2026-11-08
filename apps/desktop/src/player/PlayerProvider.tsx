@@ -4,6 +4,7 @@ import { errorMessage } from "../lib/errors";
 import { catalog, type Episode } from "../lib/catalog";
 import { bumpRefresh } from "../lib/events";
 import { defaultChoice, playRequest } from "../lib/play";
+import { applyTrackPicks } from "../lib/trackMemory";
 import {
   IDLE_STATE,
   mediaLines,
@@ -47,7 +48,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const startInner = useCallback(async (serverId: string, itemId: string, opts: StartOptions) => {
     const w = opts.watch ?? (await catalog.watch(serverId, itemId));
-    const choice = opts.choice ?? defaultChoice(w);
+    const base = defaultChoice(w);
+    const choice = opts.choice ?? (base && applyTrackPicks(serverId, w, base));
     if (!choice) {
       setLaunch(null);
       return false;

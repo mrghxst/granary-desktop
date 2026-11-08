@@ -24,6 +24,7 @@ import { retryLoads, useRefreshTick } from "../lib/events";
 import { openTrailer } from "../lib/host";
 import { goReauth, itemPath, needsReauth, personPath } from "../lib/nav";
 import { defaultAudio, defaultChoice, defaultSubtitle, formatTime, resumePosition, type PlayChoice } from "../lib/play";
+import { applyTrackPicks, rememberTracks } from "../lib/trackMemory";
 import { audioInfo, subtitleInfo, trackSummary } from "../lib/tracks";
 import { useLoad } from "../lib/useLoad";
 import { usePlay } from "../lib/usePlay";
@@ -73,10 +74,15 @@ function PlayPanel({
 
   if (loadError) return <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>;
   if (!watch) return <div className="h-12 w-40 animate-pulse rounded-full bg-white/10" />;
-  const choice = picked?.itemId === itemId ? picked.choice : defaultChoice(watch);
+  const base = defaultChoice(watch);
+  const choice = picked?.itemId === itemId ? picked.choice : base && applyTrackPicks(serverId, watch, base);
   if (!choice) return <Alert tone="warning">{t("item.noVersions")}</Alert>;
   const setChoice = (c: PlayChoice) => {
     setPicked({ itemId, choice: c });
+    rememberTracks(serverId, watch, c.version, {
+      audioIndex: c.audioIndex !== choice.audioIndex ? c.audioIndex : undefined,
+      subtitleIndex: c.subtitleIndex !== choice.subtitleIndex ? c.subtitleIndex : undefined,
+    });
   };
 
   const resume = resumePosition(watch);

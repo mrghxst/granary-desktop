@@ -372,9 +372,22 @@ export function clampSpeed(v: number): number {
 
 export const UP_NEXT_SECONDS = 10;
 
-/** Media time the up-next countdown starts: the credits marker, else 20 s before the end; never later than end − 12 s. */
+/** More than this much video after the credits is an epilogue (or a preview) worth watching. */
+export const EPILOGUE_SECONDS = 30;
+
+/** Credits that run to (nearly) the end of the file; credits followed by an epilogue are not final. */
+export function isFinalCredits(m: MarkerOccurrence, duration: number): boolean {
+  return m.kind === "credits" && m.end_seconds >= duration - EPILOGUE_SECONDS;
+}
+
+/**
+ * Media time the up-next countdown starts: the final credits, else 20 s before the end; never later than end − 12 s.
+ * Credits with an epilogue after them do not start it (they get a skip button), so the epilogue is not cut off.
+ */
 export function upNextStart(markers: MarkerOccurrence[], duration: number): number {
-  const credits = markers.find((m) => m.kind === "credits")?.start_seconds;
+  const credits = markers
+    .filter((m) => isFinalCredits(m, duration))
+    .sort((a, b) => b.start_seconds - a.start_seconds)[0]?.start_seconds;
   return Math.min(credits ?? duration - 20, duration - (UP_NEXT_SECONDS + 2));
 }
 

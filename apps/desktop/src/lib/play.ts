@@ -78,7 +78,7 @@ function concreteLanguage(value: string | null | undefined): string | null {
   return n === "" || n === "und" || n === "original" || n === "x-silo-original" ? null : n;
 }
 
-function sameLanguage(a: string | null, b: string | null): boolean {
+export function sameLanguage(a: string | null, b: string | null): boolean {
   const left = languageCode(concreteLanguage(a));
   return left !== "" && left === languageCode(concreteLanguage(b));
 }

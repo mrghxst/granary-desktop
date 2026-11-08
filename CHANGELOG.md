@@ -5,12 +5,19 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+Fixes from the 0.2 test round: filters, navigation, a calmer player and lighter seek previews.
+
 ### Added
+- Audio and subtitle picks carry over to the next episodes of a series (matched by language and track type, so a
+  different track order does not matter).
+- Credits with an epilogue after them get Skip credits and Next episode buttons; the up-next countdown waits for the
+  real end, and Next episode shows again there when autoplay is off or was cancelled.
 - Library filters: watch state, 4K / HDR / Dolby Vision, minimum IMDb rating, recently added, age rating, language,
   studio, network and country, next to genre and decade; more sorts (year, runtime).
 - Back button on detail and person pages; scroll position is restored when you go back.
 - Rows (cast, trailers, more like this) can be dragged with the mouse.
-- A new app icon.
+- A new app icon (play mark centred on the grain).
 
 ### Changed
 - Scrollbars and the A–Z rail follow the theme (thin rounded thumb, rail docked to the right edge); cards lift and
@@ -86,6 +93,7 @@ First private test release (unsigned, per-user installer).
 - A test checks the IPC contract: commands, capability, permissions and argument names.
 - Dev dependency `minimatch` pinned past GHSA-g3hv-75wg-m249.
 
+[0.3.0]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.1.0
