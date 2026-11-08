@@ -11,6 +11,7 @@ export interface CatalogItemUserState {
   played: boolean;
   is_favorite: boolean;
   in_watchlist: boolean;
+  not_interested?: boolean;
   watched_count?: number | null;
   unplayed_count?: number | null;
 }
@@ -50,6 +51,20 @@ export interface CatalogItem {
   position_seconds?: number | null;
   item_source?: string | null;
   user_state?: CatalogItemUserState | null;
+  overlay_summary?: CatalogItemOverlay | null;
+}
+
+/** Technical badges of an item's best file (display strings, free-form upstream). */
+export interface CatalogItemOverlay {
+  resolution?: string | null;
+  hdr?: string | null;
+  audio?: string | null;
+  audio_channels?: string | null;
+  video_codec?: string | null;
+  edition?: string | null;
+  release_type?: string | null;
+  multi_audio?: boolean | null;
+  multi_sub?: boolean | null;
 }
 
 export interface Section {
@@ -83,6 +98,9 @@ export interface AudioTrack {
   title?: string | null;
   embedded_title?: string | null;
   default: boolean;
+  sample_rate?: number | null;
+  bit_depth?: number | null;
+  bitrate?: number | null;
 }
 
 export interface SubtitleTrack {
@@ -139,6 +157,56 @@ export interface CastCredit {
   photo_url?: string | null;
 }
 
+export interface CrewCredit {
+  name: string;
+  job: string;
+  person_id?: string | null;
+  photo_url?: string | null;
+}
+
+/** A remote trailer or clip; only YouTube ones are shown. */
+export interface ItemVideo {
+  kind: string;
+  name?: string | null;
+  site: string;
+  site_key: string;
+  is_official: boolean;
+  language?: string | null;
+}
+
+/** A local extra that plays like any item. */
+export interface ItemExtra {
+  content_id: string;
+  kind: string;
+  title?: string | null;
+  duration_seconds?: number | null;
+  still_url?: string | null;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  bio?: string | null;
+  birth_date?: string | null;
+  death_date?: string | null;
+  birthplace?: string | null;
+  photo_url?: string | null;
+}
+
+export interface CollectionCard {
+  id: string;
+  title: string;
+  item_count: number;
+  poster_url?: string | null;
+}
+
+export interface CatalogItemCollection {
+  items: CatalogItem[];
+  page?: PageInfo | null;
+}
+
+export type UserFlag = "favorite" | "watchlist" | "watched" | "not_interested";
+
 export interface CatalogRating {
   source: string;
   name: string;
@@ -161,7 +229,7 @@ export interface CatalogItemDetail {
   studios: string[];
   ratings: CatalogRating[];
   cast: CastCredit[];
-  crew: { name: string; job: string }[];
+  crew: CrewCredit[];
   poster_url?: string | null;
   backdrop_url?: string | null;
   logo_url?: string | null;
@@ -176,6 +244,10 @@ export interface CatalogItemDetail {
   user_data?: WatchRollup | null;
   user_state?: CatalogItemUserState | null;
   versions: FileVersion[];
+  videos?: ItemVideo[];
+  extras?: ItemExtra[];
+  user_rating?: number | null;
+  overlay_summary?: CatalogItemOverlay | null;
 }
 
 export interface Season {
@@ -237,6 +309,12 @@ export interface CatalogQuery {
   sort?: string;
   cursor?: string;
   limit?: number;
+  source?: "query" | "person";
+  personId?: string;
+  namePrefix?: string;
+  genre?: string;
+  yearMin?: number;
+  yearMax?: number;
 }
 
 /** What the native player needs to start (Phase 6 plays it; the browser video-element path does not exist). */
@@ -273,7 +351,26 @@ export const catalog = {
     call<Episode[]>("season_episodes", { serverId, seriesId, season }),
   watch: (serverId: string, itemId: string) => call<WatchDetail>("watch_state", { serverId, itemId }),
   play: (request: PlayRequest) => call<null>("player_play", { request }),
+  setFlag: (serverId: string, itemId: string, flag: UserFlag, on: boolean) =>
+    call<null>("catalog_set_flag", { serverId, itemId, flag, on }),
+  setRating: (serverId: string, itemId: string, rating: number | null) =>
+    call<null>("catalog_set_rating", { serverId, itemId, rating }),
+  person: (serverId: string, personId: string) => call<Person>("person_get", { serverId, personId }),
+  librarySections: (serverId: string, libraryId: string) =>
+    call<Section[]>("library_sections", { serverId, libraryId }),
+  libraryCollections: (serverId: string, libraryId: string) =>
+    call<CollectionCard[]>("library_collections", { serverId, libraryId }),
+  collectionItems: (serverId: string, libraryId: string, collectionId: string, cursor: string | null) =>
+    call<CatalogItemCollection>("collection_items", { serverId, libraryId, collectionId, cursor }),
+  similar: (serverId: string, itemId: string) => call<CatalogItem[]>("catalog_similar", { serverId, itemId }),
+  filters: (serverId: string, libraryId: string) =>
+    call<{ genres: string[] }>("catalog_filters", { serverId, libraryId }),
 };
+
+/** YouTube thumbnail for a trailer, fetched through the host like any artwork (public HTTPS host). */
+export function trailerThumb(serverId: string, video: ItemVideo): string | undefined {
+  return artwork(serverId, `https://i.ytimg.com/vi/${encodeURIComponent(video.site_key)}/hqdefault.jpg`);
+}
 
 /** Image URL for a server artwork reference, served by the host's `granary-img` scheme (WebView2 form). */
 export function artwork(serverId: string, url: string | null | undefined): string | undefined {

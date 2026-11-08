@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-catalog-set-flag"
+description = "Enables the catalog_set_flag command without any pre-configured scope."
+commands.allow = ["catalog_set_flag"]
+
+[[permission]]
+identifier = "deny-catalog-set-flag"
+description = "Denies the catalog_set_flag command without any pre-configured scope."
+commands.deny = ["catalog_set_flag"]

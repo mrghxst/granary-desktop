@@ -45,6 +45,11 @@ export async function openLink(link: ExternalLink): Promise<void> {
   if (isTauri()) await invoke("open_link", { link });
 }
 
+/** Opens a YouTube trailer in the default browser (the host only accepts a video key, never a URL). */
+export async function openTrailer(key: string): Promise<void> {
+  if (isTauri()) await invoke("open_trailer", { key });
+}
+
 export async function tailLogs(lines: number): Promise<string[]> {
   return isTauri() ? invoke<string[]>("logs_tail", { lines }) : [];
 }

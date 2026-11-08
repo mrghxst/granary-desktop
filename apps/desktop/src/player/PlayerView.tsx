@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   AudioLines,
+  Check,
   Gauge,
   Info,
   Keyboard,
@@ -24,6 +25,7 @@ import { ContextMenu, type MenuAction } from "../components/ContextMenu";
 import { artwork } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { formatTime } from "../lib/play";
+import { audioInfo, subtitleInfo, trackSummary, type TrackInfo } from "../lib/tracks";
 import {
   ASPECTS,
   KEYMAP,
@@ -49,6 +51,7 @@ import {
   type Trickplay,
 } from "../lib/player";
 import { usePlayer } from "./context";
+import { LaunchScreen } from "./LaunchScreen";
 
 const HIDE_PLAYING_MS = 2500;
 /** OLED: static controls do not stay on a paused picture for long either. */
@@ -59,8 +62,32 @@ type MenuName = "audio" | "subtitles" | "speed" | "picture";
 
 interface SubtitleOption {
   key: string;
-  label: string;
+  info: TrackInfo;
   choice: SubtitleChoice;
+}
+
+/** A track row: language first (bold), the track's own title below, badges right. */
+function TrackRow({ info }: { info: TrackInfo }) {
+  return (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">{info.headline}</span>
+        {info.detail ? <span className="block truncate text-xs font-normal text-white/50">{info.detail}</span> : null}
+      </span>
+      {info.badges.length > 0 ? (
+        <span className="ml-2 flex shrink-0 flex-wrap justify-end gap-1">
+          {info.badges.map((b) => (
+            <span
+              key={b}
+              className="rounded-[4px] border border-white/20 px-1.5 py-px text-[10px] font-semibold tracking-wide text-white/70 uppercase"
+            >
+              {b}
+            </span>
+          ))}
+        </span>
+      ) : null}
+    </>
+  );
 }
 
 function num(v: unknown, fallback: number): number {
@@ -104,7 +131,7 @@ function Popover({ title, onClose, children }: { title: string; onClose: () => v
     <div
       role="dialog"
       aria-label={title}
-      className="absolute right-4 bottom-24 z-10 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-white/10 bg-black/85 p-2 text-sm text-white shadow-2xl backdrop-blur"
+      className="absolute right-4 bottom-24 z-10 max-h-[60vh] w-96 overflow-y-auto rounded-xl border border-white/10 bg-black/85 p-2 text-sm text-white shadow-2xl backdrop-blur"
     >
       <div className="flex items-center justify-between px-2 pt-1 pb-2">
         <span className="font-semibold">{title}</span>
@@ -129,10 +156,11 @@ function Choice({ selected, onSelect, children }: { selected: boolean; onSelect:
       role="menuitemradio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`flex w-full items-center rounded-md px-3 py-2 text-left hover:bg-white/10 ${
-        selected ? "font-semibold text-primary" : ""
+      className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-white/10 ${
+        selected ? "bg-white/10 font-semibold" : ""
       }`}
     >
+      <Check className={`size-4 shrink-0 ${selected ? "opacity-100" : "opacity-0"}`} />
       {children}
     </button>
   );
@@ -293,7 +321,7 @@ function SeekBar({
  * (no static element stays on an OLED panel); input on the video window brings it back.
  */
 function PlayerControls() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const p = usePlayer();
   const { state, ctx, plan, settings, window: win, setWindow, showToast } = p;
   const [visible, setVisible] = useState(true);
@@ -332,9 +360,44 @@ function PlayerControls() {
   const audioIndex = props.aid !== undefined && props.aid !== null ? num(props.aid, 0) - 1 : (ctx?.audioIndex ?? -1);
 
   const subtitleOptions = useMemo<SubtitleOption[]>(() => {
-    const off: SubtitleOption = { key: "off", label: t("item.subtitlesOff"), choice: { kind: "off" } };
-    const label = (l: { label?: string | null; title?: string | null; language?: string | null }, forced: boolean) =>
-      `${l.label ?? l.title ?? l.language ?? "?"}${forced ? ` (${t("item.forced")})` : ""}`;
+    const off: SubtitleOption = {
+      key: "off",
+      info: { headline: t("item.subtitlesOff"), detail: null, badges: [] },
+      choice: { kind: "off" },
+    };
+    const labels = {
+      fallback: t("item.unknownTrack"),
+      forced: t("item.forced"),
+      sdh: "SDH",
+      default: t("item.default"),
+      external: t("item.external"),
+    };
+    const info = (
+      l: {
+        label?: string | null;
+        title?: string | null;
+        embedded_title?: string | null;
+        language?: string | null;
+        codec?: string | null;
+        hearing_impaired?: boolean;
+        default?: boolean;
+      },
+      forced: boolean,
+      external: boolean,
+    ) =>
+      subtitleInfo(
+        {
+          language: l.language ?? null,
+          title: l.label ?? l.title ?? l.embedded_title ?? null,
+          codec: l.codec ?? null,
+          forced,
+          hearing_impaired: l.hearing_impaired === true,
+          default: l.default === true,
+          external,
+        },
+        i18n.language,
+        labels,
+      );
     if (plan && plan.subtitles.length > 0) {
       return [
         off,
@@ -342,10 +405,14 @@ function PlayerControls() {
           s.source === "embedded" && s.stream_index != null
             ? {
                 key: `e${String(s.stream_index)}`,
-                label: label(s, s.forced),
+                info: info(s, s.forced, false),
                 choice: { kind: "embedded", stream_index: s.stream_index },
               }
-            : { key: `x${s.track_id}`, label: label(s, s.forced), choice: { kind: "external", track_id: s.track_id } },
+            : {
+                key: `x${s.track_id}`,
+                info: info(s, s.forced, true),
+                choice: { kind: "external", track_id: s.track_id },
+              },
         ),
       ];
     }
@@ -356,11 +423,11 @@ function PlayerControls() {
         .filter((s) => !s.external && typeof s.index === "number")
         .map<SubtitleOption>((s) => ({
           key: `e${String(s.index)}`,
-          label: label(s, s.forced),
+          info: info(s, s.forced, false),
           choice: { kind: "embedded", stream_index: s.index ?? 0 },
         })),
     ];
-  }, [plan, ctx, t]);
+  }, [plan, ctx, t, i18n.language]);
   const currentSub = subKey ?? (ctx?.subtitleIndex != null ? `e${String(ctx.subtitleIndex)}` : "off");
 
   useEffect(() => {
@@ -386,7 +453,7 @@ function PlayerControls() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch per file, not per context patch
   }, [fileKey]);
 
-  const keepVisible = menu !== null || help || contextMenu !== null;
+  const keepVisible = menu !== null || help || contextMenu !== null || p.launch !== null;
 
   const schedule = useCallback(() => {
     if (hideTimer.current !== undefined) clearTimeout(hideTimer.current);
@@ -626,7 +693,7 @@ function PlayerControls() {
           const next = subtitleOptions[(i + 1) % subtitleOptions.length];
           if (next) {
             selectSubtitle(next);
-            showToast(`${t("item.subtitles")}: ${next.label}`);
+            showToast(`${t("item.subtitles")}: ${trackSummary(next.info, 1)}`);
           }
           break;
         }
@@ -1011,7 +1078,7 @@ function PlayerControls() {
         </div>
       </div>
 
-      {loading ? (
+      {loading && !p.launch ? (
         <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-live="polite">
           <Loader2 className="size-12 animate-spin text-white/80" aria-label={t("player.loading")} />
         </div>
@@ -1082,10 +1149,9 @@ function PlayerControls() {
                 selectAudio(i);
               }}
             >
-              {a.title ?? a.embedded_title ?? a.language ?? `#${String(i + 1)}`}
-              <span className="ml-auto pl-2 text-xs text-white/50 uppercase">
-                {[a.codec, a.layout].filter(Boolean).join(" ")}
-              </span>
+              <TrackRow
+                info={audioInfo(a, i18n.language, { fallback: `#${String(i + 1)}`, default: t("item.default") })}
+              />
             </Choice>
           ))}
         </Popover>
@@ -1106,7 +1172,7 @@ function PlayerControls() {
                 selectSubtitle(o);
               }}
             >
-              {o.label}
+              <TrackRow info={o.info} />
             </Choice>
           ))}
           <div className="my-1 border-t border-white/10" />
@@ -1292,7 +1358,7 @@ function PlayerControls() {
  */
 export function PlayerView() {
   const { t } = useTranslation();
-  const { state, ctx, error, dismissError } = usePlayer();
+  const { state, ctx, error, dismissError, launch } = usePlayer();
   const fileKey = ctx ? `${ctx.serverId}|${ctx.watch.content_id}|${ctx.version.file_id}` : "none";
 
   // Playback over: the WebView must be visible again for the library, and a mini/fullscreen player window goes back
@@ -1313,8 +1379,14 @@ export function PlayerView() {
     }
   }, [state.active]);
 
-  if (state.active) return <PlayerControls key={fileKey} />;
-  if (!error) return null;
+  if (state.active)
+    return (
+      <>
+        <PlayerControls key={fileKey} />
+        <LaunchScreen launch={launch} />
+      </>
+    );
+  if (!error) return <LaunchScreen launch={launch} />;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 p-6" role="alertdialog">
       <div className="flex max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-2xl">

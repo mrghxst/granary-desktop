@@ -3,6 +3,21 @@
 All notable changes to Granary. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Detail page redesign (banner stays inside its box): logo or title, chips for year, rating, runtime and the best
+  file's quality (4K, HDR, audio), TMDB score, a Play button whose fill shows how far you got, Mark watched, favourite,
+  a 1–5 star rating and a menu with watchlist and not interested.
+- Audio and subtitle pickers that always lead with the language (Deutsch, English, …), with codec, channels, Atmos,
+  forced, SDH and default as badges, on the detail page and in the player.
+- "Directed by / Written by", a Cast & crew carousel grouped into direction, writers and cast, and person pages with
+  photo, life facts, biography and a filmography (all, movies, series).
+- Trailers & more: local extras play in the app; YouTube trailers open in the browser.
+- More like this on movie and series pages.
+- A full-screen launch screen (backdrop, logo, loading line) from Play until the first frame, instead of an empty
+  window.
+
 ## [0.1.1] - 2026-11-08
 Bug-fix release.
 

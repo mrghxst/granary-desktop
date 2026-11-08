@@ -125,7 +125,33 @@
     "minutes_other": "{{count}} Min.",
     "seasonN": "Staffel {{n}}",
     "episodeN": "Episode {{n}}",
-    "cast": "Besetzung"
+    "cast": "Besetzung",
+    "resumeShort": "Fortsetzen",
+    "left": "noch {{time}}",
+    "unknownTrack": "Unbekannt",
+    "default": "Standard",
+    "external": "Extern",
+    "markWatched": "Als gesehen markieren",
+    "markUnwatched": "Als ungesehen markieren",
+    "favorite": "Zu Favoriten",
+    "unfavorite": "Aus Favoriten entfernen",
+    "rate": "Deine Bewertung",
+    "more": "Mehr",
+    "addWatchlist": "Auf die Merkliste",
+    "removeWatchlist": "Von der Merkliste entfernen",
+    "notInterested": "Kein Interesse",
+    "undoNotInterested": "Kein Interesse aufheben",
+    "seasonCount_one": "{{count}} Staffel",
+    "seasonCount_other": "{{count}} Staffeln",
+    "directedBy": "Regie:",
+    "writtenBy": "Drehbuch:",
+    "createdBy": "Erfunden von",
+    "directors": "Regie",
+    "writers": "Drehbuch",
+    "castCrew": "Besetzung & Crew",
+    "trailers": "Trailer & mehr",
+    "opensYoutube": "Öffnet YouTube im Browser",
+    "moreLikeThis": "Ähnliche Titel"
   },
   "settings": {
     "title": "Einstellungen",
@@ -261,7 +287,9 @@
       "previousEpisode": "Vorherige Folge",
       "showControls": "Bedienelemente zeigen",
       "help": "Diese Hilfe"
-    }
+    },
+    "starting": "{{title}} wird gestartet",
+    "preparing": "Wiedergabe wird vorbereitet"
   },
   "errors": {
     "unknown": "Etwas ist schiefgelaufen.",
@@ -332,5 +360,20 @@
     "exported": "Protokolle gespeichert unter {{path}}",
     "noLogs": "Noch keine Protokolleinträge.",
     "notices": "Hinweise zu Drittanbietern"
+  },
+  "person": {
+    "born": "Geboren am {{date}}",
+    "died": "Gestorben am {{date}}",
+    "age_one": "{{count}} Jahr",
+    "age_other": "{{count}} Jahre",
+    "more": "Weiterlesen",
+    "less": "Weniger",
+    "filmography": "Filmografie",
+    "empty": "Von dieser Person ist nichts auf deinem Server.",
+    "tabs": {
+      "all": "Alle",
+      "movies": "Filme",
+      "series": "Serien"
+    }
   }
 }

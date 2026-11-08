@@ -19,6 +19,7 @@ pub struct CatalogItemUserState {
     pub played: bool,
     pub is_favorite: bool,
     pub in_watchlist: bool,
+    pub not_interested: bool,
     pub watched_count: Option<i64>,
     pub unplayed_count: Option<i64>,
 }
@@ -67,6 +68,23 @@ pub struct CatalogItem {
     pub position_seconds: Option<f64>,
     pub item_source: Option<String>,
     pub user_state: Option<CatalogItemUserState>,
+    /// Technical badges of the best file (poster tags).
+    pub overlay_summary: Option<CatalogItemOverlay>,
+}
+
+/// `CatalogItemOverlay`: technical badges of an item's best file (all display strings, free-form upstream).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CatalogItemOverlay {
+    pub resolution: Option<String>,
+    pub hdr: Option<String>,
+    pub audio: Option<String>,
+    pub audio_channels: Option<String>,
+    pub video_codec: Option<String>,
+    pub edition: Option<String>,
+    pub release_type: Option<String>,
+    pub multi_audio: Option<bool>,
+    pub multi_sub: Option<bool>,
 }
 
 /// `Section` (home and library rows).
@@ -115,6 +133,94 @@ pub struct CastCredit {
 pub struct CrewCredit {
     pub name: String,
     pub job: String,
+    pub person_id: Option<String>,
+    pub photo_url: Option<String>,
+}
+
+/// `ItemVideoInfo`: a remote trailer or clip (`site` is the provider, e.g. YouTube; `site_key` its video id).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemVideo {
+    pub kind: String,
+    pub name: Option<String>,
+    pub site: String,
+    pub site_key: String,
+    pub is_official: bool,
+    pub language: Option<String>,
+}
+
+/// `ItemExtraInfo`: a local extra (featurette, behind the scenes, …) that plays like any item.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemExtra {
+    pub content_id: String,
+    pub kind: String,
+    pub title: Option<String>,
+    pub duration_seconds: Option<i64>,
+    pub still_url: Option<String>,
+}
+
+/// `Person` (`getPerson`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Person {
+    pub id: String,
+    pub name: String,
+    pub bio: Option<String>,
+    pub birth_date: Option<String>,
+    pub death_date: Option<String>,
+    pub birthplace: Option<String>,
+    pub photo_url: Option<String>,
+}
+
+/// A collection card on a library's Collections tab: `LibraryCollectionCard`, also read from `CuratedCollection`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CollectionCard {
+    pub id: String,
+    pub title: String,
+    pub item_count: i64,
+    pub poster_url: Option<String>,
+}
+
+/// `LibraryCollectionGroup` / `LibraryCollectionUngrouped` (only the cards).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CollectionGroup {
+    pub name: Option<String>,
+    pub collections: Vec<CollectionCard>,
+}
+
+/// `LibraryCollectionTab` (`getLibraryCollections`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibraryCollectionTab {
+    pub collections: Vec<CollectionCard>,
+    pub groups: Vec<CollectionGroup>,
+    pub ungrouped: Option<CollectionGroup>,
+}
+
+impl LibraryCollectionTab {
+    /// Every card once, in display order: groups, then ungrouped, then curated collections not seen yet.
+    pub fn cards(&self) -> Vec<CollectionCard> {
+        let mut seen = std::collections::HashSet::new();
+        self.groups
+            .iter()
+            .flat_map(|g| g.collections.iter())
+            .chain(self.ungrouped.iter().flat_map(|g| g.collections.iter()))
+            .chain(self.collections.iter())
+            .filter(|c| seen.insert(c.id.clone()))
+            .cloned()
+            .collect()
+    }
+}
+
+/// `CatalogItemCollection` (similar titles, collection items).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CatalogItemCollection {
+    pub items: Vec<CatalogItem>,
+    pub page: Option<PageInfo>,
 }
 
 /// `AudioTrack` / `WatchAudioTrack` (OAS:L25578). Identified by its position in the version's list.
@@ -129,6 +235,9 @@ pub struct AudioTrack {
     pub title: Option<String>,
     pub embedded_title: Option<String>,
     pub default: bool,
+    pub sample_rate: Option<i64>,
+    pub bit_depth: Option<i64>,
+    pub bitrate: Option<i64>,
 }
 
 /// `VersionSubtitleTrack` / `WatchSubtitleTrack`.
@@ -237,6 +346,10 @@ pub struct CatalogItemDetail {
     pub user_data: Option<WatchRollup>,
     pub user_state: Option<CatalogItemUserState>,
     pub versions: Vec<FileVersion>,
+    pub videos: Vec<ItemVideo>,
+    pub extras: Vec<ItemExtra>,
+    pub user_rating: Option<i64>,
+    pub overlay_summary: Option<CatalogItemOverlay>,
 }
 
 /// `Season`.
@@ -335,6 +448,25 @@ pub struct CatalogQuery {
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub person_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_prefix: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub genre: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year_min: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year_max: Option<i64>,
+}
+
+/// `CatalogFilters` (`getCatalogFilters`) subset: the facets Granary offers.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CatalogFilters {
+    pub genres: Vec<String>,
 }
 
 #[cfg(test)]

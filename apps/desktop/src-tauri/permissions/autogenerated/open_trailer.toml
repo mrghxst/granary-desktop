@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-open-trailer"
+description = "Enables the open_trailer command without any pre-configured scope."
+commands.allow = ["open_trailer"]
+
+[[permission]]
+identifier = "deny-open-trailer"
+description = "Denies the open_trailer command without any pre-configured scope."
+commands.deny = ["open_trailer"]

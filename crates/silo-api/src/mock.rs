@@ -1,7 +1,7 @@
 //! In-process [`SiloApi`] that behaves like a small Silo server: token rotation, expiry, revocation, PIN profiles,
 //! profile-restricted libraries. Used by unit tests, the desktop host's tests and UI development without a server
 //! (ADR-0004 "Consequences"). Data is synthetic.
-use crate::api::{Auth, ImageData, SiloApi};
+use crate::api::{Auth, ImageData, PageQuery, SiloApi, UserFlag};
 use crate::catalog::*;
 use crate::error::{ApiError, Result};
 use crate::media::{MediaRequest, MediaResponse, parse_range};
@@ -31,6 +31,9 @@ pub fn problem(status: u16, id: &str) -> ApiError {
 
 #[derive(Default)]
 struct State {
+    /// item id → the profile's flags and rating (one profile is enough for the mock).
+    flags: HashMap<String, CatalogItemUserState>,
+    ratings: HashMap<String, i64>,
     counter: u64,
     access_lifetime: i64,
     live_access: HashSet<String>,
@@ -589,10 +592,47 @@ mod demo {
                 year: c.year,
                 runtime: c.runtime,
                 genres: c.genres,
+                crew: vec![
+                    CrewCredit {
+                        name: "Mira Holt".into(),
+                        job: "Director".into(),
+                        person_id: Some("p2".into()),
+                        ..CrewCredit::default()
+                    },
+                    CrewCredit {
+                        name: "Jon Vale".into(),
+                        job: "Screenplay".into(),
+                        ..CrewCredit::default()
+                    },
+                ],
+                videos: vec![ItemVideo {
+                    kind: "trailer".into(),
+                    name: Some("Official Trailer".into()),
+                    site: "YouTube".into(),
+                    site_key: "mock-trailer".into(),
+                    is_official: true,
+                    language: Some("en".into()),
+                }],
+                overlay_summary: Some(CatalogItemOverlay {
+                    resolution: Some("4K".into()),
+                    hdr: Some("HDR10".into()),
+                    audio: Some("EAC3".into()),
+                    audio_channels: Some("5.1".into()),
+                    ..CatalogItemOverlay::default()
+                }),
+                tagline: Some("Every road ends somewhere.".into()),
+                content_rating: Some("PG-13".into()),
+                ratings: vec![CatalogRating {
+                    source: "tmdb".into(),
+                    name: "TMDB".into(),
+                    display: "7.4".into(),
+                    score: 74.0,
+                }],
                 cast: vec![
                     CastCredit {
                         name: "Ada Brook".into(),
                         character: "Lead".into(),
+                        person_id: Some("p1".into()),
                         ..CastCredit::default()
                     },
                     CastCredit {
@@ -879,7 +919,13 @@ impl SiloApi for MockSiloApi {
     async fn catalog_item(&self, _origin: &str, auth: &Auth, id: &str) -> Result<CatalogItemDetail> {
         self.check(auth)?;
         self.check_profile(auth)?;
-        demo::detail(id).ok_or_else(|| problem(404, "not_found"))
+        let mut detail = demo::detail(id).ok_or_else(|| problem(404, "not_found"))?;
+        let st = self.state.lock().map_err(|_| ApiError::Internal("mock state".into()))?;
+        if let Some(flags) = st.flags.get(id) {
+            detail.user_state = Some(flags.clone());
+        }
+        detail.user_rating = st.ratings.get(id).copied();
+        Ok(detail)
     }
 
     async fn series_seasons(&self, _origin: &str, auth: &Auth, series_id: &str) -> Result<SeasonCollection> {
@@ -1277,6 +1323,143 @@ impl SiloApi for MockSiloApi {
             headers,
             body: Box::pin(body),
         })
+    }
+
+    async fn set_flag(&self, _origin: &str, auth: &Auth, flag: UserFlag, id: &str, on: bool) -> Result<()> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        demo::detail(id).ok_or_else(|| problem(404, "not_found"))?;
+        let mut st = self.state.lock().map_err(|_| ApiError::Internal("mock state".into()))?;
+        let flags = st.flags.entry(id.to_owned()).or_default();
+        match flag {
+            UserFlag::Favorite => flags.is_favorite = on,
+            UserFlag::Watchlist => flags.in_watchlist = on,
+            UserFlag::Watched => flags.played = on,
+            UserFlag::NotInterested => flags.not_interested = on,
+        }
+        Ok(())
+    }
+
+    async fn set_rating(&self, _origin: &str, auth: &Auth, id: &str, rating: Option<i64>) -> Result<()> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let mut st = self.state.lock().map_err(|_| ApiError::Internal("mock state".into()))?;
+        match rating {
+            Some(r) if (1..=5).contains(&r) => {
+                st.ratings.insert(id.to_owned(), r);
+            }
+            Some(_) => return Err(problem(422, "validation_failed")),
+            None => {
+                st.ratings.remove(id);
+            }
+        }
+        Ok(())
+    }
+
+    async fn person(&self, _origin: &str, auth: &Auth, id: &str) -> Result<Person> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let (name, bio) = match id {
+            "p1" => (
+                "Ada Brook",
+                "Ada Brook is a fictional actor in the Granary demo catalogue.",
+            ),
+            "p2" => (
+                "Mira Holt",
+                "Mira Holt is a fictional director in the Granary demo catalogue.",
+            ),
+            _ => return Err(problem(404, "not_found")),
+        };
+        Ok(Person {
+            id: id.into(),
+            name: name.into(),
+            bio: Some(bio.into()),
+            birth_date: Some("1980-04-12".into()),
+            birthplace: Some("Lyon, France".into()),
+            ..Person::default()
+        })
+    }
+
+    async fn library_sections(&self, _origin: &str, auth: &Auth, library_id: &str) -> Result<SectionCollection> {
+        self.check(auth)?;
+        let cards: Vec<CatalogItem> = self
+            .visible_cards(auth)?
+            .into_iter()
+            .filter(|(lib, _)| *lib == library_id)
+            .map(|(_, c)| c)
+            .collect();
+        Ok(SectionCollection {
+            sections: vec![Section {
+                id: format!("{library_id}-recent"),
+                title: "Recently added".into(),
+                section_type: "recently_added".into(),
+                total_count: i64::try_from(cards.len()).unwrap_or_default(),
+                items: cards,
+                ..Section::default()
+            }],
+        })
+    }
+
+    async fn library_collections(&self, _origin: &str, auth: &Auth, library_id: &str) -> Result<LibraryCollectionTab> {
+        self.check(auth)?;
+        let count = self
+            .visible_cards(auth)?
+            .into_iter()
+            .filter(|(lib, _)| *lib == library_id)
+            .count();
+        Ok(LibraryCollectionTab {
+            collections: vec![CollectionCard {
+                id: format!("{library_id}-all"),
+                title: "Demo picks".into(),
+                item_count: i64::try_from(count).unwrap_or_default(),
+                poster_url: demo::art("poster", "collection"),
+            }],
+            ..LibraryCollectionTab::default()
+        })
+    }
+
+    async fn library_collection_items(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        library_id: &str,
+        collection_id: &str,
+        _page: &PageQuery,
+    ) -> Result<CatalogItemCollection> {
+        self.check(auth)?;
+        if collection_id != format!("{library_id}-all") {
+            return Err(problem(404, "not_found"));
+        }
+        let items = self
+            .visible_cards(auth)?
+            .into_iter()
+            .filter(|(lib, _)| *lib == library_id)
+            .map(|(_, c)| c)
+            .collect();
+        Ok(CatalogItemCollection { items, page: None })
+    }
+
+    async fn similar(&self, _origin: &str, auth: &Auth, id: &str) -> Result<CatalogItemCollection> {
+        self.check(auth)?;
+        let items = self
+            .visible_cards(auth)?
+            .into_iter()
+            .map(|(_, c)| c)
+            .filter(|c| c.content_id != id && c.kind == "movie")
+            .collect();
+        Ok(CatalogItemCollection { items, page: None })
+    }
+
+    async fn catalog_filters(&self, _origin: &str, auth: &Auth, _library_id: &str) -> Result<CatalogFilters> {
+        self.check(auth)?;
+        let mut genres: Vec<String> = self
+            .visible_cards(auth)?
+            .into_iter()
+            .flat_map(|(_, c)| c.genres)
+            .collect();
+        genres.sort();
+        genres.dedup();
+        Ok(CatalogFilters { genres })
     }
 }
 

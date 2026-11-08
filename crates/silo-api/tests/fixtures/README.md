@@ -14,3 +14,5 @@
   `silo-server/contracts/api/v2/fixtures/<name>.json@6791aac` (AGPL-3.0-or-later). Upstream generates them from its own
   synthetic test server (`internal/apiv2/playback_fixtures_test.go@6791aac`), so they contain only placeholder ids and
   tokens. Granary validates them against the subset again and decodes them with its own types.
+- 0.2 fixtures (`person.json`, `library_collections.json`, `catalog_item_collection.json`, `catalog_filters.json`) are
+  hand-written synthetic bodies; `listLibrarySections` reuses `home_sections.json` (both are `SectionCollection`).

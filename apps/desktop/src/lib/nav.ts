@@ -33,3 +33,6 @@ export function goReauth(navigate: NavigateFunction, serverId: string, err: unkn
 
 /** Details page of a catalog item. */
 export const itemPath = (serverId: string, id: string) => `${serverBase(serverId)}/item/${encodeURIComponent(id)}`;
+
+/** A person (actor, director, writer) and their filmography. */
+export const personPath = (serverId: string, id: string) => `${serverBase(serverId)}/person/${encodeURIComponent(id)}`;

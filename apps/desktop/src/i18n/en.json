@@ -125,7 +125,33 @@
     "minutes_other": "{{count}} min",
     "seasonN": "Season {{n}}",
     "episodeN": "Episode {{n}}",
-    "cast": "Cast"
+    "cast": "Cast",
+    "resumeShort": "Resume",
+    "left": "{{time}} left",
+    "unknownTrack": "Unknown",
+    "default": "Default",
+    "external": "External",
+    "markWatched": "Mark watched",
+    "markUnwatched": "Mark unwatched",
+    "favorite": "Add to favourites",
+    "unfavorite": "Remove from favourites",
+    "rate": "Your rating",
+    "more": "More",
+    "addWatchlist": "Add to watchlist",
+    "removeWatchlist": "Remove from watchlist",
+    "notInterested": "Not interested",
+    "undoNotInterested": "Undo not interested",
+    "seasonCount_one": "{{count}} season",
+    "seasonCount_other": "{{count}} seasons",
+    "directedBy": "Directed by",
+    "writtenBy": "Written by",
+    "createdBy": "Created by",
+    "directors": "Direction",
+    "writers": "Writers",
+    "castCrew": "Cast & crew",
+    "trailers": "Trailers & more",
+    "opensYoutube": "Opens on YouTube in your browser",
+    "moreLikeThis": "More like this"
   },
   "settings": {
     "title": "Settings",
@@ -261,7 +287,9 @@
       "previousEpisode": "Previous episode",
       "showControls": "Show controls",
       "help": "This help"
-    }
+    },
+    "starting": "Starting {{title}}",
+    "preparing": "Preparing playback"
   },
   "errors": {
     "unknown": "Something went wrong.",
@@ -332,5 +360,20 @@
     "exported": "Logs saved to {{path}}",
     "noLogs": "No log entries yet.",
     "notices": "Third-party notices"
+  },
+  "person": {
+    "born": "Born {{date}}",
+    "died": "Died {{date}}",
+    "age_one": "{{count}} year",
+    "age_other": "{{count}} years",
+    "more": "Read more",
+    "less": "Show less",
+    "filmography": "Filmography",
+    "empty": "Nothing from this person on your server.",
+    "tabs": {
+      "all": "All",
+      "movies": "Movies",
+      "series": "Series"
+    }
   }
 }

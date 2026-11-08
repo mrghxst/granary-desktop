@@ -4,7 +4,7 @@
 //! - on a 401 refresh **once** (single-flight: concurrent requests share one refresh) and retry the request once;
 //! - a refresh rejected with 401/403 means the session is revoked: forget the credential, report [`ApiError::SignedOut`];
 //! - a refresh that fails for any other reason (503 + `Retry-After`, network) keeps the tokens.
-use crate::api::{Auth, ProfileAuth, SiloApi};
+use crate::api::{Auth, PageQuery, ProfileAuth, SiloApi, UserFlag};
 use crate::catalog::*;
 use crate::credentials::{CredentialStore, account_key};
 use crate::error::{ApiError, Result};
@@ -387,6 +387,58 @@ impl Session {
 
     pub async fn watch_trickplay(&self, id: &str, file_id: &str) -> Result<WatchTrickplay> {
         self.call_profile(|auth| async move { self.api.watch_trickplay(&self.origin, &auth, id, file_id).await })
+            .await
+    }
+
+    pub async fn set_flag(&self, flag: UserFlag, id: &str, on: bool) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.set_flag(&self.origin, &auth, flag, id, on).await })
+            .await
+    }
+
+    pub async fn set_rating(&self, id: &str, rating: Option<i64>) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.set_rating(&self.origin, &auth, id, rating).await })
+            .await
+    }
+
+    pub async fn person(&self, id: &str) -> Result<Person> {
+        self.call_profile(|auth| async move { self.api.person(&self.origin, &auth, id).await })
+            .await
+    }
+
+    pub async fn library_sections(&self, library_id: &str) -> Result<Vec<Section>> {
+        self.call_profile(|auth| async move { self.api.library_sections(&self.origin, &auth, library_id).await })
+            .await
+            .map(|c| c.sections)
+    }
+
+    pub async fn library_collections(&self, library_id: &str) -> Result<Vec<CollectionCard>> {
+        self.call_profile(|auth| async move { self.api.library_collections(&self.origin, &auth, library_id).await })
+            .await
+            .map(|t| t.cards())
+    }
+
+    pub async fn library_collection_items(
+        &self,
+        library_id: &str,
+        collection_id: &str,
+        page: &PageQuery,
+    ) -> Result<CatalogItemCollection> {
+        self.call_profile(|auth| async move {
+            self.api
+                .library_collection_items(&self.origin, &auth, library_id, collection_id, page)
+                .await
+        })
+        .await
+    }
+
+    pub async fn similar(&self, id: &str) -> Result<Vec<CatalogItem>> {
+        self.call_profile(|auth| async move { self.api.similar(&self.origin, &auth, id).await })
+            .await
+            .map(|c| c.items)
+    }
+
+    pub async fn catalog_filters(&self, library_id: &str) -> Result<CatalogFilters> {
+        self.call_profile(|auth| async move { self.api.catalog_filters(&self.origin, &auth, library_id).await })
             .await
     }
 

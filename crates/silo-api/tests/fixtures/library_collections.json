@@ -1,0 +1,22 @@
+{
+  "library_id": "lib-1",
+  "collections": [],
+  "groups": [
+    {
+      "id": "g1",
+      "kind": "admin",
+      "name": "Franchises",
+      "sort_mode": "manual",
+      "sort_order": 0,
+      "collections": [
+        { "id": "c1", "title": "North Trilogy", "item_count": 3, "poster_url": "", "poster_is_collage": false }
+      ]
+    }
+  ],
+  "ungrouped": {
+    "sort_order": 1,
+    "collections": [
+      { "id": "c2", "title": "Rainy days", "item_count": 7, "poster_url": "/api/v2/artwork/coll-c2?exp=1893456000&sig=fixture", "poster_is_collage": true }
+    ]
+  }
+}

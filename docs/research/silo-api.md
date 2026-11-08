@@ -673,9 +673,9 @@ Useful for a viewer client:
 | Thresholds | Admin settings, not constants. | `admin_settings.go@6791aac` L458-459 |
 | Rolling deploys | Some events, such as lifecycle events, are absent on older nodes. | `realtime-api.md@6791aac` L250-256 |
 
-## 13. Used by Granary so far (Phases 4–6)
+## 13. Used by Granary so far (Phases 4–6, 0.2)
 
-`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (30 operations, 125 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
+`crates/silo-api` calls **exactly** these operations. Each is in the endpoint table below, and the recorded contract subset is `crates/silo-api/tests/fixtures/openapi-subset.json` (46 operations, 135 schemas, extracted from the OAS by `scripts/extract-oas-subset.mjs`):
 
 | Operation | Rust (`SiloApi`) | Auth |
 | --- | --- | --- |
@@ -689,8 +689,19 @@ Useful for a viewer client:
 | `verifyProfilePIN` | `verify_pin` | bearer |
 | `listUserLibraries` | `libraries` | bearer + profile headers |
 | `listHomeSections` (OAS:L179770) | `home_sections` | bearer + profile headers |
-| `listCatalogItems` (OAS:L150065) | `catalog_browse` (`library_id`, `q`, `type`, `sort`, `cursor`, `limit`) | bearer + profile headers |
+| `listCatalogItems` (OAS:L150065) | `catalog_browse` (`library_id`, `q`, `type`, `sort`, `cursor`, `limit`, `source=query|person` + `person_id`, `name_prefix`, `genre`, `year_min`, `year_max`) | bearer + profile headers |
 | `getCatalogItem` (OAS:L152009) | `catalog_item` | bearer + profile headers |
+| `addFavorite` / `deleteFavorite` (OAS:L176743 / L176439) | `set_flag(Favorite)` (PUT/DELETE `/favorites/{item_id}`, 204) | bearer + profile headers |
+| `addToWatchlist` / `deleteWatchlistEntry` (OAS:L235971 / L235667) | `set_flag(Watchlist)` (PUT/DELETE `/watchlist/{item_id}`) | bearer + profile headers |
+| `markWatched` / `unmarkWatched` (OAS:L234696 / L234547) | `set_flag(Watched)` (POST/DELETE `/watched/{id}`) | bearer + profile headers |
+| `markNotInterested` / `unmarkNotInterested` (OAS:L189661 / L189357) | `set_flag(NotInterested)` (PUT/DELETE `/not-interested/{item_id}`) | bearer + profile headers |
+| `setRating` / `deleteRating` (OAS:L206994 / L206690) | `set_rating` (PUT `RatingSet {rating: 1-5}` / DELETE `/ratings/{item_id}`) | bearer + profile headers |
+| `getPerson` (OAS:L155139) | `person` | bearer + profile headers |
+| `listLibrarySections` (OAS:L187307) | `library_sections` (Recommended tab) | bearer + profile headers |
+| `getLibraryCollections` (OAS:L186785) | `library_collections` (cards deduplicated across `groups`, `ungrouped`, `collections`) | bearer + profile headers |
+| `getLibraryCollectionItems` (OAS:L186942) | `library_collection_items` (`limit`, `cursor`) | bearer + profile headers |
+| `listSimilar` (OAS:L209321) | `similar` (`limit=20`) | bearer + profile headers |
+| `getCatalogFilters` (OAS:L151423) | `catalog_filters` (`library_id`, `skip_technical=true`; genres only) | bearer + profile headers |
 | `listSeriesSeasons` (OAS:L155969) | `series_seasons` | bearer + profile headers |
 | `listSeasonEpisodes` (OAS:L156533) | `season_episodes` | bearer + profile headers |
 | `getWatchState` (OAS:L234067) | `watch_state` | bearer + profile headers |
@@ -706,6 +717,8 @@ Useful for a viewer client:
 | `getPlaybackMedia` / `headPlaybackMedia` (OAS:L220333 / L220910) | `fetch_media` (host relay, ADR-0008) | bearer + profile headers, same origin only |
 | `getPlaybackManifest` / `getPlaybackSegment` (OAS:L200108 / L200322) | `fetch_media` | bearer + profile headers, same origin only |
 | `getPlaybackSubtitle` / `getPlaybackSubtitleFonts` (OAS:L221191 / L221723) | `fetch_media` | bearer + profile headers, same origin only |
+
+- **0.2 facts** (OAS @6791aac): flag operations answer `204` with no body; `setRating` takes `RatingSet` (`rating` integer 1–5, `additionalProperties: false`). `CatalogItemDetail` adds `crew[].person_id`/`photo_url`, `videos` (`ItemVideoInfo`: `site`, `site_key`, `kind`, `is_official`), `extras` (`ItemExtraInfo`: a `content_id` that is a first-class watch target, as in `web/src/pages/ItemDetail/components/ExtrasSection.tsx@6791aac`), `user_rating`, `user_state.not_interested` and `overlay_summary` (display strings: `resolution`, `hdr`, `audio`, `audio_channels`, `edition`, ...; free-form upstream). Granary shows only YouTube videos (as the web app's TrailersSection does) and opens them in the browser by video key; thumbnails come from `i.ytimg.com` through the `granary-img` scheme. Watch-status and 4K filters need the `groups` JSON form of `listCatalogItems` and are not used.
 
 Account-level operations (`listProfiles`, `verifyProfilePIN`, `getCurrentUser`, `logout`) are sent with the bearer
 token only, never with profile headers (Gate 4 review M1).
@@ -761,13 +774,21 @@ Facts confirmed while implementing (all `@6791aac`):
 | GET | /api/v2/profiles | List profiles | OAS:L203258 | VERIFIED |
 | POST | /api/v2/profiles/{id}/verify-pin | PIN → profile_token | OAS:L205764 | VERIFIED |
 | GET | /api/v2/user/libraries | Viewer libraries | OAS:L227883; `PersonalDataApi.kt@ee178d8` L59 | VERIFIED |
-| GET | /api/v2/library/{id}/sections | Library page rows | OAS:L187307; `LibrarySectionItemsV2Api.kt@ee178d8` L32 | VERIFIED (shape UNVERIFIED) |
+| GET | /api/v2/library/{id}/sections | Library page rows | OAS:L187307; `LibrarySectionItemsV2Api.kt@ee178d8` L32 | VERIFIED |
 | GET | /api/v2/library/{id}/sections/{section_id}/items | Row items | OAS:L187591 | VERIFIED (shape UNVERIFIED) |
 | GET | /api/v2/catalog | Browse/search/filter | OAS:L150065 | VERIFIED |
 | POST | /api/v2/catalog/query | Body-form browse | OAS:L155465 | VERIFIED |
-| GET | /api/v2/catalog/filters | Facets | OAS:L151423 | VERIFIED (shape UNVERIFIED) |
+| GET | /api/v2/catalog/filters | Facets (Granary reads `genres`) | OAS:L151423 | VERIFIED |
 | GET | /api/v2/catalog/search/capabilities | Search mode | OAS:L155758 | VERIFIED (shape UNVERIFIED) |
 | GET | /api/v2/catalog/items/{id} | Detail page | OAS:L152009 | VERIFIED |
+| GET | /api/v2/catalog/people/{id} | Person (bio, photo, dates) | OAS:L155139 `getPerson` | VERIFIED |
+| GET | /api/v2/library/{id}/collections | Library collections tab | OAS:L186785 `getLibraryCollections` | VERIFIED |
+| GET | /api/v2/library/{id}/collections/{collection_id}/items | Collection items | OAS:L186942 `getLibraryCollectionItems` | VERIFIED |
+| GET | /api/v2/recommendations/similar/{item_id} | More like this | OAS:L209321 `listSimilar` | VERIFIED |
+| PUT, DELETE | /api/v2/favorites/{item_id} | Favourite on/off | OAS:L176743 `addFavorite`, L176439 `deleteFavorite` | VERIFIED |
+| PUT, DELETE | /api/v2/watchlist/{item_id} | Watchlist on/off | OAS:L235971 `addToWatchlist`, L235667 `deleteWatchlistEntry` | VERIFIED |
+| PUT, DELETE | /api/v2/not-interested/{item_id} | Not interested on/off | OAS:L189661 `markNotInterested`, L189357 `unmarkNotInterested` | VERIFIED |
+| PUT, DELETE | /api/v2/ratings/{item_id} | Star rating 1–5 / clear | OAS:L206994 `setRating`, L206690 `deleteRating` | VERIFIED |
 | GET | /api/v2/catalog/items/{id}/versions | File versions | OAS:L154461 | VERIFIED |
 | GET | /api/v2/catalog/items/{id}/episodes | Episodes of item | OAS:L152574 | VERIFIED (shape UNVERIFIED) |
 | GET | /api/v2/catalog/series/{id}/seasons | Seasons | OAS:L155969 | VERIFIED |

@@ -44,6 +44,23 @@ const OPERATIONS = [
   "getWatchTrickplay",
   "createEventsSocketTicket",
   "connectEventsSocket",
+  // 0.2: detail actions, people, library tabs, similar titles, filters
+  "addFavorite",
+  "deleteFavorite",
+  "addToWatchlist",
+  "deleteWatchlistEntry",
+  "markWatched",
+  "unmarkWatched",
+  "markNotInterested",
+  "unmarkNotInterested",
+  "setRating",
+  "deleteRating",
+  "getPerson",
+  "listLibrarySections",
+  "getLibraryCollections",
+  "getLibraryCollectionItems",
+  "listSimilar",
+  "getCatalogFilters",
 ];
 
 const oas = JSON.parse(readFileSync(src, "utf8"));

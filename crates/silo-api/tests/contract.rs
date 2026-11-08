@@ -3,6 +3,7 @@
 //! same subset.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test code: a panic is the failure report
 
+use granary_silo_api::api::{PageQuery, UserFlag};
 use granary_silo_api::credentials::{CredentialStore, MemoryStore};
 use granary_silo_api::device::{CLIENT_FAMILY, CLIENT_NAME, DEVICE_PLATFORM, DeviceIdentity};
 use granary_silo_api::{ApiError, Auth, HttpSiloApi, ProfileAuth, Secret, Session, SiloApi, probe};
@@ -146,6 +147,25 @@ const RESPONSES: &[(&str, &str, &str)] = &[
     ("replanPlayback", "200", "upstream_playback_replan_reanchored.json"),
     ("getWatchTrickplay", "200", "upstream_get_watch_trickplay_ok.json"),
     ("createEventsSocketTicket", "200", "upstream_events_socket_ticket.json"),
+    // 0.2: people, library tabs, similar titles, filters
+    ("getPerson", "200", "person.json"),
+    ("listLibrarySections", "200", "home_sections.json"),
+    ("getLibraryCollections", "200", "library_collections.json"),
+    ("getLibraryCollectionItems", "200", "catalog_item_collection.json"),
+    ("listSimilar", "200", "catalog_item_collection.json"),
+    ("getCatalogFilters", "200", "catalog_filters.json"),
+];
+
+/// 0.2 profile flags: (operationId, flag, on). Each answers `204` with no body.
+const FLAG_OPS: &[(&str, UserFlag, bool)] = &[
+    ("addFavorite", UserFlag::Favorite, true),
+    ("deleteFavorite", UserFlag::Favorite, false),
+    ("addToWatchlist", UserFlag::Watchlist, true),
+    ("deleteWatchlistEntry", UserFlag::Watchlist, false),
+    ("markWatched", UserFlag::Watched, true),
+    ("unmarkWatched", UserFlag::Watched, false),
+    ("markNotInterested", UserFlag::NotInterested, true),
+    ("unmarkNotInterested", UserFlag::NotInterested, false),
 ];
 
 /// Phase 6 operations, served by `http_client_speaks_the_playback_contract`.
@@ -348,6 +368,7 @@ async fn http_client_speaks_the_catalog_contract() {
         sort: Some("title".into()),
         cursor: Some("cursor-1".into()),
         limit: Some(60),
+        ..CatalogQuery::default()
     };
     let page = api.catalog_browse(&o, &a, &query).await.unwrap();
     assert_eq!(page.page.and_then(|p| p.next_cursor).as_deref(), Some("cursor-2"));
@@ -946,4 +967,111 @@ async fn media_requests_forward_ranges_and_never_follow_redirects() {
         .await;
     let last = server.received_requests().await.unwrap().pop().unwrap();
     assert!(last.headers.get("authorization").is_none() && last.headers.get("x-silo-device-id").is_none());
+}
+
+/// 0.2 operations: flags, rating, person, library tabs, similar titles and filters, with the method, path, profile
+/// headers and (for `setRating`) a body that validates against `RatingSet`.
+#[tokio::test]
+async fn http_client_speaks_the_detail_and_library_contract() {
+    use wiremock::matchers::body_json;
+    let server = MockServer::start().await;
+    let params = [("id", "m1"), ("item_id", "m1"), ("collection_id", "c1")];
+    for (id, _, _) in FLAG_OPS {
+        let o = op(id);
+        assert!(
+            o["responses"]["204"].is_null() && o["responses"].get("204").is_some(),
+            "{id} answers 204"
+        );
+        let p = o["path"]
+            .as_str()
+            .unwrap()
+            .replace("{item_id}", "m1")
+            .replace("{id}", "m1");
+        Mock::given(method(o["method"].as_str().unwrap()))
+            .and(path(p))
+            .and(header("X-Profile-Id", "2"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    let rating = serde_json::json!({ "rating": 4 });
+    assert_valid(&rating, &op("setRating")["requestBody"], "setRating body");
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/ratings/m1"))
+        .and(body_json(&rating))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/v2/ratings/m1"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    for (id, status, fixture) in RESPONSES.iter().filter(|r| {
+        [
+            "getPerson",
+            "listLibrarySections",
+            "getLibraryCollections",
+            "getLibraryCollectionItems",
+            "listSimilar",
+            "getCatalogFilters",
+        ]
+        .contains(&r.0)
+    }) {
+        let id_param = if *id == "getPerson" {
+            "p1"
+        } else if id.starts_with("listSimilar") {
+            "m1"
+        } else {
+            "lib-1"
+        };
+        let mut ps = params.to_vec();
+        ps.retain(|(k, _)| *k != "id");
+        ps.push(("id", id_param));
+        mount(&server, id, status.parse().unwrap(), fixture, &ps).await;
+    }
+    let api = HttpSiloApi::new(device()).unwrap();
+    let o = server.uri();
+    let a = auth(Some(("2", None)));
+    for (_, flag, on) in FLAG_OPS {
+        api.set_flag(&o, &a, *flag, "m1", *on).await.unwrap();
+    }
+    api.set_rating(&o, &a, "m1", Some(4)).await.unwrap();
+    api.set_rating(&o, &a, "m1", None).await.unwrap();
+    assert_eq!(api.person(&o, &a, "p1").await.unwrap().name, "Ada Brook");
+    assert!(!api.library_sections(&o, &a, "lib-1").await.unwrap().sections.is_empty());
+    let tab = api.library_collections(&o, &a, "lib-1").await.unwrap();
+    assert_eq!(
+        tab.cards().iter().map(|c| c.id.as_str()).collect::<Vec<_>>(),
+        ["c1", "c2"]
+    );
+    let page = PageQuery {
+        limit: Some(60),
+        cursor: None,
+    };
+    let items = api
+        .library_collection_items(&o, &a, "lib-1", "c1", &page)
+        .await
+        .unwrap();
+    assert_eq!(items.page.and_then(|p| p.next_cursor).as_deref(), Some("cursor-2"));
+    let similar = api.similar(&o, &a, "m1").await.unwrap();
+    assert_eq!(
+        similar.items[0].overlay_summary.as_ref().and_then(|b| b.hdr.as_deref()),
+        Some("DV HDR10")
+    );
+    assert_eq!(
+        api.catalog_filters(&o, &a, "lib-1").await.unwrap().genres,
+        ["Comedy", "Drama"]
+    );
+    for req in server.received_requests().await.unwrap() {
+        let url = req.url.path().to_owned();
+        let has = |h: &str| req.headers.contains_key(h);
+        assert!(
+            has("authorization") && has("x-profile-id"),
+            "{url} carries bearer and profile headers"
+        );
+    }
 }

@@ -92,6 +92,21 @@ pub fn open_link(link: Link) -> CmdResult<()> {
     shell_open(&target).map_err(CommandError::internal)
 }
 
+/// A YouTube video id as TMDB/the server reports it: 11 URL-safe characters (some older ids are shorter).
+fn valid_youtube_key(key: &str) -> bool {
+    (6..=16).contains(&key.len()) && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+/// Opens a trailer on YouTube in the default browser. The UI passes only the video key; the URL is built here.
+#[tauri::command]
+pub fn open_trailer(key: String) -> CmdResult<()> {
+    if !valid_youtube_key(&key) {
+        return Err(CommandError::invalid("not a YouTube video id".into()));
+    }
+    tracing::info!("opening trailer");
+    shell_open(&format!("https://www.youtube.com/watch?v={key}")).map_err(CommandError::internal)
+}
+
 #[cfg(windows)]
 fn shell_open(target: &str) -> Result<(), String> {
     use windows::Win32::UI::Shell::ShellExecuteW;
@@ -229,6 +244,23 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 #[allow(clippy::unwrap_used)] // test code
 mod tests {
     use super::*;
+
+    #[test]
+    fn trailer_keys_are_strict() {
+        assert!(valid_youtube_key("dQw4w9WgXcQ"));
+        assert!(valid_youtube_key("a-b_C1d2E3f"));
+        for bad in [
+            "",
+            "abc",
+            "dQw4w9WgXcQ&x=1",
+            "../../etc",
+            "a b c d e f",
+            "https://evil.example/",
+            "aaaaaaaaaaaaaaaaaaaaaaa",
+        ] {
+            assert!(!valid_youtube_key(bad), "{bad}");
+        }
+    }
 
     fn temp(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("granary-about-{name}-{}", std::process::id()));

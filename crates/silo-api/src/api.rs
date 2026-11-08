@@ -134,6 +134,61 @@ pub trait SiloApi: Send + Sync {
     async fn events_ticket(&self, origin: &str, auth: &Auth) -> Result<EventsSocketTicket>;
     /// Stream a media URL from a playback plan (`getPlaybackMedia`/`Manifest`/`Segment`/`Subtitle`).
     async fn fetch_media(&self, request: MediaRequest) -> Result<MediaResponse>;
+    /// `addFavorite`/`deleteFavorite`, `addToWatchlist`/`deleteWatchlistEntry`, `markWatched`/`unmarkWatched`,
+    /// `markNotInterested`/`unmarkNotInterested` (all `204`).
+    async fn set_flag(&self, origin: &str, auth: &Auth, flag: UserFlag, id: &str, on: bool) -> Result<()>;
+    /// `setRating` (1–5 stars) / `deleteRating` (`None`).
+    async fn set_rating(&self, origin: &str, auth: &Auth, id: &str, rating: Option<i64>) -> Result<()>;
+    /// `getPerson`.
+    async fn person(&self, origin: &str, auth: &Auth, id: &str) -> Result<Person>;
+    /// `listLibrarySections` (a library's Recommended tab).
+    async fn library_sections(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<SectionCollection>;
+    /// `getLibraryCollections`.
+    async fn library_collections(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<LibraryCollectionTab>;
+    /// `getLibraryCollectionItems`.
+    async fn library_collection_items(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        library_id: &str,
+        collection_id: &str,
+        page: &PageQuery,
+    ) -> Result<CatalogItemCollection>;
+    /// `listSimilar`.
+    async fn similar(&self, origin: &str, auth: &Auth, id: &str) -> Result<CatalogItemCollection>;
+    /// `getCatalogFilters` for one library.
+    async fn catalog_filters(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<CatalogFilters>;
+}
+
+/// A per-profile flag on a catalog item, each a pair of idempotent `204` operations (docs/research/silo-api.md §8.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UserFlag {
+    Favorite,
+    Watchlist,
+    Watched,
+    NotInterested,
+}
+
+impl UserFlag {
+    /// Path prefix and the method that sets the flag (`DELETE` clears every one).
+    pub fn route(self) -> (&'static str, Method) {
+        match self {
+            Self::Favorite => ("/api/v2/favorites", Method::PUT),
+            Self::Watchlist => ("/api/v2/watchlist", Method::PUT),
+            Self::Watched => ("/api/v2/watched", Method::POST),
+            Self::NotInterested => ("/api/v2/not-interested", Method::PUT),
+        }
+    }
+}
+
+/// Cursor paging for list operations (`limit`, `cursor`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct PageQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
 }
 
 /// `reqwest` + rustls with the platform verifier (Windows certificate store, ADR-0004 L3).
@@ -439,6 +494,68 @@ impl SiloApi for HttpSiloApi {
 
     async fn events_ticket(&self, origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
         send_json(self.authed(Method::POST, origin, "/api/v2/events/ws-ticket", auth)).await
+    }
+
+    async fn set_flag(&self, origin: &str, auth: &Auth, flag: UserFlag, id: &str, on: bool) -> Result<()> {
+        let (prefix, set) = flag.route();
+        let method = if on { set } else { Method::DELETE };
+        let path = format!("{prefix}/{}", url_segment(id));
+        send_raw(self.authed(method, origin, &path, auth)).await.map(drop)
+    }
+
+    async fn set_rating(&self, origin: &str, auth: &Auth, id: &str, rating: Option<i64>) -> Result<()> {
+        let path = format!("/api/v2/ratings/{}", url_segment(id));
+        let rb = match rating {
+            Some(r) => self
+                .authed(Method::PUT, origin, &path, auth)
+                .json(&serde_json::json!({ "rating": r.clamp(1, 5) })),
+            None => self.authed(Method::DELETE, origin, &path, auth),
+        };
+        send_raw(rb).await.map(drop)
+    }
+
+    async fn person(&self, origin: &str, auth: &Auth, id: &str) -> Result<Person> {
+        let path = format!("/api/v2/catalog/people/{}", url_segment(id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn library_sections(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<SectionCollection> {
+        let path = format!("/api/v2/library/{}/sections", url_segment(library_id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn library_collections(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<LibraryCollectionTab> {
+        let path = format!("/api/v2/library/{}/collections", url_segment(library_id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn library_collection_items(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        library_id: &str,
+        collection_id: &str,
+        page: &PageQuery,
+    ) -> Result<CatalogItemCollection> {
+        let path = format!(
+            "/api/v2/library/{}/collections/{}/items",
+            url_segment(library_id),
+            url_segment(collection_id)
+        );
+        send_json(self.authed(Method::GET, origin, &path, auth).query(page)).await
+    }
+
+    async fn similar(&self, origin: &str, auth: &Auth, id: &str) -> Result<CatalogItemCollection> {
+        let path = format!("/api/v2/recommendations/similar/{}", url_segment(id));
+        send_json(self.authed(Method::GET, origin, &path, auth).query(&[("limit", "20")])).await
+    }
+
+    async fn catalog_filters(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<CatalogFilters> {
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/catalog/filters", auth)
+                .query(&[("library_id", library_id), ("skip_technical", "true")]),
+        )
+        .await
     }
 
     async fn fetch_media(&self, request: MediaRequest) -> Result<MediaResponse> {

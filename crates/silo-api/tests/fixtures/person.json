@@ -1,0 +1,8 @@
+{
+  "id": "p1",
+  "name": "Ada Brook",
+  "bio": "Fictional actor used by Granary's contract fixtures.",
+  "birth_date": "1980-04-12",
+  "birthplace": "Lyon, France",
+  "photo_url": "/api/v2/artwork/person-p1?exp=1893456000&sig=fixture"
+}

@@ -16,7 +16,10 @@ import {
   type WindowState,
 } from "../lib/player";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "../lib/settings";
-import { PlayerContext, type PlayerApi, type PlayerError, type StartOptions } from "./context";
+import { PlayerContext, type Launch, type PlayerApi, type PlayerError, type StartOptions } from "./context";
+
+/** The launch screen gives up after this long even without a first frame (the controls' spinner takes over). */
+const LAUNCH_TIMEOUT_MS = 30000;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PlayerState>(IDLE_STATE);
@@ -26,6 +29,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [error, setError] = useState<PlayerError | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [launch, setLaunch] = useState<Launch | null>(null);
+  // The launch ends at the first frame of the new file, so it must first see this attempt leave the old state.
+  const launchArmed = useRef(false);
   const ctxRef = useRef(ctx);
   const autoplayCancelled = useRef(false);
   const settingsRef = useRef(settings);
@@ -34,10 +40,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     settingsRef.current = settings;
   });
 
-  const start = useCallback(async (serverId: string, itemId: string, opts: StartOptions = {}) => {
+  const startInner = useCallback(async (serverId: string, itemId: string, opts: StartOptions) => {
     const w = opts.watch ?? (await catalog.watch(serverId, itemId));
     const choice = opts.choice ?? defaultChoice(w);
-    if (!choice) return false;
+    if (!choice) {
+      setLaunch(null);
+      return false;
+    }
+    const lines = mediaLines(w);
+    setLaunch((l) =>
+      l
+        ? {
+            ...l,
+            title: l.title ?? lines.title,
+            subtitle: l.subtitle ?? lines.subtitle ?? null,
+            backdrop: l.backdrop ?? w.backdrop_url ?? null,
+          }
+        : l,
+    );
     let episodes: Episode[] = [];
     if (w.series_id && w.season_number != null) {
       const seriesId = w.series_id;
@@ -76,6 +96,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
+  const start = useCallback(
+    async (serverId: string, itemId: string, opts: StartOptions = {}) => {
+      launchArmed.current = false;
+      setLaunch({ serverId, ...opts.art, backdrop: opts.art?.backdrop ?? opts.watch?.backdrop_url ?? null });
+      try {
+        return await startInner(serverId, itemId, opts);
+      } catch (e) {
+        setLaunch(null);
+        throw e;
+      }
+    },
+    [startInner],
+  );
+
   const startRef = useRef(start);
   const { t } = useTranslation();
   const tRef = useRef(t);
@@ -94,8 +128,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             setPlan(n);
             break;
           case "error":
-            if (n.fatal) setError({ code: n.code, message: n.message });
-            else setToast(errorMessage(tRef.current, n));
+            if (n.fatal) {
+              setError({ code: n.code, message: n.message });
+              setLaunch(null);
+            } else setToast(errorMessage(tRef.current, n));
             break;
           case "ended": {
             // Autoplay: the next episode starts right away when the file ends (the countdown card may have run).
@@ -108,6 +144,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             break;
           }
           case "stopped":
+            setLaunch(null);
             bumpRefresh();
             break;
           case "progress":
@@ -139,6 +176,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     else delete root.dataset.videoActive;
   }, [state.active]);
 
+  // First frame of the new attempt: the state went through loading (or idle) and now plays or sits paused.
+  useEffect(() => {
+    if (!launch) return;
+    const { phase } = state;
+    if (phase === "loading" || phase === "idle") launchArmed.current = true;
+    else if (launchArmed.current && (phase === "playing" || phase === "paused") && !state.buffering) setLaunch(null);
+  }, [launch, state]);
+  useEffect(() => {
+    if (!launch) return;
+    const id = setTimeout(() => {
+      setLaunch(null);
+    }, LAUNCH_TIMEOUT_MS);
+    return () => {
+      clearTimeout(id);
+    };
+  }, [launch]);
+
   const api = useMemo<PlayerApi>(
     () => ({
       state,
@@ -148,6 +202,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       settings,
       error,
       toast,
+      launch,
       showToast: setToast,
       start,
       updateCtx: (patch) => {
@@ -161,7 +216,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         autoplayCancelled.current = true;
       },
     }),
-    [state, plan, ctx, win, settings, error, toast, start],
+    [state, plan, ctx, win, settings, error, toast, launch, start],
   );
 
   return <PlayerContext.Provider value={api}>{children}</PlayerContext.Provider>;

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-catalog-set-rating"
+description = "Enables the catalog_set_rating command without any pre-configured scope."
+commands.allow = ["catalog_set_rating"]
+
+[[permission]]
+identifier = "deny-catalog-set-rating"
+description = "Denies the catalog_set_rating command without any pre-configured scope."
+commands.deny = ["catalog_set_rating"]

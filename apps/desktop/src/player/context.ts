@@ -13,6 +13,20 @@ export interface StartOptions {
   fromStart?: boolean;
   choice?: PlayChoice;
   watch?: WatchDetail;
+  /** Artwork for the launch screen when the caller already has it (the detail page). */
+  art?: LaunchArt;
+}
+
+/** What the launch screen shows between Play and the first frame (artwork references, not URLs). */
+export interface LaunchArt {
+  title?: string | null;
+  subtitle?: string | null;
+  backdrop?: string | null;
+  logo?: string | null;
+}
+
+export interface Launch extends LaunchArt {
+  serverId: string;
 }
 
 export interface PlayerApi {
@@ -25,6 +39,8 @@ export interface PlayerApi {
   error: PlayerError | null;
   /** Short-lived message (reconnecting, not direct play, a refused action). */
   toast: string | null;
+  /** Set from Play until the first frame (or a failure): the launch screen covers the transparent page. */
+  launch: Launch | null;
   showToast: (message: string | null) => void;
   /**
    * The single path from any Play control to the native player: resolve what to play, the season's episodes for

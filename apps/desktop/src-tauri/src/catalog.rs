@@ -2,8 +2,10 @@
 //! used here is listed in docs/research/silo-api.md §13 with its OAS line @6791aac.
 use crate::silo::{CommandError, SiloState};
 use granary_silo_api::api::{ImageData, raster_image_type};
+use granary_silo_api::api::{PageQuery, UserFlag};
 use granary_silo_api::catalog::{
-    CatalogBrowseCollection, CatalogItemDetail, CatalogQuery, Episode, Season, Section, WatchDetail,
+    CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection, CatalogItemDetail, CatalogQuery,
+    CollectionCard, Episode, Person, Season, Section, WatchDetail,
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
@@ -25,7 +27,18 @@ pub struct CatalogQueryArgs {
     pub sort: Option<String>,
     pub cursor: Option<String>,
     pub limit: Option<i64>,
+    /// `query` (default) or `person` (filmography).
+    pub source: Option<String>,
+    pub person_id: Option<String>,
+    /// Alphabet jump (`#` or a letter).
+    pub name_prefix: Option<String>,
+    pub genre: Option<String>,
+    pub year_min: Option<i64>,
+    pub year_max: Option<i64>,
 }
+
+/// The sources the UI may browse; anything else is refused before a request is sent.
+const SOURCES: &[&str] = &["query", "person"];
 
 impl From<CatalogQueryArgs> for CatalogQuery {
     fn from(a: CatalogQueryArgs) -> Self {
@@ -37,6 +50,12 @@ impl From<CatalogQueryArgs> for CatalogQuery {
             sort: clean(a.sort),
             cursor: clean(a.cursor),
             limit: a.limit.map(|l| l.clamp(1, 200)),
+            source: clean(a.source).filter(|s| SOURCES.contains(&s.as_str())),
+            person_id: clean(a.person_id),
+            name_prefix: clean(a.name_prefix).filter(|p| p.chars().count() == 1),
+            genre: clean(a.genre),
+            year_min: a.year_min.filter(|y| (1800..=3000).contains(y)),
+            year_max: a.year_max.filter(|y| (1800..=3000).contains(y)),
         }
     }
 }
@@ -154,6 +173,110 @@ pub async fn watch_trickplay(
             &server_id,
             |s| async move { s.watch_trickplay(&item_id, &file_id).await },
         )
+        .await
+}
+
+/// Favourite / watchlist / watched / not-interested toggle on an item (all `204`).
+#[tauri::command]
+pub async fn catalog_set_flag(
+    state: State<'_, SiloState>,
+    server_id: String,
+    item_id: String,
+    flag: UserFlag,
+    on: bool,
+) -> CmdResult<()> {
+    state
+        .with_session(&server_id, |s| async move { s.set_flag(flag, &item_id, on).await })
+        .await
+}
+
+/// Star rating 1–5, or `null` to clear it.
+#[tauri::command]
+pub async fn catalog_set_rating(
+    state: State<'_, SiloState>,
+    server_id: String,
+    item_id: String,
+    rating: Option<i64>,
+) -> CmdResult<()> {
+    if rating.is_some_and(|r| !(1..=5).contains(&r)) {
+        return Err(CommandError::invalid("rating must be 1 to 5".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.set_rating(&item_id, rating).await })
+        .await
+}
+
+#[tauri::command]
+pub async fn person_get(state: State<'_, SiloState>, server_id: String, person_id: String) -> CmdResult<Person> {
+    state
+        .with_session(&server_id, |s| async move { s.person(&person_id).await })
+        .await
+}
+
+/// A library's Recommended tab (`listLibrarySections`).
+#[tauri::command]
+pub async fn library_sections(
+    state: State<'_, SiloState>,
+    server_id: String,
+    library_id: String,
+) -> CmdResult<Vec<Section>> {
+    state
+        .with_session(&server_id, |s| async move { s.library_sections(&library_id).await })
+        .await
+}
+
+/// A library's Collections tab, every card once.
+#[tauri::command]
+pub async fn library_collections(
+    state: State<'_, SiloState>,
+    server_id: String,
+    library_id: String,
+) -> CmdResult<Vec<CollectionCard>> {
+    state
+        .with_session(&server_id, |s| async move { s.library_collections(&library_id).await })
+        .await
+}
+
+#[tauri::command]
+pub async fn collection_items(
+    state: State<'_, SiloState>,
+    server_id: String,
+    library_id: String,
+    collection_id: String,
+    cursor: Option<String>,
+) -> CmdResult<CatalogItemCollection> {
+    let page = PageQuery {
+        limit: Some(60),
+        cursor: cursor.filter(|c| !c.is_empty()),
+    };
+    state
+        .with_session(&server_id, |s| async move {
+            s.library_collection_items(&library_id, &collection_id, &page).await
+        })
+        .await
+}
+
+/// "More like this" (`listSimilar`).
+#[tauri::command]
+pub async fn catalog_similar(
+    state: State<'_, SiloState>,
+    server_id: String,
+    item_id: String,
+) -> CmdResult<Vec<CatalogItem>> {
+    state
+        .with_session(&server_id, |s| async move { s.similar(&item_id).await })
+        .await
+}
+
+/// Genre facet for a library's filter menu.
+#[tauri::command]
+pub async fn catalog_filters(
+    state: State<'_, SiloState>,
+    server_id: String,
+    library_id: String,
+) -> CmdResult<CatalogFilters> {
+    state
+        .with_session(&server_id, |s| async move { s.catalog_filters(&library_id).await })
         .await
 }
 

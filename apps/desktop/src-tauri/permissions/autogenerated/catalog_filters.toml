@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-catalog-filters"
+description = "Enables the catalog_filters command without any pre-configured scope."
+commands.allow = ["catalog_filters"]
+
+[[permission]]
+identifier = "deny-catalog-filters"
+description = "Denies the catalog_filters command without any pre-configured scope."
+commands.deny = ["catalog_filters"]

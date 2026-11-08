@@ -361,7 +361,8 @@ describe("connect flow", () => {
     expect(await screen.findByRole("heading", { name: "Northern Lights", level: 1 })).toBeTruthy();
     expect(screen.getByText("Ada Brook")).toBeTruthy();
     // Pick the German audio track, then resume.
-    fireEvent.change(await screen.findByLabelText("Audio"), { target: { value: "1" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Audio" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /^German/ }));
     fireEvent.click(screen.getByRole("button", { name: "Resume from 25:20" }));
     await waitFor(() => {
       expect(host.calls.find((c) => c.cmd === "player_play")).toBeTruthy();
@@ -390,6 +391,21 @@ describe("connect flow", () => {
         host.handlers[event]?.({ payload });
       });
     };
+    // Until the first frame a title card covers the (already transparent) page.
+    expect(screen.getByTestId("launch-screen")).toBeTruthy();
+    emit("player://state", {
+      active: true,
+      itemId: "m1",
+      fileId: "m1-f1",
+      phase: "loading",
+      position: 0,
+      paused: false,
+      buffering: false,
+      volume: 100,
+      muted: false,
+      props: {},
+    });
+    expect(screen.getByTestId("launch-screen").className).toContain("opacity-100");
     emit("player://state", {
       active: true,
       itemId: "m1",
@@ -406,6 +422,8 @@ describe("connect flow", () => {
     expect(await screen.findByTestId("player-view")).toBeTruthy();
     expect(document.documentElement.dataset.videoActive).toBe("true");
     expect(screen.getByText("25:20 / 1:58:00")).toBeTruthy();
+    // The first frame fades the title card out.
+    expect(screen.getByTestId("launch-screen").className).toContain("opacity-0");
 
     // mpv-like keys: space pauses, right arrow seeks by the seek step, m mutes, ? opens the shortcuts.
     fireEvent.keyDown(window, { key: " " });
