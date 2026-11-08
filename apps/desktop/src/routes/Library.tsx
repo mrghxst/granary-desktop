@@ -143,7 +143,7 @@ export function PagedGrid({
                 key={item.content_id}
                 serverId={serverId}
                 item={item}
-                onPlay={(i) => void play(i.play_content_id ?? i.content_id)}
+                onPlay={(i, o) => void play(i.play_content_id ?? i.content_id, o)}
               />
             ))}
           </div>
@@ -227,7 +227,7 @@ function Recommended({ serverId, libraryId }: { serverId: string; libraryId: str
                 serverId={serverId}
                 item={i}
                 wide={wide}
-                onPlay={(x) => void play(x.play_content_id ?? x.content_id)}
+                onPlay={(x, o) => void play(x.play_content_id ?? x.content_id, o)}
               />
             ))}
           </Row>

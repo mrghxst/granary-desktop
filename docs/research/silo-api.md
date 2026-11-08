@@ -662,7 +662,7 @@ Useful for a viewer client:
   - With `separate`, the server injects a synthetic row `id: "system-next-up"`, `section_type: "next_up"` after Continue Watching (`silo-server/internal/api/handlers/sections.go@6791aac` L2072-2090).
 - Raw in-progress data is available as `GET /api/v2/progress?status=in_progress` (§8.2).
 - A dedicated "next episode after this one" endpoint for post-play autoplay was **not found** (**UNVERIFIED**). Candidates are the `next_in_series` section type or computing it from `listSeasonEpisodes`.
-- Dismissing an item from a surface: `PUT` / `DELETE /api/v2/home/dismissals/{surface}/{item_id}` (OAS ops list).
+- Dismissing an item from a surface: `PUT` / `DELETE /api/v2/home/dismissals/{surface}/{item_id}` (`dismissHomeItem` OAS:L179275 / `undismissHomeItem` OAS:L179109). `surface` is `continue_watching` or `next_up`. The PUT body anchors the dismissal: `progress_updated_at` (the card's value) for `continue_watching`, `series_id` for `next_up`; the card comes back once that progress changes or the next episode does (`silo-server/internal/apiv2/home.go@6791aac` L65-81, `internal/api/router.go@6791aac` L3933-3937). Granary uses the PUT from the card context menu ("Remove from Continue Watching / Next Up").
 
 ## 12. Version-dependent and unstable areas
 
@@ -718,6 +718,7 @@ Useful for a viewer client:
 | `stopPlayback` (OAS:L200687) | `stop_playback` (DELETE with JSON body) | bearer + profile headers |
 | `replanPlayback` (OAS:L201353) | `replan_playback` | bearer + profile headers |
 | `getWatchTrickplay` (OAS:L234363) | `watch_trickplay` (`?file_id=`) | bearer + profile headers |
+| `dismissHomeItem` (OAS:L179275) | `dismiss_home` (PUT `/home/dismissals/{surface}/{item_id}`, body `progress_updated_at` or `series_id`, §11) | bearer + profile headers |
 | `createEventsSocketTicket` (OAS:L176024) | `events_ticket` | bearer + profile headers |
 | `connectEventsSocket` (OAS:L175913) | `events.rs` WebSocket (`?ticket=` from `events_ticket`) | ticket only |
 | `getPlaybackMedia` / `headPlaybackMedia` (OAS:L220333 / L220910) | `fetch_media` (host relay, ADR-0008) | bearer + profile headers, same origin only |

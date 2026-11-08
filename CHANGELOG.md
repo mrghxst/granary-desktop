@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Right-click menu on every poster card (home rows, libraries, search, detail pages): Play, Play from beginning, Mark
+  watched / unwatched and Remove from Continue Watching / Next Up, each shown only where it applies.
+- Seek previews from Seekr (seekr.tv) with your own API key. Previews now come from a chain you can reorder and switch
+  in Settings → Player: server previews first, then Seekr, then local generation. A title Seekr does not know, or a
+  reached daily limit, falls back to the next source. The key is stored in Windows Credential Manager.
+- Artwork is cached on disk (at most 300 MB), so posters and backgrounds appear at once after a restart and also
+  offline. Artwork of titles you are still watching is kept longest. Settings → Servers shows the size and has a
+  Clear button.
 - Search has type filters: All, Movies, Shows or Episodes. The choice is remembered, so going back to search
   restores it.
 - Seek previews feel instant. Once a file has played for a few seconds, a paced background fill fetches a
@@ -20,6 +28,8 @@ follow [Semantic Versioning](https://semver.org/).
   loading.
 
 ### Fixed
+- Right-clicking a card in a home row or a library no longer breaks the page. The menu was positioned relative to
+  the hovered card and clipped by the row.
 - The right subtitle starts with the video. The player sent the catalog's track number where the server expects
   its own track order, which could switch on an unrelated language (for example Arabic instead of forced English).
   The "forced only" subtitle mode now picks forced tracks, and when the server's pick cannot be matched, subtitles

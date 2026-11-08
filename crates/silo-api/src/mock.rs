@@ -34,6 +34,8 @@ struct State {
     /// item id → the profile's flags and rating (one profile is enough for the mock).
     flags: HashMap<String, CatalogItemUserState>,
     ratings: HashMap<String, i64>,
+    /// Items hidden from Continue Watching.
+    dismissed: HashSet<String>,
     counter: u64,
     access_lifetime: i64,
     live_access: HashSet<String>,
@@ -864,7 +866,22 @@ impl SiloApi for MockSiloApi {
     async fn home_sections(&self, _origin: &str, auth: &Auth) -> Result<SectionCollection> {
         self.check(auth)?;
         let cards: Vec<CatalogItem> = self.visible_cards(auth)?.into_iter().map(|(_, c)| c).collect();
-        let continuing: Vec<CatalogItem> = cards.iter().filter(|c| c.position_seconds.is_some()).cloned().collect();
+        let dismissed = self
+            .state
+            .lock()
+            .map_err(|_| ApiError::Internal("mock state".into()))?
+            .dismissed
+            .clone();
+        let continuing: Vec<CatalogItem> = cards
+            .iter()
+            .filter(|c| c.position_seconds.is_some() && !dismissed.contains(&c.content_id))
+            .cloned()
+            .map(|mut c| {
+                c.item_source = Some("in_progress".into());
+                c.progress_updated_at = Some("2026-11-01T20:00:00Z".into());
+                c
+            })
+            .collect();
         let section = |id: &str, title: &str, kind: &str, featured: bool, items: Vec<CatalogItem>| Section {
             id: id.into(),
             title: title.into(),
@@ -1354,6 +1371,22 @@ impl SiloApi for MockSiloApi {
             UserFlag::Watched => flags.played = on,
             UserFlag::NotInterested => flags.not_interested = on,
         }
+        Ok(())
+    }
+
+    async fn dismiss_home(&self, _origin: &str, auth: &Auth, d: &HomeDismissal) -> Result<()> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        demo::detail(&d.item_id).ok_or_else(|| problem(404, "not_found"))?;
+        let anchored = match d.surface {
+            HomeSurface::ContinueWatching => d.progress_updated_at.is_some(),
+            HomeSurface::NextUp => d.series_id.is_some(),
+        };
+        if !anchored {
+            return Err(problem(400, "bad_request"));
+        }
+        let mut st = self.state.lock().map_err(|_| ApiError::Internal("mock state".into()))?;
+        st.dismissed.insert(d.item_id.clone());
         Ok(())
     }
 

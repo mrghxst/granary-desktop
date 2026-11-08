@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export interface MenuAction {
   label: string;
@@ -6,7 +7,11 @@ export interface MenuAction {
   icon?: ReactNode;
 }
 
-/** A small right-click menu positioned at the pointer; Escape, outside click or blur closes it. */
+/**
+ * A small right-click menu positioned at the pointer; Escape, outside click, scrolling or blur closes it. Rendered into
+ * `document.body`: inside a card, the card's hover transform and the row's overflow would otherwise make the fixed
+ * menu position against the card and clip it.
+ */
 export function ContextMenu({
   x,
   y,
@@ -46,7 +51,11 @@ export function ContextMenu({
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
     window.addEventListener("blur", close);
+    window.addEventListener("wheel", close, { passive: true });
+    window.addEventListener("resize", close);
     return () => {
+      window.removeEventListener("wheel", close);
+      window.removeEventListener("resize", close);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("blur", close);
@@ -57,13 +66,16 @@ export function ContextMenu({
   const left = Math.min(x, window.innerWidth - 220);
   const top = Math.min(y, window.innerHeight - (actions.length * 40 + 16));
 
-  return (
+  return createPortal(
     <div
       ref={ref}
       role="menu"
       tabIndex={-1}
       aria-label={label}
-      className="fixed z-50 min-w-48 rounded-lg border border-border bg-popover p-1 shadow-2xl"
+      onContextMenu={(e) => {
+        e.preventDefault();
+      }}
+      className="fixed z-[70] min-w-48 rounded-lg border border-border bg-popover p-1 shadow-2xl"
       style={{ left, top }}
       onKeyDown={(e) => {
         if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -89,6 +101,7 @@ export function ContextMenu({
           {a.label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

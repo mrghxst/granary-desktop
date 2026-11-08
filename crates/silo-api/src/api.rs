@@ -137,6 +137,10 @@ pub trait SiloApi: Send + Sync {
     /// `addFavorite`/`deleteFavorite`, `addToWatchlist`/`deleteWatchlistEntry`, `markWatched`/`unmarkWatched`,
     /// `markNotInterested`/`unmarkNotInterested` (all `204`).
     async fn set_flag(&self, origin: &str, auth: &Auth, flag: UserFlag, id: &str, on: bool) -> Result<()>;
+    /// `dismissHomeItem`: `PUT /api/v2/home/dismissals/{surface}/{item_id}` (`204`), surface `continue_watching`
+    /// (needs `progress_updated_at`) or `next_up` (needs `series_id`) (`internal/apiv2/home.go@6791aac` L65-81,
+    /// `internal/api/router.go@6791aac` L3933-3937).
+    async fn dismiss_home(&self, origin: &str, auth: &Auth, dismissal: &HomeDismissal) -> Result<()>;
     /// `setRating` (1–5 stars) / `deleteRating` (`None`).
     async fn set_rating(&self, origin: &str, auth: &Auth, id: &str, rating: Option<i64>) -> Result<()>;
     /// `getPerson`.
@@ -501,6 +505,24 @@ impl SiloApi for HttpSiloApi {
         let method = if on { set } else { Method::DELETE };
         let path = format!("{prefix}/{}", url_segment(id));
         send_raw(self.authed(method, origin, &path, auth)).await.map(drop)
+    }
+
+    async fn dismiss_home(&self, origin: &str, auth: &Auth, d: &HomeDismissal) -> Result<()> {
+        let path = format!(
+            "/api/v2/home/dismissals/{}/{}",
+            url_segment(d.surface.as_str()),
+            url_segment(&d.item_id)
+        );
+        let mut body = serde_json::Map::new();
+        if let Some(s) = &d.series_id {
+            body.insert("series_id".into(), s.clone().into());
+        }
+        if let Some(p) = &d.progress_updated_at {
+            body.insert("progress_updated_at".into(), p.clone().into());
+        }
+        send_raw(self.authed(Method::PUT, origin, &path, auth).json(&body))
+            .await
+            .map(drop)
     }
 
     async fn set_rating(&self, origin: &str, auth: &Auth, id: &str, rating: Option<i64>) -> Result<()> {

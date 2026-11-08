@@ -851,7 +851,7 @@ function MoreLikeThis({ serverId, itemId }: { serverId: string; itemId: string }
   return (
     <Row title={t("item.moreLikeThis")}>
       {data.map((x) => (
-        <PosterCard key={x.content_id} serverId={serverId} item={x} onPlay={(i) => void play(i.content_id)} />
+        <PosterCard key={x.content_id} serverId={serverId} item={x} onPlay={(i, o) => void play(i.content_id, o)} />
       ))}
     </Row>
   );

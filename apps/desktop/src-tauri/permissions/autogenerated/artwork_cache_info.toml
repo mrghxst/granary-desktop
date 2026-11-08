@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-artwork-cache-info"
+description = "Enables the artwork_cache_info command without any pre-configured scope."
+commands.allow = ["artwork_cache_info"]
+
+[[permission]]
+identifier = "deny-artwork-cache-info"
+description = "Denies the artwork_cache_info command without any pre-configured scope."
+commands.deny = ["artwork_cache_info"]

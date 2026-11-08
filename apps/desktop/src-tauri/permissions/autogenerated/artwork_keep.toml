@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-artwork-keep"
+description = "Enables the artwork_keep command without any pre-configured scope."
+commands.allow = ["artwork_keep"]
+
+[[permission]]
+identifier = "deny-artwork-keep"
+description = "Denies the artwork_keep command without any pre-configured scope."
+commands.deny = ["artwork_keep"]

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import { ArtworkCache, PreviewSources } from "../components/PreviewSettings";
 import { Alert } from "../components/ui";
 import { errorMessage } from "../lib/errors";
 import {
@@ -256,6 +257,7 @@ export function Settings() {
             {t("settings.manageServers")}
           </Link>
         </RowLabel>
+        <ArtworkCache />
       </Section>
 
       <Section id="s-player" title={t("settings.player")}>
@@ -285,6 +287,13 @@ export function Settings() {
           checked={s.player.seekPreviews}
           onChange={(seekPreviews) => {
             set((d) => ({ ...d, player: { ...d.player, seekPreviews } }));
+          }}
+        />
+        <PreviewSources
+          sources={s.player.previewSources}
+          disabled={!s.player.seekPreviews}
+          onChange={(previewSources) => {
+            set((d) => ({ ...d, player: { ...d.player, previewSources } }));
           }}
         />
         <Choice

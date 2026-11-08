@@ -7,12 +7,14 @@
 //!    phase-3 review H1). The window is declared with `"create": false` in tauri.conf.json for this reason.
 
 pub mod about;
+pub mod artcache;
 pub mod catalog;
 pub mod commands;
 pub mod logging;
 pub mod paths;
 pub mod playback;
 pub mod redact;
+pub mod seekr;
 pub mod settings;
 pub mod silo;
 
@@ -135,6 +137,8 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     });
     app.manage(playback::events::EventsState::default());
     app.manage(playback::preview::PreviewState::default());
+    app.manage(artcache::ArtCache::default());
+    app.manage(seekr::SeekrState::default());
 
     let main = app
         .config()
@@ -272,6 +276,13 @@ pub fn run() {
             catalog::watch_trickplay,
             catalog::catalog_set_flag,
             catalog::catalog_set_rating,
+            catalog::home_dismiss,
+            catalog::artwork_keep,
+            catalog::artwork_cache_info,
+            catalog::artwork_cache_clear,
+            seekr::seekr_key_status,
+            seekr::seekr_key_set,
+            seekr::preview_seekr,
             catalog::person_get,
             catalog::library_sections,
             catalog::library_collections,

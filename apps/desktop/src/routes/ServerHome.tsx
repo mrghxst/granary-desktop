@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
 import { Alert, Button } from "../components/ui";
-import { artwork, catalog, type CatalogItem, type Section } from "../lib/catalog";
+import { artwork, catalog, type CatalogItem, type HomeSurface, type Section } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { signalReady } from "../lib/host";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
@@ -14,6 +14,12 @@ import { retryLoads, useRefreshTick, useRetryTick } from "../lib/events";
 import { usePlay } from "../lib/usePlay";
 
 const WIDE_SECTIONS = new Set(["continue_watching", "next_up", "in_progress"]);
+/** Rows whose cards can be removed from their home surface (dismissHomeItem). */
+const SURFACES: Record<string, HomeSurface | undefined> = {
+  continue_watching: "continue_watching",
+  in_progress: "continue_watching",
+  next_up: "next_up",
+};
 
 function Hero({ serverId, item, onPlay }: { serverId: string; item: CatalogItem; onPlay: () => void }) {
   const { t } = useTranslation();
@@ -69,6 +75,13 @@ export function ServerHome() {
         if (!alive) return;
         setSections(s.filter((x) => x.items.length > 0));
         setError(null);
+        // Artwork of what is being watched stays in the artwork cache longest (ADR-0010).
+        const keep = s
+          .filter((x) => SURFACES[x.section_type] !== undefined)
+          .flatMap((x) => x.items)
+          .flatMap((i) => [i.poster_url, i.backdrop_url, i.logo_url, i.series_poster_url])
+          .filter((u): u is string => typeof u === "string" && u.length > 0);
+        if (keep.length > 0) void catalog.artworkKeep(serverId, keep).catch(() => undefined);
       })
       .catch((e: unknown) => {
         if (!alive) return;
@@ -80,7 +93,8 @@ export function ServerHome() {
     };
   }, [serverId, navigate, t, refresh, retry]);
 
-  const onPlay = (item: CatalogItem) => void play(item.play_content_id ?? item.content_id);
+  const onPlay = (item: CatalogItem, opts?: { fromStart?: boolean }) =>
+    void play(item.play_content_id ?? item.content_id, opts);
   const featured = sections?.find((s) => s.featured)?.items[0];
 
   return (
@@ -106,6 +120,7 @@ export function ServerHome() {
               serverId={serverId}
               item={item}
               wide={WIDE_SECTIONS.has(s.section_type)}
+              surface={SURFACES[s.section_type]}
               onPlay={onPlay}
             />
           ))}

@@ -67,6 +67,9 @@ pub struct CatalogItem {
     pub play_content_id: Option<String>,
     pub position_seconds: Option<f64>,
     pub item_source: Option<String>,
+    /// Continue-watching cards: when the progress last changed; anchors a dismissal (`HomeDismissal`,
+    /// `internal/apiv2/home.go@6791aac` L72-75).
+    pub progress_updated_at: Option<String>,
     pub user_state: Option<CatalogItemUserState>,
     /// Technical badges of the best file (poster tags).
     pub overlay_summary: Option<CatalogItemOverlay>,
@@ -350,6 +353,10 @@ pub struct CatalogItemDetail {
     pub extras: Vec<ItemExtra>,
     pub user_rating: Option<i64>,
     pub overlay_summary: Option<CatalogItemOverlay>,
+    /// External ids (OAS `CatalogItemDetail.tmdb_id` / `imdb_id`, strings): for an episode they are the episode's
+    /// own, the show's come from the series detail. Used for third-party seek previews (ADR-0011).
+    pub tmdb_id: Option<String>,
+    pub imdb_id: Option<String>,
 }
 
 /// `Season`.
@@ -502,4 +509,32 @@ mod tests {
         .unwrap();
         assert_eq!(q, serde_json::json!({"q":"x","type":"movie"}));
     }
+}
+
+/// The home surface a card is hidden from (`HomeDismissalInput.surface`, `internal/apiv2/home.go@6791aac` L67).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HomeSurface {
+    ContinueWatching,
+    NextUp,
+}
+
+impl HomeSurface {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ContinueWatching => "continue_watching",
+            Self::NextUp => "next_up",
+        }
+    }
+}
+
+/// One `dismissHomeItem` request: the card and what the dismissal is anchored to.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HomeDismissal {
+    pub surface: HomeSurface,
+    pub item_id: String,
+    #[serde(default)]
+    pub series_id: Option<String>,
+    #[serde(default)]
+    pub progress_updated_at: Option<String>,
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-home-dismiss"
+description = "Enables the home_dismiss command without any pre-configured scope."
+commands.allow = ["home_dismiss"]
+
+[[permission]]
+identifier = "deny-home-dismiss"
+description = "Denies the home_dismiss command without any pre-configured scope."
+commands.deny = ["home_dismiss"]

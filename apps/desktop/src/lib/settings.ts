@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import i18n, { detectLanguage } from "../i18n";
+import { DEFAULT_PREVIEW_SOURCES, type PreviewSourceSetting } from "./previews";
 
 /** Mirrors apps/desktop/src-tauri/src/settings.rs (serde camelCase). Stored in `%APPDATA%\Granary\settings.json`. */
 export interface Settings {
@@ -15,8 +16,10 @@ export interface Settings {
     autoplayNext: boolean;
     /** Seconds per arrow-key seek. */
     seekStep: number;
-    /** Seek-bar previews decoded locally when the server has no trickplay sheets. */
+    /** Master switch for seek-bar previews. */
     seekPreviews: boolean;
+    /** Preview providers in the order they are tried (server trickplay, Seekr, local decoding). */
+    previewSources: PreviewSourceSetting[];
   };
   display: {
     /** Windows HDR switching: never, for HDR content only (default) or for all video. Always restored. */
@@ -100,7 +103,13 @@ export const DEFAULT_SETTINGS: Settings = {
   language: "system",
   theme: "midnight-cinema",
   posterTags: false,
-  player: { hwdec: "auto-safe", autoplayNext: true, seekStep: 10, seekPreviews: true },
+  player: {
+    hwdec: "auto-safe",
+    autoplayNext: true,
+    seekStep: 10,
+    seekPreviews: true,
+    previewSources: DEFAULT_PREVIEW_SOURCES,
+  },
   display: { hdrMode: "content", refresh: "auto", monitors: {} },
   audio: {
     passthrough: false,

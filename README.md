@@ -64,8 +64,8 @@ a receiver. Granary keeps the calm look of the server's web app and hands playba
 - Direct play, remux or transcode, decided by the server.
 - Resume points and progress reporting, next episode across seasons.
 - Intro and credits skip, chapters.
-- **Seek-bar previews**: the server's trickplay sheets, or frames decoded locally from the file when the server has
-  none.
+- **Seek-bar previews**: the server's trickplay sheets, optional [Seekr](https://seekr.tv) previews with your own
+  API key, or frames decoded locally from the file, in the order you choose.
 - Language-first audio and subtitle menus, statistics, mini player, media keys.
 
 </td>

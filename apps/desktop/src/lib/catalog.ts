@@ -50,6 +50,8 @@ export interface CatalogItem {
   play_content_id?: string | null;
   position_seconds?: number | null;
   item_source?: string | null;
+  /** Continue-watching cards: when the progress last changed (anchors a dismissal). */
+  progress_updated_at?: string | null;
   user_state?: CatalogItemUserState | null;
   overlay_summary?: CatalogItemOverlay | null;
 }
@@ -203,6 +205,15 @@ export interface CollectionCard {
 export interface CatalogItemCollection {
   items: CatalogItem[];
   page?: PageInfo | null;
+}
+
+export type HomeSurface = "continue_watching" | "next_up";
+
+export interface HomeDismissal {
+  surface: HomeSurface;
+  item_id: string;
+  series_id?: string | null;
+  progress_updated_at?: string | null;
 }
 
 export type UserFlag = "favorite" | "watchlist" | "watched" | "not_interested";
@@ -371,6 +382,13 @@ export const catalog = {
   play: (request: PlayRequest) => call<null>("player_play", { request }),
   setFlag: (serverId: string, itemId: string, flag: UserFlag, on: boolean) =>
     call<null>("catalog_set_flag", { serverId, itemId, flag, on }),
+  /** Hide a card from Continue Watching or Next Up until it is played again. */
+  dismiss: (serverId: string, dismissal: HomeDismissal) => call<null>("home_dismiss", { serverId, dismissal }),
+  /** Mark artwork references as worth keeping (Continue Watching / Next Up) when the artwork cache evicts. */
+  artworkKeep: (serverId: string, references: string[]) => call<null>("artwork_keep", { serverId, references }),
+  /** [bytes used, limit] of the artwork cache. */
+  artworkCacheInfo: () => call<[number, number]>("artwork_cache_info", {}),
+  artworkCacheClear: () => call<null>("artwork_cache_clear", {}),
   setRating: (serverId: string, itemId: string, rating: number | null) =>
     call<null>("catalog_set_rating", { serverId, itemId, rating }),
   person: (serverId: string, personId: string) => call<Person>("person_get", { serverId, personId }),

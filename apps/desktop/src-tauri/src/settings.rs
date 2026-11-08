@@ -32,6 +32,44 @@ pub struct PlayerSettings {
     pub seek_step: u32,
     /// Seek-bar previews decoded locally when the server has no trickplay sheets (ADR-0009).
     pub seek_previews: bool,
+    /// Where previews come from, tried in this order (ADR-0011): `server` trickplay, `seekr` (needs a key),
+    /// `local` decoding. Every id appears exactly once.
+    pub preview_sources: Vec<PreviewSource>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PreviewSource {
+    pub id: String,
+    pub enabled: bool,
+}
+
+impl Default for PreviewSource {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            enabled: true,
+        }
+    }
+}
+
+pub const PREVIEW_SOURCE_IDS: [&str; 3] = ["server", "seekr", "local"];
+
+fn default_preview_sources() -> Vec<PreviewSource> {
+    PREVIEW_SOURCE_IDS
+        .iter()
+        .map(|id| PreviewSource {
+            id: (*id).to_owned(),
+            enabled: true,
+        })
+        .collect()
+}
+
+impl PlayerSettings {
+    /// Whether previews from this source are wanted (master switch included).
+    pub fn preview_source_on(&self, id: &str) -> bool {
+        self.seek_previews && self.preview_sources.iter().any(|s| s.id == id && s.enabled)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,6 +145,7 @@ impl Default for PlayerSettings {
             autoplay_next: true,
             seek_step: 10,
             seek_previews: true,
+            preview_sources: default_preview_sources(),
         }
     }
 }
@@ -163,6 +202,19 @@ impl Settings {
             "auto-safe",
         );
         self.player.seek_step = self.player.seek_step.clamp(1, 120);
+        // Keep the known sources in the saved order, once each; missing ones are appended enabled.
+        let mut sources: Vec<PreviewSource> = Vec::new();
+        for s in std::mem::take(&mut self.player.preview_sources) {
+            if PREVIEW_SOURCE_IDS.contains(&s.id.as_str()) && !sources.iter().any(|x| x.id == s.id) {
+                sources.push(s);
+            }
+        }
+        for d in default_preview_sources() {
+            if !sources.iter().any(|x| x.id == d.id) {
+                sources.push(d);
+            }
+        }
+        self.player.preview_sources = sources;
         one_of(&mut self.display.hdr_mode, &["off", "content", "always"], "content");
         one_of(&mut self.display.refresh, &["auto", "match", "never"], "auto");
         let valid_key = |k: &String| !k.is_empty() && k.len() <= 512 && !k.chars().any(char::is_control);
@@ -314,6 +366,26 @@ mod tests {
             s.display.refresh == "auto" && !s.audio.passthrough && !s.audio.exclusive,
             "OLED-desktop defaults; receiver features opt-in"
         );
+    }
+
+    #[test]
+    fn preview_sources_keep_order_and_fill_gaps() {
+        let s: Settings = serde_json::from_str(
+            r#"{"player":{"previewSources":[{"id":"local","enabled":true},{"id":"bogus"},
+                {"id":"seekr","enabled":false},{"id":"local","enabled":false}]}}"#,
+        )
+        .unwrap();
+        let s = s.normalized();
+        let ids: Vec<(&str, bool)> = s
+            .player
+            .preview_sources
+            .iter()
+            .map(|p| (p.id.as_str(), p.enabled))
+            .collect();
+        assert_eq!(ids, vec![("local", true), ("seekr", false), ("server", true)]);
+        assert!(s.player.preview_source_on("local") && !s.player.preview_source_on("seekr"));
+        let d = Settings::default().normalized();
+        assert_eq!(d.player.preview_sources[0].id, "server");
     }
 
     #[test]

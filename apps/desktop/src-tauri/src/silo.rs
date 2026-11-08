@@ -166,6 +166,12 @@ impl SiloState {
         }
     }
 
+    /// The credential store (Windows Credential Manager in release builds), for app-level secrets such as the
+    /// optional Seekr API key.
+    pub fn credentials(&self) -> Arc<dyn CredentialStore> {
+        self.store.clone()
+    }
+
     fn view(r: &ServerRecord, active: Option<&str>) -> ServerView {
         ServerView {
             server_id: r.server_id.clone(),

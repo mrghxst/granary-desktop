@@ -158,7 +158,7 @@ fn base64(bytes: &[u8]) -> String {
 
 /// The stream previews may read, or `None` (previews off, transcode, stopped), releasing the decoder in that case.
 async fn source(app: &AppHandle, host: &PlayerHost, settings: &SettingsStore) -> Option<String> {
-    if !settings.current().player.seek_previews {
+    if !settings.current().player.preview_source_on("local") {
         return None;
     }
     let source = host.ask(Cmd::PreviewSource).await.flatten();

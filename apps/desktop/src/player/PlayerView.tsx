@@ -42,7 +42,6 @@ import {
   mediaLines,
   neighbours,
   player,
-  trickplayTile,
   upNextAnchorFor,
   upNextRemaining,
   upNextStart,
@@ -50,8 +49,8 @@ import {
   UP_NEXT_SECONDS,
   type PlayerAction,
   type SubtitleChoice,
-  type Trickplay,
 } from "../lib/player";
+import { enabledSources, providerTile, resolvePreviewProvider, seekr, type PreviewProvider } from "../lib/previews";
 import { usePlayer } from "./context";
 import { LaunchScreen } from "./LaunchScreen";
 import { useLocalPreview } from "./useLocalPreview";
@@ -206,22 +205,23 @@ function Stepper({
 /** Width of the seek preview tile in CSS pixels, the same for trickplay sheets and local frames. */
 const PREVIEW_WIDTH = 240;
 
-/** Seek bar with chapter ticks, marker ranges and a hover preview (trickplay thumbnail, time, chapter). */
+/** Seek bar with chapter ticks, marker ranges and a hover preview (sprite tile or local frame, time, chapter). */
 function SeekBar({
   position,
   duration,
   onSeek,
   serverId,
-  trickplay,
-  localPreviews,
+  provider,
+  onTileError,
 }: {
   position: number;
   duration: number;
   onSeek: (seconds: number) => void;
   serverId: string;
-  trickplay: Trickplay | null;
-  /** Decode previews from the file when there are no trickplay sheets. */
-  localPreviews: boolean;
+  /** Where previews come from for this file (server trickplay, Seekr, local decoding or none). */
+  provider: PreviewProvider;
+  /** A sprite sheet failed to load (an expired signed URL): look the previews up again. */
+  onTileError: () => void;
 }) {
   const { t } = useTranslation();
   const { ctx } = usePlayer();
@@ -241,10 +241,21 @@ function SeekBar({
   const pct = (s: number) => `${String(duration > 0 ? Math.min(100, (s / duration) * 100) : 0)}%`;
   const shown = drag ?? position;
   const preview = drag ?? hover;
-  const tile = preview !== null && trickplay ? trickplayTile(trickplay, preview) : undefined;
+  const tile = preview !== null ? providerTile(provider, preview) : undefined;
+  const tileSrc = tile ? (artwork(tile.server === "file" ? serverId : tile.server, tile.url) ?? "") : "";
+  // Background images report no errors: probe the sheet once so an expired one triggers a fresh lookup.
+  useEffect(() => {
+    if (!tileSrc) return;
+    const img = new Image();
+    img.onerror = onTileError;
+    img.src = tileSrc;
+    return () => {
+      img.onerror = null;
+    };
+  }, [tileSrc, onTileError]);
   // Every preview has the same width (sheets of any tile size are scaled to it) and the box stays inside the bar.
   const scale = tile ? PREVIEW_WIDTH / tile.width : 1;
-  const local = useLocalPreview(localPreviews && !trickplay, preview, duration);
+  const local = useLocalPreview(provider.kind === "local", preview, duration);
   const previewLeft =
     preview !== null && duration > 0 && barWidth > 0
       ? Math.min(barWidth - PREVIEW_WIDTH / 2, Math.max(PREVIEW_WIDTH / 2, (preview / duration) * barWidth)) -
@@ -275,7 +286,7 @@ function SeekBar({
                   height: tile.height,
                   transform: `scale(${String(scale)})`,
                   transformOrigin: "top left",
-                  backgroundImage: `url("${artwork(serverId, tile.url) ?? ""}")`,
+                  backgroundImage: `url("${tileSrc}")`,
                   backgroundPosition: `-${String(tile.x)}px -${String(tile.y)}px`,
                 }}
               />
@@ -370,7 +381,16 @@ function PlayerControls() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [subVisible, setSubVisible] = useState(true);
   const [subKey, setSubKey] = useState<string | null>(null);
-  const [trickplay, setTrickplay] = useState<Trickplay | null>(null);
+  const [previewProvider, setPreviewProvider] = useState<PreviewProvider>({ kind: "none" });
+  const [previewEpoch, setPreviewEpoch] = useState(0);
+  const lastTileRetry = useRef(0);
+  const onTileError = useCallback(() => {
+    // At most once a minute: a sheet that keeps failing must not turn into a lookup loop.
+    const now = Date.now();
+    if (now - lastTileRetry.current < 60_000) return;
+    lastTileRetry.current = now;
+    setPreviewEpoch((e) => e + 1);
+  }, []);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [upNextCancelled, setUpNextCancelled] = useState(false);
   const upNextFired = useRef(false);
@@ -484,24 +504,36 @@ function PlayerControls() {
     visibleRef.current = visible;
   });
 
-  // Trickplay sheets for the version (optional: no sheets, no thumbnails).
+  // Seek previews for the file (ADR-0011): the first enabled source that has them, in the user's order —
+  // server trickplay, then Seekr (TMDB/IMDb id + duration), then local decoding.
   const fileKey = ctx ? `${ctx.serverId}|${ctx.watch.content_id}|${ctx.version.file_id}` : null;
+  const order = enabledSources(settings.player).join(",");
+  // Whole seconds: the lookup must not repeat while mpv refines the duration.
+  const durationS = Math.round(duration);
   useEffect(() => {
-    if (!ctx || !fileKey || !ctx.version.trickplay_available) return;
+    if (!ctx || !fileKey) return;
     let alive = true;
-    player
-      .trickplay(ctx.serverId, ctx.watch.content_id, ctx.version.file_id)
-      .then((tp) => {
-        if (alive) setTrickplay(tp);
-      })
-      .catch(() => {
-        if (alive) setTrickplay(null);
-      });
+    const { serverId, watch, version } = ctx;
+    void resolvePreviewProvider(
+      order ? (order.split(",") as ReturnType<typeof enabledSources>) : [],
+      {
+        server: () =>
+          version.trickplay_available
+            ? player.trickplay(serverId, watch.content_id, version.file_id)
+            : Promise.resolve(null),
+        seekr: () =>
+          durationS > 0 ? seekr.track(serverId, watch.content_id, durationS * 1000) : Promise.resolve(null),
+      },
+      () => alive,
+    ).then((p) => {
+      if (alive) setPreviewProvider(p);
+    });
     return () => {
       alive = false;
+      setPreviewProvider({ kind: "none" });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch per file, not per context patch
-  }, [fileKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-resolve per file, settings change or expired sheet
+  }, [fileKey, order, durationS > 0, previewEpoch]);
 
   const keepVisible = menu !== null || help || contextMenu !== null || p.launch !== null;
 
@@ -1002,8 +1034,8 @@ function PlayerControls() {
               position={position}
               duration={duration}
               serverId={ctx?.serverId ?? ""}
-              trickplay={trickplay}
-              localPreviews={settings.player.seekPreviews}
+              provider={previewProvider}
+              onTileError={onTileError}
               onSeek={(s) => void player.seek(s).catch(fail)}
             />
           ) : null}

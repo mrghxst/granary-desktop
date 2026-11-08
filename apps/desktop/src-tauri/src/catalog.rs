@@ -1,5 +1,6 @@
 //! Browse, details and play hand-off commands (Phase 5) plus the `granary-img` artwork scheme. Every Silo operation
 //! used here is listed in docs/research/silo-api.md §13 with its OAS line @6791aac.
+use crate::artcache::ArtCache;
 use crate::silo::{CommandError, SiloState};
 use granary_silo_api::api::{ImageData, raster_image_type};
 use granary_silo_api::api::{PageQuery, UserFlag};
@@ -231,6 +232,21 @@ pub async fn catalog_set_flag(
         .await
 }
 
+/// Hide a card from Continue Watching or Next Up (`dismissHomeItem`); it comes back when the item is played again.
+#[tauri::command]
+pub async fn home_dismiss(
+    state: State<'_, SiloState>,
+    server_id: String,
+    dismissal: granary_silo_api::catalog::HomeDismissal,
+) -> CmdResult<()> {
+    if dismissal.item_id.is_empty() {
+        return Err(CommandError::invalid("item id is required".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.dismiss_home(&dismissal).await })
+        .await
+}
+
 /// Star rating 1–5, or `null` to clear it.
 #[tauri::command]
 pub async fn catalog_set_rating(
@@ -374,8 +390,78 @@ pub async fn serve_image<R: Runtime>(app: &AppHandle<R>, uri: &str) -> Response<
     let Some((server_id, reference)) = parse_image_uri(uri) else {
         return image_response(Err(CommandError::invalid("artwork URI".into())));
     };
+    // Seekr tile sheets: fetched by the host (https://*.seekr.tv only), kept in memory, never in the artwork cache.
+    if server_id == crate::seekr::SHEET_SERVER {
+        return image_response(crate::seekr::serve_sheet(app, &reference).await);
+    }
+    let key = crate::artcache::cache_key(&server_id, &reference);
+    let dir = artwork_dir();
+    let cached = {
+        let (k, d, a) = (key.clone(), dir.clone(), app.clone());
+        tauri::async_runtime::spawn_blocking(move || a.state::<ArtCache>().get(&d, &k))
+            .await
+            .ok()
+            .flatten()
+    };
+    if let Some(c) = &cached
+        && !c.stale
+    {
+        return image_response(Ok(ImageData {
+            content_type: c.content_type.clone(),
+            bytes: c.bytes.clone(),
+        }));
+    }
     let state = app.state::<SiloState>();
-    image_response(state.artwork(&server_id, &reference).await)
+    match state.artwork(&server_id, &reference).await {
+        Ok(img) => {
+            let (ct, bytes, a) = (img.content_type.clone(), img.bytes.clone(), app.clone());
+            // Only what would be served is stored.
+            if raster_image_type(&ct).is_some() {
+                tauri::async_runtime::spawn_blocking(move || a.state::<ArtCache>().put(&dir, &key, &ct, &bytes));
+            }
+            image_response(Ok(img))
+        }
+        // Offline or the server is down: an old copy beats a blank card.
+        Err(e) => match cached {
+            Some(c) => image_response(Ok(ImageData {
+                content_type: c.content_type,
+                bytes: c.bytes,
+            })),
+            None => image_response(Err(e)),
+        },
+    }
+}
+
+fn artwork_dir() -> std::path::PathBuf {
+    crate::paths::local_dir().join("artwork")
+}
+
+/// Keep the artwork of these items (Continue Watching / Next Up cards) when the artwork cache must evict.
+#[tauri::command]
+pub async fn artwork_keep(app: AppHandle, server_id: String, references: Vec<String>) -> CmdResult<()> {
+    let keys: Vec<String> = references
+        .iter()
+        .take(500)
+        .map(|r| crate::artcache::cache_key(&server_id, r))
+        .collect();
+    let _ = tauri::async_runtime::spawn_blocking(move || app.state::<ArtCache>().keep(&artwork_dir(), &keys)).await;
+    Ok(())
+}
+
+/// Size of the artwork cache in bytes and its limit.
+#[tauri::command]
+pub async fn artwork_cache_info(app: AppHandle) -> CmdResult<(u64, u64)> {
+    let size = tauri::async_runtime::spawn_blocking(move || app.state::<ArtCache>().size(&artwork_dir()))
+        .await
+        .unwrap_or(0);
+    Ok((size, crate::artcache::MAX_BYTES))
+}
+
+/// Delete the artwork cache.
+#[tauri::command]
+pub async fn artwork_cache_clear(app: AppHandle) -> CmdResult<()> {
+    let _ = tauri::async_runtime::spawn_blocking(move || app.state::<ArtCache>().clear(&artwork_dir())).await;
+    Ok(())
 }
 
 #[cfg(test)]

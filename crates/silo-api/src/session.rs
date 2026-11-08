@@ -395,6 +395,11 @@ impl Session {
             .await
     }
 
+    pub async fn dismiss_home(&self, dismissal: &HomeDismissal) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.dismiss_home(&self.origin, &auth, dismissal).await })
+            .await
+    }
+
     pub async fn set_rating(&self, id: &str, rating: Option<i64>) -> Result<()> {
         self.call_profile(|auth| async move { self.api.set_rating(&self.origin, &auth, id, rating).await })
             .await
