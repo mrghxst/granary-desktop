@@ -109,7 +109,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
-- 2026-11-08 0.4.2: version bump, tag v0.4.2; the release workflow creates the draft (publishing at the owner's request).
+- 2026-11-08 0.4.2: version bump, tag v0.4.2; release published (latest) at the owner's request.
 - 2026-11-08 0.4.2 fixes (0fe187c + this commit): embedded subtitle switch seeks exactly in place (mpv refresh seek dropped the read-ahead and waited for cache-pause-wait); audio switch keeps the open AO via temporary gapless-audio=yes when the track loses nothing (WASAPI mix format); local previews in software from memory (mpv_stream_cb_add_ro, screenshot-raw, jpeg-encoder) 0.12 s vs 0.86 s per 4K HDR frame, parallel keyframe fetch, 3 requests in flight (ADR-0009 rev 4); FFmpeg reconnect_on_http_error 408/429/5xx; docs/research/reference-clients.md (AIOStreams, Nuvio, Stremio). Unit and libmpv integration tests green; not checked against the real server.
 - 2026-11-08 0.4.1: version bump, tag v0.4.1; release published (latest) at the owner's request.
 - 2026-11-08 0.4.1 fixes: card context menu portalled to <body> (root cause of the broken page: fixed menu inside a transformed, overflow-clipped card), menu actions Play / from beginning / watched / unwatched / remove from Continue Watching or Next Up (dismissHomeItem); bounded artwork cache (ADR-0010); Seekr preview provider and reorderable source chain (ADR-0011). Unit tests green; Seekr not exercised against the live API (no key in this environment).
