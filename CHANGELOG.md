@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-08
+First public beta: finer seek previews, a cleaner detail page and steadier playback.
+
 ### Changed
 - Detail pages have a cleaner, more consistent banner: the artwork fills the frame (a blurred poster when there is no
   backdrop), the logo sits in a fixed-height slot, facts and quality tags share one line, credits are aligned, and the

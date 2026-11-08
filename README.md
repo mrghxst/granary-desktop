@@ -115,7 +115,7 @@ and the WebView2 runtime (ships with Windows 11; the installer fetches it if mis
 Uninstall through **Settings → Apps → Granary**; tick "Delete the application data" to remove settings, logs and the
 shader cache too.
 
-> **Status: 0.3 test release, unsigned.** Automated tests ran on a laptop with an HDR panel, synthetic clips and a
+> **Status: 0.4 public beta, unsigned** (Windows SmartScreen may warn on first run). Automated tests ran on a laptop with an HDR panel, synthetic clips and a
 > mock server. Dolby Vision remuxes, OLED desktop monitors, VRR, receivers and real servers still need hands-on checks:
 > see [`MANUAL_TEST_CHECKLIST.md`](MANUAL_TEST_CHECKLIST.md). Reports are welcome.
 
