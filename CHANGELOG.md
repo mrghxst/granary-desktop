@@ -3,6 +3,14 @@
 All notable changes to Granary. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-11-08
+Bug-fix release.
+
+### Fixed
+- The movie disappeared while the player controls were shown, and the window showed the desktop behind it; it came
+  back only when the controls hid. The video window is no longer clipped by the overlay (ADR-0003 Amendment 1).
+  The playback evidence run now checks the composed screen pixels with the controls shown and hidden.
+
 ## [0.1.0] - 2026-11-07
 First private test release (unsigned, per-user installer).
 

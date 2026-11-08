@@ -18,6 +18,9 @@ laptop panel, 60/120 Hz, no VRR, no second monitor, no AV receiver, no PresentMo
       overlay must stay aligned. Move the window to a monitor with different scaling; same check. (Phase 2)
 - [ ] Multi-monitor move during playback: drag the player to the other monitor; the log must show the new monitor's
       HDR state, peak luminance, SDR white and refresh decision; the old monitor's state must be restored. (Phase 2)
+- [ ] Video visible under the controls (0.1.1 fix): start playback and move the mouse so the controls show. The
+      picture must stay visible behind the seek bar and buttons; it must never show the desktop or a black window.
+      Check windowed, maximized and fullscreen. (ADR-0003 Amendment 1)
 - [ ] Overlay auto-hide with an idle cursor (review H1): start playback, leave the mouse resting over the video, wait
       15 s; the controls must hide once and stay hidden. Move the mouse; they must reappear. Press a key while hidden;
       the key must act (e.g. Space pauses) and wake the controls. (Phase 2 review)

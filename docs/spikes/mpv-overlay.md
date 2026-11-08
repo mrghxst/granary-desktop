@@ -73,6 +73,7 @@ reaches another application.
 | Overlay follows move / resize / fullscreen / minimize | ✅ | `video child fills client` after each step; video rect == webview rect == client rect |
 | Overlay follows DPI changes | ⚠️ partial | Correct at 175% (DPI 168), and the `WM_DPICHANGED` handler is wired. Changing scaling or moving to another-DPI monitor needs a second monitor or a system-setting change → MANUAL_TEST_CHECKLIST |
 | Keyboard focus works | ✅ (SDR run) | real `VK_SPACE` (with scan code) → WebView `keydown Space` → IPC → `pause` flipped `no→yes` |
+| Video visible under the shown overlay | ❌ not checked here (correction 2026-11-08) | "Visible" in this spike meant `IsWindowVisible`, never screen pixels. The video was in fact clipped under the shown overlay (`WS_CLIPSIBLINGS`); fixed in 0.1.1, ADR-0003 Amendment 1 |
 | Overlay truly hidden and woken by input | ✅ after the H1 fix (hidden ≥ 10 s, locked session); wake by input verified only before the fix | `WRY_WEBVIEW` `IsWindowVisible=false`; a real mouse move over the video wakes it (pre-fix run). Re-verify unlocked in Phase 6 |
 | `current-vo` / `hwdec-current` / HDR clip `gamma=pq`, `primaries=bt.2020` | ✅ | all runs, `max-cll=1000` |
 | drops / delayed near 0 over 30 s | ✅ with `video-sync=audio`, ⚠️ with display-resample at 60 Hz on this iGPU | see Pacing |

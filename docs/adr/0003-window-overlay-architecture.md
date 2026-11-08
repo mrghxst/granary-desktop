@@ -36,7 +36,7 @@
 
 ## Decision
 **Primary: Design A.** One Tauri main window (native decorations → snap layouts work). On player start the Rust host
-creates a `GranaryVideo` child (`WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS`, black brush, `CS_DBLCLKS`) of the main HWND,
+creates a `GranaryVideo` child (`WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN`, no `WS_CLIPSIBLINGS`, see Amendment 1; black brush, `CS_DBLCLKS`) of the main HWND,
 places it at `HWND_BOTTOM` beneath `WRY_WEBVIEW`, and passes it to mpv as `wid`. The main window is subclassed
 (`SetWindowSubclass`) so `WM_SIZE`/`WM_DPICHANGED` resize the video child synchronously. The page background is
 transparent while the player is active (`WEBVIEW2_DEFAULT_BACKGROUND_COLOR=00000000` + transparent body). Fullscreen uses
@@ -89,3 +89,28 @@ windowed and fullscreen with Windows HDR on). Details and logs: [mpv-overlay.md]
 - Review fix H1 (docs/reviews/phase-2.md): Windows re-sends `WM_MOUSEMOVE` for a stationary cursor when the window
   above it is hidden; the video window procedure must ignore moves at an unchanged position, or the overlay wakes
   itself every auto-hide cycle.
+
+## Amendment 1 (2026-11-08): no WS_CLIPSIBLINGS on the video child
+**Problem.** The first user of 0.1.0 reported that the movie disappeared whenever the controls were shown and came
+back only when they hid. The window showed the desktop behind it instead of the picture.
+
+**Cause.** `GranaryVideo` was created with `WS_CLIPSIBLINGS`. The `WRY_WEBVIEW` container is a sibling that covers the
+whole client area, so the video was clipped everywhere while the container was shown. The transparent page then
+showed the transparent main window, which is the desktop. With the container hidden (`SW_HIDE`), the video was
+visible again. The spike and phase 6 missed this: the spike only checked `IsWindowVisible`, and the phase 6
+screenshots came from CDP `Page.captureScreenshot`, which captures the WebView alone, never the composed screen.
+
+**Fix.** The video child is created with `WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN`. It stays at `HWND_BOTTOM` beneath the
+container, so the overlay still draws on top.
+
+**Evidence.** `scripts/overlay-pixels.ps1` captures the composed screen (GDI `CopyFromScreen`) inside the client area
+and counts saturated colour families on one row of the colour-bar clip (≥ 4 means the picture is visible; the desktop
+gives 0). `scripts/playback-evidence.mjs` runs it with the overlay shown and hidden.
+
+| Build | Overlay shown | Overlay hidden |
+| --- | --- | --- |
+| 0.1.0 (`WS_CLIPSIBLINGS`) | 0 families (fail) | 5 families |
+| 0.1.1 (fix) | 5 families | 5 families |
+
+The run with the fix is in [docs/evidence/overlay-fix](../evidence/overlay-fix) (19/19 checks). An earlier theory, alpha
+from `d3d11-output-format`, was tested and ruled out.

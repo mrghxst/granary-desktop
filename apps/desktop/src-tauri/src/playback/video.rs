@@ -238,7 +238,10 @@ fn create_video_child() -> Result<HWND, String> {
             WINDOW_EX_STYLE(0),
             cls,
             PCWSTR::null(),
-            WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+            // No WS_CLIPSIBLINGS: the WRY container is a sibling covering the whole client area, and clipping
+            // against it removed the video wherever the overlay was shown, so the transparent page showed the
+            // desktop behind the window instead of the picture (0.1.0 user report, ADR-0003 Amendment).
+            WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
             0,
             0,
             rc.right - rc.left,

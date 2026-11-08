@@ -48,8 +48,12 @@ spikes/                       Phase 2 risk spikes (excluded from the workspace)
 ```
 Granary main window (native decorations, Snap layouts)
 ├── WRY / WebView2 container      transparent background (WEBVIEW2_DEFAULT_BACKGROUND_COLOR=00000000)
-└── GranaryVideo child HWND       HWND_BOTTOM, WS_CLIPSIBLINGS; mpv renders here via `wid` (D3D11 flip swapchain)
+└── GranaryVideo child HWND       HWND_BOTTOM, no WS_CLIPSIBLINGS*; mpv renders here via `wid` (D3D11 flip swapchain)
 ```
+
+* The WRY container is a sibling over the whole client area. With `WS_CLIPSIBLINGS` the video was clipped wherever
+the overlay was shown, so the transparent page showed the desktop behind the window (fixed in 0.1.1, ADR-0003
+Amendment 1). `scripts/overlay-pixels.ps1` checks the composed screen pixels in the playback evidence run.
 
 **Pages and layering**
 - The library pages are opaque.

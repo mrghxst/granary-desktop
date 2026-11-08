@@ -13,6 +13,7 @@
 //   - `hwdec-current` is a hardware decoder,
 //   - progress samples acknowledged by the server, and the session stopped once.
 // Local only: talks to 127.0.0.1. Test values of the in-process mock (alice / pw) are used for sign-in.
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -185,6 +186,26 @@ check(
 await waitFor(`__g.invoke("player_state").then((s) => s.phase === "playing")`, "playing", 30000);
 let s = await state();
 check("mpv plays the clip", s.active && s.phase === "playing", `position ${s.position.toFixed(1)} s of ${s.duration}`);
+// The picture must be visible under the shown overlay on screen, not only in mpv (0.1.0 user report: the overlay
+// made the video disappear). Page screenshots cannot see the native video window, so sample the composed screen.
+await sleep(1500);
+const pixels = (visible) => {
+  return evaluate(`__g.invoke("player_overlay", { visible: ${visible} }).then(() => true)`).then(() =>
+    JSON.parse(
+      execFileSync(
+        "powershell.exe",
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/overlay-pixels.ps1"],
+        { encoding: "utf8" },
+      ).trim(),
+    ),
+  );
+};
+await wiggle(); // controls visible, not only the WebView
+const onScreenShown = await pixels(true);
+const onScreenHidden = await pixels(false);
+await evaluate(`__g.invoke("player_overlay", { visible: true }).then(() => true)`);
+check("video visible on screen under the shown overlay", onScreenShown.buckets >= 4, JSON.stringify(onScreenShown));
+check("video visible on screen with the overlay hidden", onScreenHidden.buckets >= 4, JSON.stringify(onScreenHidden));
 await sleep(11500); // one periodic progress sample (10 s)
 await wiggle();
 await reinject();

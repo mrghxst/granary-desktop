@@ -1,0 +1,97 @@
+[
+  {
+    "name": "player overlay replaces the library",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "page is transparent over the native video window",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "mpv plays the clip",
+    "ok": true,
+    "detail": "position 0.0 s of 60.019"
+  },
+  {
+    "name": "video visible on screen under the shown overlay",
+    "ok": true,
+    "detail": "{\"buckets\":5,\"samples\":605,\"saturated\":421,\"width\":2520,\"height\":1575}"
+  },
+  {
+    "name": "video visible on screen with the overlay hidden",
+    "ok": true,
+    "detail": "{\"buckets\":5,\"samples\":605,\"saturated\":421,\"width\":2520,\"height\":1575}"
+  },
+  {
+    "name": "space pauses",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "right arrow seeks forward",
+    "ok": true,
+    "detail": "17.1 → 28.1 s"
+  },
+  {
+    "name": "hwdec-current is a hardware decoder",
+    "ok": true,
+    "detail": "hwdec-current=d3d11va"
+  },
+  {
+    "name": "gpu-next output",
+    "ok": true,
+    "detail": "current-vo=gpu-next"
+  },
+  {
+    "name": "controls auto-hide after ~2.5 s",
+    "ok": true,
+    "detail": "opacity 0"
+  },
+  {
+    "name": "? shows the keyboard shortcuts",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "q stops; the library is back",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "next-episode control for a series episode",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "N starts the next episode",
+    "ok": true,
+    "detail": "e1 → e3"
+  },
+  {
+    "name": "direct-play plans",
+    "ok": true,
+    "detail": "4 plans"
+  },
+  {
+    "name": "stream URLs carry no transcode parameters",
+    "ok": true,
+    "detail": "/api/v2/stream/ps-5 /api/v2/stream/ps-6 /api/v2/stream/ps-7 /api/v2/stream/ps-8"
+  },
+  {
+    "name": "log: hwdec-current active",
+    "ok": true,
+    "detail": "d3d11va, d3d11va, d3d11va, d3d11va"
+  },
+  {
+    "name": "log: progress acknowledged by the server",
+    "ok": true,
+    "detail": "8 samples"
+  },
+  {
+    "name": "log: every session stopped once",
+    "ok": true,
+    "detail": "4 stops for 4 sessions"
+  }
+]

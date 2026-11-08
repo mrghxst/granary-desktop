@@ -16,7 +16,7 @@ server have not been tested yet; those checks are in [`MANUAL_TEST_CHECKLIST.md`
 > Granary is an independent project. It is **not affiliated with or endorsed by Silo Media L.L.C.**; "Silo" is their
 > trademark. Granary is "compatible with Silo" and nothing more.
 
-Status: **0.1.0, first private test release** (unsigned). See [`CHANGELOG.md`](CHANGELOG.md) and
+Status: **0.1.1, private test release** (unsigned). See [`CHANGELOG.md`](CHANGELOG.md) and
 [`PROGRESS.md`](PROGRESS.md).
 
 ## Features
@@ -68,7 +68,7 @@ Status: **0.1.0, first private test release** (unsigned). See [`CHANGELOG.md`](C
 **Steps**
 1. Download `Granary_<version>_x64-setup.exe` and its `.sha256` from the
    [releases page](https://github.com/mrghxst/granary-desktop/releases). Check the hash:
-   `Get-FileHash -Algorithm SHA256 .\Granary_0.1.0_x64-setup.exe`.
+   `Get-FileHash -Algorithm SHA256 .\Granary_0.1.1_x64-setup.exe`.
 2. Run the installer. It installs per user, so no administrator rights are needed. The build is not code-signed yet
    (see [`docs/signing.md`](docs/signing.md)), so SmartScreen shows "Windows protected your PC". Choose
    **More info → Run anyway**.

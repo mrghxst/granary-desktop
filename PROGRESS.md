@@ -15,7 +15,7 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 - [x] 10 Final verification & handoff — DONE — gate: clean clone of dd9b7a8 (pnpm install --frozen-lockfile, fetch-libmpv, verify.ps1 12 steps, release build) all exit 0 (docs/evidence/phase-10/clean-clone.txt), reviewer docs/reviews/final.md PASS WITH FINDINGS → M1 + L1–L5 resolved, security review docs/security.md (cargo audit 0 vulnerabilities, pnpm audit clean), docs complete, CI green, FINAL REPORT printed
 
 ## Current step
-All phases DONE (0.1.0). Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
+All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -104,6 +104,7 @@ All phases DONE (0.1.0). Remaining human steps: see "Blocked / needs human" and 
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 Fix 0.1.1 (user report on 0.1.0): video hidden while the overlay is shown. Cause: `WS_CLIPSIBLINGS` on the video child clipped it under the full-client WRY container. Removed it; on-screen pixel check (scripts/overlay-pixels.ps1) added to playback-evidence (shown 0 → 5 colour families, hidden 5); ADR-0003 Amendment 1; evidence docs/evidence/overlay-fix (19/19).
 - 2026-11-08 Gate 10 PASSED: clean-clone build of dd9b7a8 green, final review resolved, every phase DONE, FINAL REPORT printed.
 - 2026-11-08 Gate 9 PASSED: CI installer from dd9b7a8 (draft v0.1.0-dev) SHA-256 verified and install-tested (install-location key written, then removed; the install-test registry path is fixed), CI green, phase-9 review resolved.
 - 2026-11-08 Final review (docs/reviews/final.md, PASS WITH FINDINGS): M1 release.yml split into libmpv / installer (read-only, no persisted credentials) / draft jobs; L1 draft target and notes follow re-runs; L2 display repair before anything that can fail at startup; L3 doc corrections; L4 this header and log; L5 README states what is untested. Clean clone found a parallel-test race in crates/player/tests/libmpv_options.rs (DLL copy once per process).
