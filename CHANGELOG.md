@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+Closer to the web app, still minimal: richer detail pages, library tabs, local seek previews, a website.
+
 ### Added
 - Detail page redesign (banner stays inside its box): logo or title, chips for year, rating, runtime and the best
   file's quality (4K, HDR, audio), TMDB score, a Play button whose fill shows how far you got, Mark watched, favourite,
@@ -63,4 +66,6 @@ First private test release (unsigned, per-user installer).
 - A test checks the IPC contract: commands, capability, permissions and argument names.
 - Dev dependency `minimatch` pinned past GHSA-g3hv-75wg-m249.
 
+[0.2.0]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.2.0
+[0.1.1]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mrghxst/granary-desktop/releases/tag/v0.1.0

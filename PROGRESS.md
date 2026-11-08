@@ -16,7 +16,7 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 
 ## Current step
 0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags, seek previews done; next for files without trickplay, README + Pages site.
-All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
+All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 adds web-app parity features, local seek previews and the website. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
@@ -112,6 +112,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaini
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 0.2.0: version bump (package.json, Cargo.toml, CHANGELOG), verify.ps1 12/12 green, tag v0.2.0 pushed so the release workflow builds the draft release.
 - 2026-11-08 0.2 step 4: website + docs in site/ (Next 16 static export, Fumadocs 16, own pnpm workspace; landing with scroll animations, 14 docs pages, static search), `pages` workflow, README rewrite. Site typecheck + build OK, checked in the browser (landing, docs, search index, basePath assets). Pages not enabled (private repo, see Blocked).
 - 2026-11-08 0.2 step 3: seek-bar previews for direct-played files without trickplay (ADR-0009): granary_player::thumbs (vo=null handle, keyframe seek, screenshot-to-file, zscale+tonemap for PQ/HLG), player_preview command with 2 s bucket cache, overlay hook with one request in flight, setting player.seekPreviews (default on). Integration test against the pinned DLL (SDR+HDR JPEGs); in the running app: open 242 ms, new frame ~50 ms, cached 4 ms.
 - 2026-11-08 0.2 step 2: library tabs (Recommended rows, Library grid, Collections), infinite scroll (IntersectionObserver, button fallback), A–Z rail (namePrefix), genre/decade filters, sort popover, shuffle; poster quality tags setting (poster_tags, default off); monochrome icon regenerated with tauri icon. Verified in the running app against the mock server; verify.ps1 12/12.
