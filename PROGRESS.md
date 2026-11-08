@@ -57,11 +57,6 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   `git tag -f -a v0.1.0 -m "Granary 0.1.0" <sha>`, then `git push -f origin v0.1.0`. The release workflow then
   rebuilds the draft.
 
-- GitHub Pages: enabling Pages for the private repo failed (`POST /repos/mrghxst/granary-desktop/pages` → 422 "Your current
-  plan does not support GitHub Pages for this repository"). The `pages` workflow is ready; to go live either make the
-  repo public or use a plan with private Pages, then Settings → Pages → Source: GitHub Actions and run the `pages`
-  workflow (workflow_dispatch). URL: https://mrghxst.github.io/granary-desktop/
-
 ## Known issues
 - Seek previews (ADR-0009) of Dolby Vision profile 5 files have wrong colours (libavfilter does not reshape DV); previews only, playback is unaffected.
 - One `cargo test --workspace` run inside verify.ps1 exited 101 on 2026-11-07 (right after `cargo fmt`); it was not
@@ -112,6 +107,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 Repo made public at the owner's request (full-history secret scan clean, commit emails noreply only); GitHub Pages enabled (workflow source), `pages` run build+deploy green, https://mrghxst.github.io/granary-desktop/ checked live (landing, docs, search index, images). Draft releases stay unpublished.
 - 2026-11-08 0.2.0: version bump (package.json, Cargo.toml, CHANGELOG), verify.ps1 12/12 green, tag v0.2.0 pushed so the release workflow builds the draft release.
 - 2026-11-08 0.2 step 4: website + docs in site/ (Next 16 static export, Fumadocs 16, own pnpm workspace; landing with scroll animations, 14 docs pages, static search), `pages` workflow, README rewrite. Site typecheck + build OK, checked in the browser (landing, docs, search index, basePath assets). Pages not enabled (private repo, see Blocked).
 - 2026-11-08 0.2 step 3: seek-bar previews for direct-played files without trickplay (ADR-0009): granary_player::thumbs (vo=null handle, keyframe seek, screenshot-to-file, zscale+tonemap for PQ/HLG), player_preview command with 2 s bucket cache, overlay hook with one request in flight, setting player.seekPreviews (default on). Integration test against the pinned DLL (SDR+HDR JPEGs); in the running app: open 242 ms, new frame ~50 ms, cached 4 ms.
