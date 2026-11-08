@@ -74,6 +74,25 @@
   - Precision is not traded away: the exact keyframe still replaces the stand-in, usually within one range read.
   - The tile has a fixed 240 px width (trickplay tiles are scaled to it) and is clamped inside the bar, so it never
     shrinks at the right edge or leaves the screen at the left.
+- **Revision 4 (2026-11-08, 0.4.2): decode in memory, in software, in parallel.** Measured per frame on the test
+  media (local file, so network time is excluded), the decoder itself was the slow part: about 0.86 s for an HDR10
+  2160p keyframe and 0.33 s for SDR 1080p. Broken down:
+  - `hwdec=auto-copy` alone cost about 0.4 s per frame: a new D3D11 decoder is set up for every single-frame file,
+    then the frame is copied back. The software decoder (`hwdec=no`) decodes one HEVC Main10 4K keyframe in about
+    0.1 s. Thread count, `demuxer=mkv` and the HDR filter made little difference.
+  - Each frame went through two temp files (the keyframe for mpv, then mpv's JPEG screenshot), each with its own
+    open, write, read and delete.
+  - The new pipeline:
+    - Keyframes are served to mpv from memory through a custom protocol (`mpv_stream_cb_add_ro`, `granary-frame://`).
+    - The frame comes back as pixels (`screenshot-raw`) and is encoded to JPEG in process (`jpeg-encoder`, quality
+      78). Previews now write nothing to disk; the startup sweep of the old `granary-previews` folder stays for files
+      older versions left behind.
+    - Keyframe downloads run outside the decoder lock (`KeyframeFetcher`), so several hover requests fetch at once
+      while one decodes. The overlay keeps up to three exact requests in flight; the spot under the pointer always
+      goes next.
+  - Result: about 0.12 s per frame for HDR10 2160p and 0.06 s for SDR 1080p (was 0.86 s and 0.33 s), plus the range
+    read. On remote sources the range read is now most of the wait, and parallel fetches hide it for quick series of
+    rests.
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 

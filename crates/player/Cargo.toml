@@ -12,6 +12,7 @@ serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 libmpv2-sys.workspace = true
+jpeg-encoder = { version = "0.7.1", default-features = false, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies.windows]
 workspace = true

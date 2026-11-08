@@ -216,6 +216,7 @@ pub fn install(app: &tauri::App, app_version: String, hwdec: String, libmpv_ok: 
                         .is_none_or(|s| s.current().display.hdr_mode != "off"),
                 ),
                 hardware: hardware.get_or_init(super::platform::probe_hardware_decoders).clone(),
+                audio_mix_channels: Some(super::platform::audio_mix_channels),
             }
         }
         #[cfg(not(windows))]

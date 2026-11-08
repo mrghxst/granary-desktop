@@ -1,6 +1,9 @@
 //! Seek-bar previews for direct-played files without server trickplay (ADR-0009). One headless libmpv handle per
 //! source, opened on first use and dropped when playback moves on. Matroska files are previewed from their keyframe
-//! index (one small range request per frame, `granary_player::mkv`); frames are cached per keyframe.
+//! index (one small range request per frame, `granary_player::mkv`); frames are cached per keyframe, in memory only.
+//!
+//! Keyframes are downloaded outside the decoder lock, so several requests fetch at once while one decodes (software
+//! decoding, about 0.1 s for a 4K keyframe; ADR-0009 revision 4).
 //!
 //! Three paths, cheapest first (ADR-0009 revision 3):
 //! - `player_preview_near`: the nearest frame already decoded, answered from the cache without touching the decoder,
@@ -38,6 +41,9 @@ const BACKGROUND_FRAME_TIMEOUT: Duration = Duration::from_secs(8);
 pub struct PreviewState {
     /// The decoder: one frame at a time.
     inner: Mutex<Decoder>,
+    /// Keyframe downloads for the open source (index mode), used without holding the decoder.
+    #[cfg(windows)]
+    fetcher: Mutex<Option<(String, granary_player::thumbs::KeyframeFetcher)>>,
     /// Decoded frames: held only briefly, so the cache answers while a decode runs.
     frames: Mutex<Frames>,
     /// Hover requests waiting for the decoder: the background fill yields to them.
@@ -114,12 +120,13 @@ impl Frames {
     }
 }
 
-/// Scratch folder for the preview decoder's single-frame files and screenshots (each deleted right after use).
+/// Scratch folder versions up to 0.4.1 used for single-frame files and screenshots. Previews no longer write
+/// anything; the folder is only swept.
 pub fn temp_dir() -> std::path::PathBuf {
     std::env::temp_dir().join("granary-previews")
 }
 
-/// Startup: remove scratch files a previous run left behind (crash, power loss). Files are named
+/// Startup: remove scratch files an older version left behind (crash, power loss). Files are named
 /// `<kind><pid>-<n>.<ext>`; a file of this process is never touched. The folder itself goes when it is empty.
 pub fn sweep_temp() {
     sweep_dir(&temp_dir(), std::process::id());
@@ -195,6 +202,10 @@ async fn source(app: &AppHandle, host: &PlayerHost, settings: &SettingsStore) ->
         // A decode in flight keeps the decoder; the next source check resets it anyway.
         if let Ok(mut d) = state.inner.try_lock() {
             *d = Decoder::default();
+        }
+        #[cfg(windows)]
+        {
+            *lock(&state.fetcher) = None;
         }
         lock(&state.frames).reset("");
     }
@@ -287,15 +298,18 @@ fn ensure_open(state: &PreviewState, d: &mut Decoder, source: &str) -> bool {
             source: source.to_owned(),
             ..Decoder::default()
         };
+        *lock(&state.fetcher) = None;
         lock(&state.frames).reset(source);
     }
     if d.failed {
         return false;
     }
     if d.thumb.is_none() {
-        let dir = temp_dir();
-        match Thumbnailer::open(source, &dir, OPEN_TIMEOUT) {
-            Ok(t) => d.thumb = Some(t),
+        match Thumbnailer::open(source, OPEN_TIMEOUT) {
+            Ok(t) => {
+                *lock(&state.fetcher) = t.fetcher().map(|f| (source.to_owned(), f));
+                d.thumb = Some(t);
+            }
             Err(e) => {
                 tracing::warn!(error = %e, "seek previews unavailable for this file");
                 d.failed = true;
@@ -306,20 +320,81 @@ fn ensure_open(state: &PreviewState, d: &mut Decoder, source: &str) -> bool {
     true
 }
 
-/// Decode (or reuse) the keyframe for `at` with the decoder already locked; caches it per keyframe.
+/// The keyframe fetcher for `source`, opening the decoder first if needed. `None` in seek mode or when the file
+/// cannot be previewed.
 #[cfg(windows)]
-fn decode(state: &PreviewState, d: &mut Decoder, at: f64, timeout: Duration) -> Option<(u64, Arc<String>)> {
-    let thumb = d.thumb.as_mut()?;
-    let key = thumb.snap(at).and_then(bucket).or_else(|| bucket(at))?;
-    if let Some(hit) = lock(&state.frames).keys.get(&key).cloned() {
+fn fetcher_for(state: &PreviewState, source: &str) -> Option<granary_player::thumbs::KeyframeFetcher> {
+    if let Some((s, f)) = lock(&state.fetcher).as_ref()
+        && s == source
+    {
+        return Some(f.clone());
+    }
+    let mut d = lock(&state.inner);
+    if !ensure_open(state, &mut d, source) {
+        return None;
+    }
+    d.thumb.as_ref().and_then(granary_player::thumbs::Thumbnailer::fetcher)
+}
+
+fn cached(state: &PreviewState, source: &str, key: u64) -> Option<Arc<String>> {
+    let frames = lock(&state.frames);
+    (frames.source == source)
+        .then(|| frames.keys.get(&key).cloned())
+        .flatten()
+}
+
+fn store(state: &PreviewState, source: &str, key: u64, jpeg: &[u8]) -> Arc<String> {
+    let url = Arc::new(format!("data:image/jpeg;base64,{}", base64(jpeg)));
+    let mut frames = lock(&state.frames);
+    if frames.source == source {
+        frames.remember(key, Arc::clone(&url));
+    }
+    url
+}
+
+/// The preview for `at`: from the cache, or fetched (in parallel with other requests) and decoded (one at a time).
+#[cfg(windows)]
+fn decode_at(state: &PreviewState, source: &str, at: f64, timeout: Duration) -> Option<(u64, Arc<String>)> {
+    let Some(fetcher) = fetcher_for(state, source) else {
+        // Seek mode: the stream is open in the decoder, so everything happens under its lock.
+        let mut d = lock(&state.inner);
+        if !ensure_open(state, &mut d, source) {
+            return None;
+        }
+        let key = bucket(at)?;
+        if let Some(hit) = cached(state, source, key) {
+            return Some((key, hit));
+        }
+        let jpeg = d.thumb.as_mut()?.frame(at, timeout);
+        return match jpeg {
+            Ok(j) => Some((key, store(state, source, key, &j))),
+            Err(e) => {
+                tracing::debug!(error = %e, at, "seek preview frame failed");
+                None
+            }
+        };
+    };
+    let key = fetcher.snap(at).and_then(bucket).or_else(|| bucket(at))?;
+    if let Some(hit) = cached(state, source, key) {
         return Some((key, hit));
     }
-    match thumb.frame(at, timeout) {
-        Ok(bytes) => {
-            let url = Arc::new(format!("data:image/jpeg;base64,{}", base64(&bytes)));
-            lock(&state.frames).remember(key, Arc::clone(&url));
-            Some((key, url))
+    let file = match fetcher.fetch(at) {
+        Ok((_, file)) => file,
+        Err(e) => {
+            tracing::debug!(error = %e, at, "seek preview keyframe not fetched");
+            return None;
         }
+    };
+    let mut d = lock(&state.inner);
+    // Another request may have decoded the same keyframe while this one downloaded.
+    if let Some(hit) = cached(state, source, key) {
+        return Some((key, hit));
+    }
+    if d.source != source {
+        return None;
+    }
+    match d.thumb.as_mut()?.decode(file, timeout) {
+        Ok(j) => Some((key, store(state, source, key, &j))),
         Err(e) => {
             tracing::debug!(error = %e, at, "seek preview frame failed");
             None
@@ -338,12 +413,11 @@ fn frame(app: &AppHandle, source: &str, requested: u64, at: f64, timeout: Durati
             return Some(hit);
         }
     }
-    let mut d = lock(&state.inner);
-    if !ensure_open(&state, &mut d, source) {
-        return None;
+    let (key, url) = decode_at(&state, source, at, timeout)?;
+    let mut frames = lock(&state.frames);
+    if frames.source == source {
+        frames.alias(requested, key);
     }
-    let (key, url) = decode(&state, &mut d, at, timeout)?;
-    lock(&state.frames).alias(requested, key);
     Some(url)
 }
 
@@ -363,23 +437,20 @@ fn healthy(app: &AppHandle) -> bool {
 #[cfg(windows)]
 fn warm(app: &AppHandle, source: &str) {
     let state = app.state::<PreviewState>();
-    let (generation, targets) = {
-        let mut d = lock(&state.inner);
-        if !ensure_open(&state, &mut d, source) {
-            return;
-        }
-        let Some(keys) = d
-            .thumb
+    let Some(fetcher) = fetcher_for(&state, source) else {
+        return;
+    };
+    let generation = state.generation.load(Ordering::SeqCst);
+    let duration = {
+        let d = lock(&state.inner);
+        d.thumb
             .as_ref()
             .and_then(granary_player::thumbs::Thumbnailer::keyframes)
-        else {
-            return;
-        };
-        let duration = keys.last().copied().unwrap_or(0.0);
-        (state.generation.load(Ordering::SeqCst), grid(duration))
+            .and_then(|k| k.last().copied())
+            .unwrap_or(0.0)
     };
     let mut done = 0usize;
-    for at in targets {
+    for at in grid(duration) {
         loop {
             if state.generation.load(Ordering::SeqCst) != generation {
                 return;
@@ -389,24 +460,17 @@ fn warm(app: &AppHandle, source: &str) {
             }
             std::thread::sleep(Duration::from_millis(100));
         }
-        let mut d = lock(&state.inner);
-        if d.source != source || state.generation.load(Ordering::SeqCst) != generation {
-            return;
-        }
         // Already cached (an earlier level or a hover hit the same keyframe): no traffic, no pause.
-        let cached = d
-            .thumb
-            .as_ref()
-            .and_then(|t| t.snap(at))
+        if fetcher
+            .snap(at)
             .and_then(bucket)
-            .is_some_and(|k| lock(&state.frames).keys.contains_key(&k));
-        if cached {
+            .is_some_and(|k| cached(&state, source, k).is_some())
+        {
             continue;
         }
-        if decode(&state, &mut d, at, BACKGROUND_FRAME_TIMEOUT).is_some() {
+        if decode_at(&state, source, at, BACKGROUND_FRAME_TIMEOUT).is_some() {
             done += 1;
         }
-        drop(d);
         std::thread::sleep(PACE);
     }
     tracing::debug!(frames = done, "seek preview background fill finished");

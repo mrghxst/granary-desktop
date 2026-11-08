@@ -1,17 +1,19 @@
 //! Seek-bar previews for files without server trickplay (ADR-0009). A second, headless libmpv handle (`vo=null`,
-//! no audio) decodes small JPEGs with `screenshot-to-file`; HDR sources are tone-mapped to SDR by libavfilter
+//! no audio, software decoding) turns keyframes into small JPEGs; HDR sources are tone-mapped to SDR by libavfilter
 //! (zscale + tonemap) inside that handle, so the main player's GPU pipeline is never touched.
 //!
 //! Matroska files with a keyframe index (Cues) are read through the index ([`crate::mkv`]): each preview fetches one
-//! keyframe with a byte-range request, wraps it in a single-frame file and decodes only that. Other files fall back
-//! to opening the stream in the preview handle and seeking to keyframes.
+//! keyframe with a byte-range request ([`KeyframeFetcher`], usable from other threads while the decoder works), wraps
+//! it in a single-frame file held in memory and decodes only that. Other files fall back to opening the stream in the
+//! preview handle and seeking to keyframes. Nothing touches the disk: frames reach mpv through a custom stream
+//! protocol and come back with `screenshot-raw`, encoded to JPEG here.
 use crate::PlayerError;
 use crate::backend::PlayerBackend;
 use crate::events::MpvEvent;
 use crate::mkv::{MkvIndex, RangeSource};
-use crate::mpv::Mpv;
+use crate::mpv::{MemoryFiles, Mpv, RawImage};
 use crate::range::{FileRange, HttpRange};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
@@ -23,9 +25,16 @@ const SDR_FILTER: &str = "scale=w=320:h=-2";
 /// PQ/HLG to SDR: linearise, convert to BT.709 primaries, Hable tone curve, back to a BT.709 transfer.
 const HDR_FILTER: &str = "zscale=w=320:h=-2:t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,\
 tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p";
+/// Protocol of the in-memory single-frame files.
+const PROTOCOL: &str = "granary-frame";
+const JPEG_QUALITY: u8 = 78;
 
 /// Options for the preview handle: no window, no audio, no scripts or user config, cheap keyframe decodes that
 /// leave the CPU to the main player.
+///
+/// Software decoding: a single keyframe decodes in about 0.1 s even for 4K HEVC Main10, while setting up a hardware
+/// decoder again for every single-frame file costs about 0.4 s more (measured, ADR-0009 revision 4) and would
+/// compete with the main player for the GPU.
 pub fn options() -> Vec<(String, String)> {
     [
         ("vo", "null"),
@@ -35,13 +44,11 @@ pub fn options() -> Vec<(String, String)> {
         ("pause", "yes"),
         ("keep-open", "yes"),
         ("hr-seek", "no"),
-        ("hwdec", "auto-copy"),
+        ("hwdec", "no"),
         ("vd-lavc-threads", "2"),
         ("vd-lavc-skiploopfilter", "all"),
         ("vd-lavc-fast", "yes"),
         ("vf", SDR_FILTER),
-        ("screenshot-format", "jpg"),
-        ("screenshot-jpeg-quality", "78"),
         ("cache", "no"),
         ("demuxer-readahead-secs", "0"),
         ("config", "no"),
@@ -60,32 +67,38 @@ pub fn needs_tonemap(gamma: &str) -> bool {
     matches!(gamma, "pq" | "hlg")
 }
 
-/// How frames are found.
-enum Mode {
-    /// Matroska with an index: one keyframe per preview, decoded from a single-frame local file.
-    Index {
-        index: MkvIndex,
-        src: Box<dyn RangeSource + Send>,
-        /// The single-frame file mpv opened last (deleted once mpv has moved on).
-        last: Option<PathBuf>,
-        /// `video-params/gamma` was checked once (the track header may lack colour metadata).
-        gamma_checked: bool,
-    },
-    /// Anything else: the stream is open in mpv and each preview is a keyframe seek.
-    Seek,
+/// A `screenshot-raw` frame (`bgr0`) as JPEG.
+pub fn encode_jpeg(raw: &RawImage) -> Result<Vec<u8>, PlayerError> {
+    let bad = |m: &str| PlayerError::InvalidArgument(format!("preview frame: {m}"));
+    if raw.format != "bgr0" && raw.format != "bgra" {
+        return Err(bad(&format!("unexpected pixel format {}", raw.format)));
+    }
+    let (w, h) = (
+        u16::try_from(raw.width).map_err(|_| bad("too wide"))?,
+        u16::try_from(raw.height).map_err(|_| bad("too tall"))?,
+    );
+    let row = usize::from(w) * 4;
+    if raw.stride < row || raw.data.len() < raw.stride * usize::from(h).saturating_sub(1) + row {
+        return Err(bad("short pixel data"));
+    }
+    let packed: std::borrow::Cow<'_, [u8]> = if raw.stride == row {
+        std::borrow::Cow::Borrowed(&raw.data[..row * usize::from(h)])
+    } else {
+        std::borrow::Cow::Owned(
+            raw.data
+                .chunks(raw.stride)
+                .take(usize::from(h))
+                .flat_map(|r| &r[..row])
+                .copied()
+                .collect(),
+        )
+    };
+    let mut out = Vec::with_capacity(16 * 1024);
+    jpeg_encoder::Encoder::new(&mut out, JPEG_QUALITY)
+        .encode(&packed, w, h, jpeg_encoder::ColorType::Bgra)
+        .map_err(|e| bad(&e.to_string()))?;
+    Ok(out)
 }
-
-/// One open preview source.
-pub struct Thumbnailer {
-    mpv: Arc<Mpv>,
-    events: Receiver<MpvEvent>,
-    source: String,
-    dir: PathBuf,
-    mode: Mode,
-    hdr_filter: bool,
-}
-
-static SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Byte access to `source` for the index: the loopback relay over HTTP, or a local path.
 fn range_source(source: &str, timeout: Duration) -> Option<Box<dyn RangeSource + Send>> {
@@ -100,19 +113,71 @@ fn range_source(source: &str, timeout: Duration) -> Option<Box<dyn RangeSource +
         .map(|f| Box::new(f) as Box<dyn RangeSource + Send>)
 }
 
+/// Fetches single-keyframe files of an indexed source. Cheap to clone; each fetch opens its own connection, so
+/// several can run at once and while the decoder is busy.
+#[derive(Clone)]
+pub struct KeyframeFetcher {
+    index: Arc<MkvIndex>,
+    source: String,
+    timeout: Duration,
+}
+
+impl KeyframeFetcher {
+    /// The keyframe time a preview for `seconds` shows.
+    pub fn snap(&self, seconds: f64) -> Option<f64> {
+        self.index.cue_for(seconds).map(|c| self.index.seconds(&c))
+    }
+
+    /// The keyframe time and a complete single-frame Matroska file for the keyframe at or before `seconds`.
+    pub fn fetch(&self, seconds: f64) -> Result<(f64, Vec<u8>), PlayerError> {
+        let bad = |m: String| PlayerError::InvalidArgument(format!("preview keyframe: {m}"));
+        let cue = self.index.cue_for(seconds).ok_or_else(|| bad("no keyframe".into()))?;
+        let mut src = range_source(&self.source, self.timeout).ok_or_else(|| bad("source not readable".into()))?;
+        let file = self.index.frame_file(&mut *src, &cue).map_err(|e| bad(e.to_string()))?;
+        Ok((self.index.seconds(&cue), file))
+    }
+}
+
+/// How frames are found.
+enum Mode {
+    /// Matroska with an index: one keyframe per preview, decoded from a single-frame file in memory.
+    Index {
+        fetcher: KeyframeFetcher,
+        /// The in-memory file mpv opened last (dropped once the next one is open).
+        last: Option<String>,
+        /// `video-params/gamma` was checked once (the track header may lack colour metadata).
+        gamma_checked: bool,
+    },
+    /// Anything else: the stream is open in mpv and each preview is a keyframe seek.
+    Seek,
+}
+
+/// One open preview source.
+pub struct Thumbnailer {
+    mpv: Arc<Mpv>,
+    events: Receiver<MpvEvent>,
+    files: Arc<MemoryFiles>,
+    source: String,
+    mode: Mode,
+    hdr_filter: bool,
+}
+
+static SEQ: AtomicU64 = AtomicU64::new(0);
+
 impl Thumbnailer {
     /// Open `source` (a URL or path mpv can read). Matroska files with an index are read through the index and
     /// nothing is opened in mpv yet; anything else is opened and waited for until it can seek.
-    pub fn open(source: &str, dir: &Path, timeout: Duration) -> Result<Self, PlayerError> {
-        std::fs::create_dir_all(dir).map_err(|e| PlayerError::InvalidArgument(format!("preview dir: {e}")))?;
+    pub fn open(source: &str, timeout: Duration) -> Result<Self, PlayerError> {
         let mpv = Mpv::new(&options())?;
+        let files = Arc::new(MemoryFiles::default());
+        mpv.add_memory_protocol(PROTOCOL, Arc::clone(&files))?;
         let (tx, rx) = channel();
         mpv.spawn_events(move |e| {
             let _ = tx.send(e);
         })
         .map_err(|e| PlayerError::Unavailable(format!("preview event thread: {e}")))?;
         let indexed = range_source(source, timeout).and_then(|mut src| match MkvIndex::load(&mut *src) {
-            Ok(index) => Some((index, src)),
+            Ok(index) => Some(index),
             Err(e) => {
                 tracing::debug!(error = %e, "no keyframe index; previews seek in the stream");
                 None
@@ -121,12 +186,12 @@ impl Thumbnailer {
         let mut t = Self {
             mpv,
             events: rx,
+            files,
             source: source.to_owned(),
-            dir: dir.to_owned(),
             mode: Mode::Seek,
             hdr_filter: false,
         };
-        if let Some((index, src)) = indexed {
+        if let Some(index) = indexed {
             tracing::info!(
                 keyframes = index.cues().len(),
                 "seek previews use the file's keyframe index"
@@ -135,8 +200,11 @@ impl Thumbnailer {
                 t.set_hdr_filter()?;
             }
             t.mode = Mode::Index {
-                index,
-                src,
+                fetcher: KeyframeFetcher {
+                    index: Arc::new(index),
+                    source: source.to_owned(),
+                    timeout,
+                },
                 last: None,
                 gamma_checked: false,
             };
@@ -169,10 +237,18 @@ impl Thumbnailer {
         matches!(self.mode, Mode::Index { .. })
     }
 
+    /// A fetcher for keyframes of this source (index mode), to download outside the decoder.
+    pub fn fetcher(&self) -> Option<KeyframeFetcher> {
+        match &self.mode {
+            Mode::Index { fetcher, .. } => Some(fetcher.clone()),
+            Mode::Seek => None,
+        }
+    }
+
     /// The keyframe time a preview for `seconds` shows (index mode), so callers can cache per keyframe.
     pub fn snap(&self, seconds: f64) -> Option<f64> {
         match &self.mode {
-            Mode::Index { index, .. } => index.cue_for(seconds).map(|c| index.seconds(&c)),
+            Mode::Index { fetcher, .. } => fetcher.snap(seconds),
             Mode::Seek => None,
         }
     }
@@ -180,7 +256,9 @@ impl Thumbnailer {
     /// Every keyframe time in the index (index mode), for background prefetching; `None` in seek mode.
     pub fn keyframes(&self) -> Option<Vec<f64>> {
         match &self.mode {
-            Mode::Index { index, .. } => Some(index.cues().iter().map(|c| index.seconds(c)).collect()),
+            Mode::Index { fetcher, .. } => {
+                Some(fetcher.index.cues().iter().map(|c| fetcher.index.seconds(c)).collect())
+            }
             Mode::Seek => None,
         }
     }
@@ -207,10 +285,11 @@ impl Thumbnailer {
         }
     }
 
-    /// Load a local single-frame file and wait for its frame. The previous file's end arrives first and is expected.
-    fn load_frame_file(&self, path: &Path, timeout: Duration) -> Result<(), PlayerError> {
+    /// Load an in-memory single-frame file and wait for its frame. The previous file's end arrives first and is
+    /// expected.
+    fn load_frame(&self, uri: &str, timeout: Duration) -> Result<(), PlayerError> {
         while self.events.try_recv().is_ok() {}
-        self.mpv.command(&["loadfile", &path.to_string_lossy()])?;
+        self.mpv.command(&["loadfile", uri])?;
         let end = Instant::now() + timeout;
         let mut started = false;
         loop {
@@ -234,47 +313,26 @@ impl Thumbnailer {
         }
     }
 
-    fn screenshot(&self) -> Result<Vec<u8>, PlayerError> {
-        let n = SEQ.fetch_add(1, Ordering::Relaxed);
-        let path = self.dir.join(format!("p{}-{n}.jpg", std::process::id()));
-        let shot = path.to_string_lossy().into_owned();
-        self.mpv.command(&["screenshot-to-file", &shot, "video"])?;
-        let bytes = std::fs::read(&path).map_err(|e| PlayerError::InvalidArgument(format!("preview read: {e}")));
-        let _ = std::fs::remove_file(&path);
-        bytes
+    fn jpeg(&self) -> Result<Vec<u8>, PlayerError> {
+        encode_jpeg(&self.mpv.screenshot_raw()?)
     }
 
-    /// A JPEG of the keyframe at or before `seconds`.
-    pub fn frame(&mut self, seconds: f64, timeout: Duration) -> Result<Vec<u8>, PlayerError> {
-        if !seconds.is_finite() || seconds < 0.0 {
-            return Err(PlayerError::InvalidArgument("preview time".into()));
+    /// Decode a single-frame file from [`KeyframeFetcher::fetch`] (index mode) into a JPEG.
+    pub fn decode(&mut self, file: Vec<u8>, timeout: Duration) -> Result<Vec<u8>, PlayerError> {
+        if !self.indexed() {
+            return Err(PlayerError::InvalidArgument("preview source has no index".into()));
         }
-        let Mode::Index { index, src, .. } = &mut self.mode else {
-            // Drop stale events so the restart we wait for belongs to this seek.
-            while self.events.try_recv().is_ok() {}
-            self.mpv
-                .command(&["seek", &format!("{seconds:.3}"), "absolute+keyframes"])?;
-            self.wait(timeout, |e| matches!(e, MpvEvent::PlaybackRestart))?;
-            return self.screenshot();
-        };
-        let cue = index
-            .cue_for(seconds)
-            .ok_or_else(|| PlayerError::InvalidArgument("no keyframe".into()))?;
-        let file = index
-            .frame_file(&mut **src, &cue)
-            .map_err(|e| PlayerError::InvalidArgument(format!("preview keyframe: {e}")))?;
-        let n = SEQ.fetch_add(1, Ordering::Relaxed);
-        let path = self.dir.join(format!("f{}-{n}.mkv", std::process::id()));
-        std::fs::write(&path, &file).map_err(|e| PlayerError::InvalidArgument(format!("preview write: {e}")))?;
-        let loaded = self.load_frame_file(&path, timeout);
+        let uri = format!("{PROTOCOL}://{}.mkv", SEQ.fetch_add(1, Ordering::Relaxed));
+        self.files.insert(uri.clone(), Arc::from(file));
+        let loaded = self.load_frame(&uri, timeout);
         let mut first = false;
         if let Mode::Index {
             last, gamma_checked, ..
         } = &mut self.mode
         {
-            if let Some(old) = last.replace(path.clone()) {
-                // mpv closed it when the new file started.
-                let _ = std::fs::remove_file(old);
+            // mpv closed the previous file when this one started; its reader holds its own reference until then.
+            if let Some(old) = last.replace(uri.clone()) {
+                self.files.remove(&old);
             }
             first = !std::mem::replace(gamma_checked, true);
         }
@@ -283,19 +341,33 @@ impl Thumbnailer {
             let gamma = self.mpv.get_property("video-params/gamma").unwrap_or_default();
             if needs_tonemap(&gamma) {
                 self.set_hdr_filter()?;
-                self.load_frame_file(&path, timeout)?;
+                self.load_frame(&uri, timeout)?;
             }
         }
-        self.screenshot()
+        self.jpeg()
+    }
+
+    /// A JPEG of the keyframe at or before `seconds` (fetch and decode in one call).
+    pub fn frame(&mut self, seconds: f64, timeout: Duration) -> Result<Vec<u8>, PlayerError> {
+        if !seconds.is_finite() || seconds < 0.0 {
+            return Err(PlayerError::InvalidArgument("preview time".into()));
+        }
+        let Some(fetcher) = self.fetcher() else {
+            // Drop stale events so the restart we wait for belongs to this seek.
+            while self.events.try_recv().is_ok() {}
+            self.mpv
+                .command(&["seek", &format!("{seconds:.3}"), "absolute+keyframes"])?;
+            self.wait(timeout, |e| matches!(e, MpvEvent::PlaybackRestart))?;
+            return self.jpeg();
+        };
+        let (_, file) = fetcher.fetch(seconds)?;
+        self.decode(file, timeout)
     }
 }
 
 impl Drop for Thumbnailer {
     fn drop(&mut self) {
         self.mpv.quit();
-        if let Mode::Index { last: Some(path), .. } = &self.mode {
-            let _ = std::fs::remove_file(path);
-        }
     }
 }
 
@@ -312,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn preview_handle_is_headless() {
+    fn preview_handle_is_headless_and_decodes_in_software() {
         let o = options();
         let get = |k: &str| o.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str());
         assert_eq!(get("vo"), Some("null"));
@@ -320,6 +392,7 @@ mod tests {
         assert_eq!(get("load-scripts"), Some("no"));
         assert_eq!(get("config"), Some("no"));
         assert_eq!(get("keep-open"), Some("yes"));
+        assert_eq!(get("hwdec"), Some("no"));
     }
 
     #[test]
@@ -328,5 +401,31 @@ mod tests {
         assert!(range_source("https://example.com/a.mkv", t).is_none());
         assert!(range_source("http://example.com/a.mkv", t).is_none());
         assert!(range_source("http://127.0.0.1:9/r/x/a.mkv", t).is_some());
+    }
+
+    #[test]
+    fn jpeg_from_padded_rows() {
+        // 2x2 grey, rows padded to 16 bytes as mpv does for alignment.
+        let mut data = vec![0u8; 32];
+        for row in 0..2 {
+            for px in 0..2 {
+                let i = row * 16 + px * 4;
+                data[i..i + 4].copy_from_slice(&[128, 128, 128, 0]);
+            }
+        }
+        let raw = RawImage {
+            width: 2,
+            height: 2,
+            stride: 16,
+            format: "bgr0".into(),
+            data,
+        };
+        let jpg = encode_jpeg(&raw).unwrap_or_default();
+        assert!(jpg.starts_with(&[0xFF, 0xD8]) && jpg.ends_with(&[0xFF, 0xD9]));
+        let short = RawImage {
+            data: vec![0; 8],
+            ..raw
+        };
+        assert!(encode_jpeg(&short).is_err());
     }
 }

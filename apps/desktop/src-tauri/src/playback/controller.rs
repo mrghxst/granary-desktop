@@ -57,6 +57,8 @@ pub struct Environment {
     pub os_version: String,
     pub output: OutputFacts,
     pub hardware: HardwareDecoders,
+    /// Channels of the Windows mix format for an mpv `audio-device` (`platform::audio_mix_channels`).
+    pub audio_mix_channels: Option<fn(&str) -> Option<u32>>,
 }
 
 /// What the UI is told about the negotiated plan.
@@ -187,6 +189,8 @@ pub struct Controller {
     sync_check: Option<SyncCheck>,
     /// Sidecar subtitle URLs already handed to mpv for this load (server URL, local URL).
     sidecars: Vec<(String, String)>,
+    /// `gapless-audio` value to put back once an audio switch that kept the open audio device has landed.
+    gapless_restore: Option<String>,
 }
 
 /// How long after an audio switch the sync watchdog runs, and how often it may resync.
@@ -265,6 +269,7 @@ impl Controller {
             resume_after_switch: false,
             sync_check: None,
             sidecars: Vec::new(),
+            gapless_restore: None,
             stop_id: None,
             stopped: false,
             server_ended: false,
@@ -484,10 +489,13 @@ impl Controller {
         }
         match ev {
             MpvEvent::FileLoaded => {
+                self.restore_gapless();
                 self.apply_tracks();
                 self.reloads_succeeded();
             }
             MpvEvent::PlaybackRestart => {
+                // The new audio chain is set up by now: the switch no longer needs the open device kept.
+                self.restore_gapless();
                 if std::mem::take(&mut self.resume_after_switch) {
                     self.set("pause", "no");
                     let retries = self.sync_check.map_or(0, |c| c.retries);
@@ -661,6 +669,11 @@ impl Controller {
                 // Re-selecting the current track would make mpv refill it from the stream for nothing.
                 if self.backend.get_property("sid").as_deref() != Some(sid.as_str()) {
                     self.set("sid", &sid);
+                    // mpv's own refresh for a newly selected stream drops the whole read-ahead, re-reads from 11 s
+                    // back and then waits for a 3 s buffer, so on a network stream the line on screen shows late or
+                    // only after the viewer seeks. Seeking to the current position restarts every stream from the
+                    // index instead (Matroska subtitle preroll finds the line already on screen), without that wait.
+                    self.seek_in_place();
                 }
             }
             SubtitleChoice::External { track_id } => {
@@ -702,6 +715,13 @@ impl Controller {
         }
         self.args.audio_index = Some(index);
         self.sync_check = None;
+        if self.keep_audio_output(&aid) {
+            let current = self.backend.get_property("gapless-audio");
+            if current.as_deref() != Some("yes") {
+                self.set("gapless-audio", "yes");
+                self.gapless_restore = Some(current.unwrap_or_else(|| "weak".into()));
+            }
+        }
         self.resync_audio(Some(&aid));
         tracing::info!(index, "audio track switched in the player");
         Ok(())
@@ -732,6 +752,62 @@ impl Controller {
                 }
             }
             None => {}
+        }
+    }
+
+    /// Re-seek to the current position (precise), for track changes mpv would otherwise refill slowly.
+    fn seek_in_place(&self) {
+        if !matches!(self.state.phase, Phase::Playing | Phase::Paused | Phase::Buffering) {
+            return;
+        }
+        let Some(pos) = self
+            .backend
+            .get_property("time-pos")
+            .and_then(|p| p.parse::<f64>().ok())
+        else {
+            return;
+        };
+        if let Err(e) = self.backend.seek_absolute(pos) {
+            tracing::warn!(error = %e, "seek after the track switch failed");
+        }
+    }
+
+    /// Whether the audio device already open can carry track `aid` as well as a new one would. With mpv's default
+    /// (`gapless-audio=weak`) a track with another channel layout closes and reopens the Windows audio device: up to
+    /// seconds of WASAPI setup, and a fresh stream that HDMI sinks and some drivers start late, heard as a gap after
+    /// the picture is already moving. Keeping the device is lossless when the track has no more channels than the
+    /// device was opened with, or when the device is already as wide as the Windows speaker setup (shared mode mixes
+    /// everything down to that anyway). Bitstream passthrough and exclusive mode keep mpv's behaviour.
+    fn keep_audio_output(&self, aid: &str) -> bool {
+        let get = |k: &str| self.backend.get_property(k);
+        let num = |k: &str| get(k).and_then(|v| v.parse::<u32>().ok());
+        if get("audio-out-params/format").is_none_or(|f| f.starts_with("spdif")) {
+            return false;
+        }
+        let Some(open) = num("audio-out-params/channel-count") else {
+            return false;
+        };
+        let wanted = (0..num("track-list/count").unwrap_or(0)).find_map(|n| {
+            let field = |k: &str| format!("track-list/{n}/{k}");
+            (get(&field("type")).as_deref() == Some("audio") && get(&field("id")).as_deref() == Some(aid))
+                .then(|| num(&field("demux-channel-count")))
+                .flatten()
+        });
+        let Some(wanted) = wanted else { return false };
+        if wanted <= open {
+            return true;
+        }
+        get("audio-exclusive").as_deref() != Some("yes")
+            && self
+                .env
+                .audio_mix_channels
+                .and_then(|mix| mix(&get("audio-device").unwrap_or_default()))
+                .is_some_and(|mix| open >= mix)
+    }
+
+    fn restore_gapless(&mut self) {
+        if let Some(v) = self.gapless_restore.take() {
+            self.set("gapless-audio", &v);
         }
     }
 
@@ -1547,6 +1623,106 @@ mod tests {
         }
         assert_eq!(seeks(&r.backend), 2);
         assert!(c.sync_check.is_none(), "watchdog window closed");
+    }
+
+    #[tokio::test]
+    async fn embedded_subtitle_switch_seeks_in_place_while_playing() {
+        let r = rig(args()).await;
+        for (k, v) in [
+            ("track-list/count", "2"),
+            ("track-list/0/type", "sub"),
+            ("track-list/0/ff-index", "2"),
+            ("track-list/0/id", "1"),
+            ("track-list/1/type", "sub"),
+            ("track-list/1/ff-index", "3"),
+            ("track-list/1/id", "2"),
+        ] {
+            r.backend.set_property(k, v).unwrap();
+        }
+        let mut c = r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        r.backend.set_property("time-pos", "42.500").unwrap();
+        play_to(&mut c, 42.5).await;
+        c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 3 })
+            .await
+            .unwrap();
+        let calls = r.backend.calls();
+        assert_eq!(&calls[calls.len() - 2..], ["set sid=2", "cmd seek 42.500 absolute"]);
+        // The same track again: nothing to refill, no seek.
+        let n = r.backend.calls().len();
+        c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 3 })
+            .await
+            .unwrap();
+        assert_eq!(r.backend.calls().len(), n);
+        // Off is instant in mpv: no seek either.
+        c.select_subtitle(&SubtitleChoice::Off).await.unwrap();
+        assert_eq!(r.backend.calls().last().unwrap(), "set sid=no");
+    }
+
+    #[tokio::test]
+    async fn audio_switch_keeps_the_open_device_when_it_loses_nothing() {
+        let r = rig(StartArgs {
+            audio_index: Some(0),
+            ..args()
+        })
+        .await;
+        for (k, v) in [
+            ("track-list/count", "3"),
+            ("track-list/0/type", "audio"),
+            ("track-list/0/id", "1"),
+            ("track-list/0/demux-channel-count", "6"),
+            ("track-list/1/type", "audio"),
+            ("track-list/1/id", "2"),
+            ("track-list/1/demux-channel-count", "2"),
+            ("track-list/2/type", "audio"),
+            ("track-list/2/id", "3"),
+            ("track-list/2/demux-channel-count", "8"),
+            ("audio-out-params/format", "floatp"),
+            ("audio-out-params/channel-count", "6"),
+            ("gapless-audio", "weak"),
+            ("time-pos", "10.000"),
+            ("pause", "no"),
+        ] {
+            r.backend.set_property(k, v).unwrap();
+        }
+        let mut c = r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        play_to(&mut c, 10.0).await;
+
+        // 5.1 device, stereo track: kept for the switch, mpv's setting back once the seek lands.
+        c.select_audio(1).await.unwrap();
+        let calls = r.backend.calls();
+        assert_eq!(
+            &calls[calls.len() - 4..],
+            [
+                "set gapless-audio=yes",
+                "set pause=yes",
+                "set aid=2",
+                "cmd seek 10.000 absolute"
+            ]
+        );
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        assert!(r.backend.calls().contains(&"set gapless-audio=weak".to_owned()));
+        r.backend.set_property("gapless-audio", "weak").unwrap();
+
+        // 7.1 track on a 5.1-opened device: reopening gains channels unless Windows mixes to 5.1 anyway.
+        let gapless = |r: &MockBackend| r.calls().iter().filter(|c| *c == "set gapless-audio=yes").count();
+        c.select_audio(2).await.unwrap();
+        assert_eq!(gapless(&r.backend), 1, "no mix format known: let mpv reopen");
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        c.env.audio_mix_channels = Some(|_| Some(6));
+        c.select_audio(0).await.unwrap();
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        c.select_audio(2).await.unwrap();
+        assert_eq!(gapless(&r.backend), 3, "speaker setup is 5.1: nothing to gain");
+
+        // Passthrough must match the bitstream: mpv decides.
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        r.backend.set_property("audio-out-params/format", "spdif-ac3").unwrap();
+        c.select_audio(1).await.unwrap();
+        assert_eq!(gapless(&r.backend), 3);
     }
 
     #[tokio::test]

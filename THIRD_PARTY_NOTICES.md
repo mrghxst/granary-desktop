@@ -39,6 +39,8 @@ Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-w
 `aws-lc-sys` also OpenSSL-style licences), `keyring-core` and `windows-native-keyring-store`, `url`, `uuid`,
 `async-trait`, `bytes`, `futures-core`, `futures-util`, `hyper`, `hyper-util`, `http-body-util` (loopback media relay),
 `tokio-tungstenite` (events socket, MIT), `rustls`.
+`jpeg-encoder` (local seek previews; MIT OR Apache-2.0, plus the IJG licence): this software is based in part on
+the work of the Independent JPEG Group.
 Test-only (not shipped): `wiremock`, `rcgen`, `tokio-rustls`.
 
 JavaScript packages (see `pnpm-lock.yaml`; MIT unless noted): React, React DOM, React Router, i18next,

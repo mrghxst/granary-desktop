@@ -307,3 +307,57 @@ pub fn output_facts(hdr_switching: bool) -> OutputFacts {
         hdr_switchable: hdr_switching && display.is_some_and(|d| d.hdr_supported && !d.hdr_enabled),
     }
 }
+
+/// Channel count of the Windows shared-mode mix format of mpv's `audio-device` (`auto` or `wasapi/{id}`): the speaker
+/// setup Windows mixes every shared stream down to. `None` when the device cannot be asked.
+pub fn audio_mix_channels(device: &str) -> Option<u32> {
+    use windows::Win32::Media::Audio::{IAudioClient, IMMDeviceEnumerator, MMDeviceEnumerator, eMultimedia, eRender};
+    use windows::Win32::System::Com::{
+        CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize,
+    };
+    // SAFETY: COM is initialised for this call (or was already, in some mode); every pointer comes from the COM calls
+    // just made, and the mix format is freed with CoTaskMemFree as GetMixFormat requires.
+    unsafe {
+        let init = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let ask = || -> Option<u32> {
+            let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+            let device = match device.strip_prefix("wasapi/") {
+                // mpv lists endpoints without the `{0.0.0.00000000}.` render-endpoint prefix.
+                Some(id) if !id.starts_with("{0.0.0.") => devices
+                    .GetDevice(&HSTRING::from(format!("{{0.0.0.00000000}}.{id}")))
+                    .ok()?,
+                Some(id) => devices.GetDevice(&HSTRING::from(id)).ok()?,
+                None => devices.GetDefaultAudioEndpoint(eRender, eMultimedia).ok()?,
+            };
+            let client: IAudioClient = device.Activate(CLSCTX_ALL, None).ok()?;
+            let format = client.GetMixFormat().ok()?;
+            if format.is_null() {
+                return None;
+            }
+            let channels = u32::from((*format).nChannels);
+            CoTaskMemFree(Some(format.cast_const().cast()));
+            Some(channels)
+        };
+        let channels = ask();
+        if init.is_ok() {
+            CoUninitialize();
+        }
+        channels
+    }
+}
+
+#[cfg(test)]
+mod audio_tests {
+    #[test]
+    fn mix_format_of_an_unknown_device_is_unknown() {
+        assert_eq!(
+            super::audio_mix_channels("wasapi/{00000000-0000-0000-0000-000000000000}"),
+            None
+        );
+        // The default device, when this machine has one: a plausible speaker count.
+        if let Some(n) = super::audio_mix_channels("auto") {
+            eprintln!("default device mixes to {n} channels");
+            assert!((1..=32).contains(&n));
+        }
+    }
+}

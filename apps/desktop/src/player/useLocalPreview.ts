@@ -5,6 +5,11 @@ import { player } from "../lib/player";
 const SETTLE_MS = 60;
 /** A nearby frame stands in for the exact one only up to this share of the file away. */
 const NEAR_SHARE = 1 / 12;
+/**
+ * Exact frames asked for at once. The host downloads keyframes in parallel and decodes one at a time (about 0.1 s for
+ * a 4K frame), so a quick series of rests does not queue behind one slow download.
+ */
+const MAX_INFLIGHT = 3;
 
 /**
  * Seconds between preview spots: about 400 over the file, between 2 s and 10 s. Matroska files are previewed from their
@@ -23,15 +28,15 @@ export interface LocalPreview {
 }
 
 /**
- * Seek-bar previews decoded from the playing file when the server has no trickplay sheets (ADR-0009 revision 3):
+ * Seek-bar previews decoded from the playing file when the server has no trickplay sheets (ADR-0009 revision 4):
  * - once per file the host starts a paced background fill of a coarse-to-fine keyframe grid;
  * - every hover shows the nearest frame the host already has, at once (a cache read, no network);
- * - when the pointer rests, the exact frame for the spot is fetched (one request in flight, newest spot next) and
- *   replaces the stand-in.
+ * - when the pointer rests, the exact frame for the spot is fetched and
+ *   replaces the stand-in. Up to {@link MAX_INFLIGHT} spots load at once; the spot under the pointer always goes next.
  */
 export function useLocalPreview(enabled: boolean, at: number | null, duration: number): LocalPreview | null {
   const cache = useRef(new Map<number, string | null>());
-  const inflight = useRef(false);
+  const inflight = useRef(new Set<number>());
   const mounted = useRef(true);
   const wanted = useRef<number | null>(null);
   // The ref serves the request pump; the state copy is what render reads.
@@ -63,14 +68,15 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
       });
     const pump = () => {
       const s = wanted.current;
-      if (!mounted.current || inflight.current || s === null || cache.current.has(s)) return;
-      inflight.current = true;
+      const busy = inflight.current;
+      if (!mounted.current || s === null || cache.current.has(s) || busy.has(s) || busy.size >= MAX_INFLIGHT) return;
+      busy.add(s);
       void player
         .preview(s)
         .catch(() => null)
         .then((url) => {
           cache.current.set(s, url);
-          inflight.current = false;
+          busy.delete(s);
           if (!mounted.current) return;
           setFrames(new Map(cache.current));
           pump();

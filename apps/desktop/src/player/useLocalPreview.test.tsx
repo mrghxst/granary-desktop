@@ -30,7 +30,7 @@ describe("previewInterval", () => {
 });
 
 describe("useLocalPreview", () => {
-  it("waits for the hover to settle, keeps one request in flight, then fetches only the newest spot", async () => {
+  it("waits for the hover to settle, keeps up to three requests in flight, then fetches the newest spot", async () => {
     const resolvers: ((url: string) => void)[] = [];
     const asked: number[] = [];
     vi.spyOn(player, "previewWarm").mockResolvedValue(null);
@@ -47,28 +47,34 @@ describe("useLocalPreview", () => {
     expect(asked).toEqual([]);
     await settle();
     expect(asked).toEqual([40]);
-    // Move on while 40 is still loading: only the newest spot is fetched afterwards.
+    // Rests while 40 still loads are fetched alongside it, up to three at once.
     rerender({ at: 100 });
     await settle();
     rerender({ at: 250 });
     await settle();
-    expect(asked).toEqual([40]);
+    expect(asked).toEqual([40, 100, 250]);
+    rerender({ at: 300 });
+    await settle();
+    rerender({ at: 420 });
+    await settle();
+    expect(asked).toEqual([40, 100, 250]);
+    // A slot frees: only the spot under the pointer is fetched, not the ones passed on the way.
     await act(async () => {
       resolvers[0]?.("data:a");
       await Promise.resolve();
     });
-    expect(asked).toEqual([40, 250]);
+    expect(asked).toEqual([40, 100, 250, 420]);
     // The host had no stand-in either.
     expect(result.current).toBeNull();
     await act(async () => {
-      resolvers[1]?.("data:b");
+      resolvers[3]?.("data:b");
       await Promise.resolve();
     });
     expect(result.current).toEqual({ url: "data:b", approx: false });
     // A cached spot is answered without another request.
     rerender({ at: 49 });
     expect(result.current).toEqual({ url: "data:a", approx: false });
-    expect(asked).toEqual([40, 250]);
+    expect(asked).toEqual([40, 100, 250, 420]);
   });
 
   it("starts the background fill once and shows the host's nearest frame until the exact one arrives", async () => {

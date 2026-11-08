@@ -97,14 +97,13 @@ fn preview_frames_from_real_files() {
         return;
     }
     let media = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-media");
-    let dir = std::env::temp_dir().join(format!("granary-previews-{}", std::process::id()));
     for name in ["sdr_h264_1080p.mkv", "hdr10_hevc_main10_2160p.mkv"] {
         let file = media.join(name);
         if !file.is_file() {
             eprintln!("skipped {name}: run scripts/gen-test-media.ps1");
             continue;
         }
-        let mut t = Thumbnailer::open(file.to_str().unwrap(), &dir, Duration::from_secs(15)).unwrap();
+        let mut t = Thumbnailer::open(file.to_str().unwrap(), Duration::from_secs(15)).unwrap();
         assert!(t.indexed(), "{name}: test media has a keyframe index");
         let keys = t.keyframes().unwrap_or_default();
         assert!(
@@ -118,6 +117,13 @@ fn preview_frames_from_real_files() {
             assert!(jpg.len() > 1000, "{name} @ {at}: {} bytes", jpg.len());
         }
         assert!(t.frame(-1.0, Duration::from_secs(1)).is_err());
+        // Fetched elsewhere, decoded here: the path the app takes.
+        let (key, file) = t.fetcher().unwrap().fetch(5.0).unwrap();
+        assert!(key <= 5.0);
+        assert!(
+            t.decode(file, Duration::from_secs(10))
+                .unwrap()
+                .starts_with(&[0xFF, 0xD8])
+        );
     }
-    let _ = std::fs::remove_dir_all(&dir);
 }

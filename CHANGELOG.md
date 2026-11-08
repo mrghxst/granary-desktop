@@ -6,12 +6,20 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- Local seek previews are about six times faster to decode (about 0.1 s for a 4K HDR keyframe instead of 0.9 s) and
+  never touch the disk: keyframes are decoded in memory in software and encoded to JPEG in the app. Several hovered
+  spots download at once while one decodes, so moving along the bar no longer queues behind one slow request.
+- Switching to an audio track that the open output can already play (for example stereo on a 5.1 output, or a track
+  that Windows mixes down anyway) keeps the audio device open, so the sound comes back with the picture instead of a
+  moment later.
 - Seek-preview sheets from the server are kept in memory only (at most 64 MB) and never written to disk; sheets an
   earlier version stored in the artwork cache are removed once.
 - Cached artwork that is due for its weekly refresh is shown at once and refreshed in the background, instead of
   waiting for the server.
 
 ### Fixed
+- Turning on or switching to an embedded subtitle shows the current line right away; before, it often appeared only
+  after a seek.
 - No leftover files on disk: interrupted artwork-cache writes and local seek-preview scratch files from a run that
   did not end cleanly are removed at the next start, and the list of kept artwork is capped.
 
