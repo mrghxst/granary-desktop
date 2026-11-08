@@ -5,6 +5,29 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-09
+Seek previews that keep up with the pointer, a rendering quality setting, opt-in RTX and Intel Video Super
+Resolution, a Dolby Vision switch, and instant external subtitles.
+
+### Added
+- **Rendering quality** (Settings → Player): Automatic, Fast, Balanced, High or Maximum. Automatic is a little
+  lighter on integrated GPUs: no debanding and cheaper HDR peak detection. Elsewhere it is High, as before. Maximum
+  uses mpv's high-quality profile. With your own `mpv.conf`, Automatic leaves the rendering to it.
+- **Video Super Resolution** (opt-in) on NVIDIA RTX and Intel Arc/Xe GPUs. The driver upscales SDR video that is
+  smaller than the screen.
+- **RTX Video HDR** (opt-in) on NVIDIA GPUs that support it: SDR video in HDR while Windows HDR is on.
+- **Dolby Vision switch**: when off, profile 7 and 8 files play their HDR10 base layer. Profile 5 keeps Dolby Vision.
+- The stats overlay shows the rendering level and any GPU video processing in use.
+
+### Changed
+- Local seek previews follow the pointer. Every spot you move over is asked for at once; the newest request always
+  goes first, and each frame appears as soon as it is decoded, so a sweep no longer waits until the pointer stops.
+  Most keyframes now take a single download, sized from the ones before.
+- Stand-in preview frames are no longer dimmed while the exact frame loads, so the colours no longer appear to
+  change.
+- External subtitles are downloaded in the background when playback starts. Turning one on shows it at once.
+- The stream cache follows the installed memory: a sixteenth of it, 384 MiB to 1 GiB ahead.
+
 ## [0.4.2] - 2026-11-08
 Instant subtitle switches, gapless audio switches, much faster local seek previews, no leftover files on disk, and steadier streams.
 

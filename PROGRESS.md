@@ -30,6 +30,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
 - [ADR-0009](docs/adr/0009-seek-previews.md) Seek previews without server trickplay: second headless libmpv handle on the relay URL (direct play only), keyframe seek + screenshot, lavfi tone-mapping for HDR; AIOStreams' approach researched (container index + libavcodec), not used because our FFmpeg is static.
 - [ADR-0010](docs/adr/0010-artwork-cache.md) Bounded on-disk artwork cache (300 MiB, LRU, Continue Watching art kept, weekly revalidation, offline fallback).
 - [ADR-0011](docs/adr/0011-seekr-previews.md) Seek-preview source chain server → Seekr → local (reorderable, each switchable); Seekr key in Credential Manager, sheets proxied by the host.
+- [ADR-0012](docs/adr/0012-rendering-quality-and-gpu-video-processing.md) Per-title rendering options: quality levels (auto = balanced on UMA GPUs, high = mpv as configured, max = high-quality profile), opt-in d3d11vpp RTX/Intel VSR and RTX HDR for SDR, Dolby Vision switch (P7/P8 base layer).
 - pnpm 12.18.0 via corepack shim installed to `%APPDATA%\npm` (corepack enable into Program Files needs admin).
 - Toolchain (Phase 0): git 2.53.0, node v24.18.0, pnpm 12.18.0, rustc 1.99.1 (host x86_64-pc-windows-msvc),
   VS Build Tools 2022 17.14 (MSVC 14.44.35207, Windows SDK 10.0.26100), gh 2.103.3, 7-Zip 26.01, ffmpeg 8.1.2,
@@ -109,6 +110,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-09 0.4.3: preview scheduler rework (newest request wins, 3 fetchers + 1 renderer, frames pushed via player://preview, one adaptive range read per keyframe, undimmed stand-ins; ADR-0009 rev 5); external subtitles prefetched and added from memory (sub-add hex://); demuxer cache from installed RAM; rendering quality, RTX/Intel VSR, RTX HDR, Dolby Vision switch (ADR-0012); stale preview command permissions fixed. Unit, libmpv integration and GPU filter tests green on Intel Arc 140V; previews not checked against the real server; RTX paths not run (no NVIDIA GPU here).
 - 2026-11-08 0.4.2: version bump, tag v0.4.2; release published (latest) at the owner's request.
 - 2026-11-08 0.4.2 fixes (0fe187c + this commit): embedded subtitle switch seeks exactly in place (mpv refresh seek dropped the read-ahead and waited for cache-pause-wait); audio switch keeps the open AO via temporary gapless-audio=yes when the track loses nothing (WASAPI mix format); local previews in software from memory (mpv_stream_cb_add_ro, screenshot-raw, jpeg-encoder) 0.12 s vs 0.86 s per 4K HDR frame, parallel keyframe fetch, 3 requests in flight (ADR-0009 rev 4); FFmpeg reconnect_on_http_error 408/429/5xx; docs/research/reference-clients.md (AIOStreams, Nuvio, Stremio). Unit and libmpv integration tests green; not checked against the real server.
 - 2026-11-08 0.4.1: version bump, tag v0.4.1; release published (latest) at the owner's request.
