@@ -22,7 +22,11 @@
     linear-gradient(to right, var(--line) 1px, transparent 1px),
     linear-gradient(to bottom, var(--line) 1px, transparent 1px);
   background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(
+    ellipse 70% 60% at 50% 0%,
+    #000 30%,
+    transparent 75%
+  );
 }
 
 /* Slow light sweeping behind the hero. */
@@ -46,7 +50,12 @@
 }
 
 .text-shine {
-  background: linear-gradient(180deg, #fff 0%, #fff 40%, rgb(255 255 255 / 0.45) 100%);
+  background: linear-gradient(
+    180deg,
+    #fff 0%,
+    #fff 40%,
+    rgb(255 255 255 / 0.45) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -71,8 +80,49 @@
   }
 }
 
+/* Pointer-driven 3D tilt (components/tilt-card.tsx). */
+.tilt-3d {
+  perspective: 1400px;
+}
+.tilt-3d-inner {
+  position: relative;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  will-change: transform;
+  border-radius: 1rem;
+  box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.9);
+}
+.tilt-3d-glare {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: var(--g, 0);
+  background: radial-gradient(
+    circle at var(--gx, 50%) var(--gy, 0%),
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.04) 35%,
+    transparent 65%
+  );
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tilt-3d-inner {
+    transform: none;
+  }
+  .tilt-3d-glare {
+    display: none;
+  }
+}
+
 .marquee {
-  mask-image: linear-gradient(to right, transparent, #000 15%, #000 85%, transparent);
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 15%,
+    #000 85%,
+    transparent
+  );
 }
 .marquee-track {
   animation: marquee 40s linear infinite;
@@ -110,7 +160,11 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(400px circle at var(--mx, 50%) var(--my, 50%), rgb(255 255 255 / 0.08), transparent 40%);
+  background: radial-gradient(
+    400px circle at var(--mx, 50%) var(--my, 50%),
+    rgb(255 255 255 / 0.08),
+    transparent 40%
+  );
   opacity: 0;
   transition: opacity 0.3s;
   z-index: -1;
