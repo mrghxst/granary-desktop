@@ -1,0 +1,57 @@
+---
+title: Architecture
+description: A Rust host, a React overlay and libmpv in an app-owned window.
+---
+
+Granary has two halves:
+
+- a **Tauri 2 Rust host** that owns everything touching the network, the display or the player;
+- a **React/TypeScript UI** in WebView2 that only renders and sends typed commands.
+
+```
+┌──────────────────── Granary main window (Tauri 2) ────────────────────┐
+│  WebView2 (React UI, transparent while playing)  ← controls, library  │
+│  ─────────────────────────────────────────────────────────────────────│
+│  GranaryVideo child window  ← libmpv renders here (gpu-next, D3D11)   │
+└───────────────────────────────────────────────────────────────────────┘
+        ▲ typed Tauri commands / events (no tokens)
+┌───────┴──────────── Rust host (apps/desktop/src-tauri) ───────────────┐
+│ silo.rs / catalog.rs ── crates/silo-api ── HTTPS ──► media server     │
+│ playback/ host · controller · relay (127.0.0.1) ── crates/player      │
+│ crates/display ── HDR / refresh / DXGI luminance / restore marker     │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+## Decisions
+
+Every significant choice is an architecture decision record in
+[`docs/adr/`](https://github.com/mrghxst/granary-desktop/tree/main/docs/adr):
+
+| ADR | Decision |
+| --- | --- |
+| 0001 | Own React UI on the server web app's design tokens |
+| 0002 | In-process libmpv via `libmpv2-sys` with a small safe layer |
+| 0003 | Video child window under a transparent WebView2 in one main window |
+| 0004 | Rust-side HTTP, tokens in Windows Credential Manager |
+| 0005 | Pinned libmpv, AGPL, NSIS per-user installer, no auto-updater |
+| 0006 | HDR and refresh policy per monitor, restore marker |
+| 0007 | Cargo/pnpm workspaces, pinned toolchain, CI |
+| 0008 | Loopback relay, one controller per playback attempt, single-task player host |
+| 0009 | Seek-bar previews from a second, headless libmpv handle |
+
+## The server contract
+
+Granary never guesses an endpoint. Every operation it uses is listed in
+[`docs/research/silo-api.md`](https://github.com/mrghxst/granary-desktop/blob/main/docs/research/silo-api.md) with
+the upstream file and commit it was read from, and contract tests check the client against recorded fixtures.
+
+## Repository layout
+
+| Path | What |
+| --- | --- |
+| `apps/desktop/src` | React UI: routes, components, player overlay, typed IPC wrappers, i18n |
+| `apps/desktop/src-tauri` | Rust host: commands, playback host/controller/relay, settings, logging |
+| `crates/player` | libmpv wrapper, option layering, state machine, seek previews |
+| `crates/display` | HDR, SDR white, refresh, DXGI luminance, restore marker |
+| `crates/silo-api` | Typed server client, sessions, credential store, events socket, mock server |
+| `site/` | This website (Next.js + Fumadocs, static export) |

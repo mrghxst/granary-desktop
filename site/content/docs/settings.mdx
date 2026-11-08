@@ -1,0 +1,49 @@
+---
+title: Settings reference
+description: Every setting and its default.
+---
+
+## General
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| Language | System | English or German. |
+| Theme | Midnight cinema | **True black** turns the background fully off on OLED. |
+| Quality tags on posters | Off | 4K, HDR and audio badges on poster cards. |
+
+## Player
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| Hardware decoding | Automatic | Copy-back or off only for troubleshooting. |
+| Play the next episode automatically | On | With a countdown you can cancel. |
+| Seek-bar previews | On | Decodes frames from the file when the server has no preview images (direct play only). |
+| Seek step | 10 s | Arrow-key seek. |
+
+## Display
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| Switch Windows HDR on | HDR videos only | See [HDR and displays](/docs/hdr-and-displays). |
+| Refresh rate | Automatic | |
+| Monitors | — | Per monitor: VRR, peak and black level, refresh strategy. |
+
+## Audio
+
+| Setting | Default |
+| --- | --- |
+| Output device | Windows default |
+| Speaker layout | Stereo |
+| Normalise downmix | On |
+| Exclusive audio mode | Off |
+| Audio passthrough | Off (AC-3, E-AC-3, DTS preselected) |
+
+## Subtitles
+
+| Setting | Default |
+| --- | --- |
+| Subtitle size | 1.0× |
+| Prefer subtitles for the hard of hearing | Off |
+
+Settings live in `%APPDATA%\Granary\settings.json`. Values are clamped on load, so a hand-edited file can never put
+the player into an invalid state.

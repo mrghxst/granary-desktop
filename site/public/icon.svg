@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Granary app icon (original artwork, AGPL-3.0-or-later): a grain kernel enclosing a play triangle, monochrome. -->
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="#000"/>
+  <rect x="34" y="34" width="956" height="956" rx="214" fill="none" stroke="#fff" stroke-opacity="0.14" stroke-width="4"/>
+  <path d="M512 170 C690 274 744 426 744 560 C744 722 640 846 512 864 C384 846 280 722 280 560 C280 426 334 274 512 170 Z"
+        fill="#f4f4f5"/>
+  <path d="M460 438 L460 682 L654 560 Z" fill="#000"/>
+</svg>

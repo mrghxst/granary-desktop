@@ -1,0 +1,32 @@
+---
+title: FAQ
+description: Short answers.
+---
+
+## Is this an official Silo app?
+
+No. Granary is an independent client that is compatible with Silo media servers. It is not affiliated with or
+endorsed by Silo Media L.L.C.
+
+## Does it run on macOS or Linux?
+
+No. Granary relies on Windows HDR, DXGI and Direct3D 11 for the display handling that is its reason to exist.
+
+## Why not just use the web app?
+
+Browsers limit codecs and HDR, cannot switch the display's HDR mode or refresh rate, and cannot pass audio through to
+a receiver. Granary does all of that through mpv and puts the display back afterwards.
+
+## Does it phone home?
+
+No. Granary talks only to the servers you add. There is no telemetry and no auto-updater.
+
+## Is it free?
+
+Yes, free and open source under the GNU Affero General Public License v3.0 or later. It bundles libmpv (GPL build)
+and FFmpeg; versions and source links are in the third-party notices and on the About screen.
+
+## Was it written by AI?
+
+Largely, yes: with Claude Code, under a written specification and a strict local check suite. See
+[How it was built](/docs/how-it-was-built).

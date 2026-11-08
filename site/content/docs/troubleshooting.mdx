@@ -1,0 +1,39 @@
+---
+title: Troubleshooting
+description: Common problems and how to collect logs.
+---
+
+## SmartScreen blocks the installer
+
+The build is not code-signed yet. Choose **More info → Run anyway**, after checking the SHA-256 against the
+`.sha256` file from the releases page.
+
+## "Can't reach the server"
+
+- Check the address in a browser on the same PC.
+- Certificate warnings mean the server's TLS certificate does not match its name or is self-signed; fix it on the
+  server, Granary does not skip the check.
+- When the connection drops, Granary shows an offline banner and reloads on its own when the server is back.
+
+## The picture looks washed out or too dark
+
+- Open **Statistics** (`i`) and check the HDR format and the display mode.
+- Set the real peak and black level for your monitor under **Settings → Display → Monitors**.
+- If Windows HDR is off and you chose **Never**, HDR video is tone-mapped to SDR on purpose.
+
+## Stutter
+
+- Statistics shows dropped and delayed frames.
+- On a VRR monitor, tick **Uses VRR** so Granary never switches the refresh rate.
+- Try **Hardware decoding → Automatic (copy-back)** to rule out a driver problem.
+
+## The display stayed in HDR or another refresh rate
+
+That should never happen; the restore marker is repaired at the next start. Start Granary once. If it persists,
+please open an issue with your logs.
+
+## Logs
+
+**About → Logs** shows the recent log and exports a copy. Tokens, PINs, passwords and stream signatures are always
+redacted from the logs; check the export for server addresses you would rather not share before attaching it to an
+issue. The files are in `%LOCALAPPDATA%\Granary\logs\`.

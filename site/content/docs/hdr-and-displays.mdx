@@ -1,0 +1,43 @@
+---
+title: HDR and displays
+description: Tone mapping, Windows HDR switching, refresh rate, VRR and the restore marker.
+---
+
+Granary is tuned for an **OLED HDR desktop monitor** first and a TV with an AV receiver second.
+
+## Tone mapping
+
+libplacebo tone-maps to the **real peak brightness** of the monitor the player window is on, read from Windows
+(DXGI). If your monitor reports wrong values, set its peak and black level under **Settings → Display → Monitors**,
+for example from the Windows HDR Calibration app.
+
+## Windows HDR
+
+**Settings → Display → Switch Windows HDR on**:
+
+| Option | What happens |
+| --- | --- |
+| Never | HDR video is tone-mapped to SDR. |
+| For HDR videos only (default) | Windows HDR is switched on for HDR content and back off afterwards. |
+| For all videos | Windows HDR is on for every video. |
+
+If Windows HDR is **already on** (common on OLED desktops), video goes out in HDR without any switching.
+
+## Refresh rate
+
+| Strategy | Behaviour |
+| --- | --- |
+| Automatic (desktop, default) | Keep VRR or the current rate when it fits; otherwise an exact multiple near the current rate; otherwise resample smoothly. |
+| Match the video exactly (TV) | Switch to the content's rate, for example 23.976 Hz. |
+| Never change | Leave the rate alone and resample. |
+
+Windows cannot report whether a monitor uses VRR. Tick **Uses VRR** for that monitor and Granary never switches its
+refresh rate.
+
+## Always restored
+
+Before Granary changes HDR or the refresh rate, it writes a **restore marker**. When playback stops the change is
+undone. If the app crashes or the PC loses power, the next start repairs the display from the marker. Your desktop is
+never left in a mode you did not choose.
+
+<Callout>Display settings apply immediately, also during playback.</Callout>

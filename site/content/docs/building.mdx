@@ -1,0 +1,44 @@
+---
+title: Building from source
+description: Toolchain, the check suite, the mock server and the installer.
+---
+
+## Prerequisites
+
+- Windows 11 x64
+- Visual Studio 2022 Build Tools with "Desktop development with C++"
+- [rustup](https://rustup.rs); the toolchain is pinned in `rust-toolchain.toml`
+- Node.js 24 with corepack (for pnpm)
+- 7-Zip; optionally ffmpeg for the test media
+
+## Build and run
+
+From PowerShell in the repository root:
+
+```powershell
+corepack enable
+pnpm install --frozen-lockfile
+./scripts/fetch-libmpv.ps1          # pinned libmpv, SHA-256 verified, into vendor-bin/
+./scripts/verify.ps1                # fmt, clippy -D warnings, tests, typecheck, lint, vitest, build, secret scan
+pnpm --filter desktop tauri dev     # run the app
+./scripts/release-build.ps1         # NSIS installer in target/release/bundle/nsis/
+```
+
+## Without a server
+
+Debug builds include a mock server. Set `GRANARY_MOCK_SERVER=1`, sign in as `alice` / `pw`, and use the Kids PIN
+`1234`. For real playback against the mock, generate the test clips first with `./scripts/gen-test-media.ps1`.
+
+## The website
+
+```powershell
+cd site
+pnpm install
+pnpm dev        # http://localhost:3000/granary-desktop
+pnpm build      # static export in site/out
+```
+
+The `pages` workflow builds and deploys it to GitHub Pages on every push to `main` that touches `site/`.
+
+See [`CONTRIBUTING.md`](https://github.com/mrghxst/granary-desktop/blob/main/CONTRIBUTING.md) for the workflow and
+rules.

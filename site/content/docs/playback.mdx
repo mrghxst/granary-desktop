@@ -1,0 +1,40 @@
+---
+title: Playback
+description: The player, its controls, tracks, previews and statistics.
+---
+
+## Starting
+
+Press **Play**. A full-screen launch card with the title's artwork stays up until the first frame is on screen, then
+fades away.
+
+The server decides how the file is delivered: **direct play** (the original file), **remux** or **transcode**. Direct
+play is the normal case for remuxes and gives the best quality.
+
+## Controls
+
+Move the mouse or press a key to show the controls. They hide on their own, together with the cursor, so nothing
+static stays on an OLED panel.
+
+- **Seek bar** with chapter ticks and intro/credits ranges. Hover it for a **preview image**: the server's trickplay
+  sheets when it has them, otherwise frames decoded from the file itself (direct play only; turn off under
+  **Settings → Player → Seek-bar previews**).
+- **Audio** and **Subtitles** menus show the language first, then codec, channels and flags such as Atmos, forced,
+  SDH and default.
+- **Skip intro** and **Skip credits** when the server knows the ranges.
+- **Next episode** with a countdown (also across seasons), previous episode.
+- Speed, aspect ratio, subtitle delay, picture settings and chapters.
+- **Statistics** (`i`): codec, resolution, HDR format, decoder, dropped frames, display mode.
+- **Mini player** (`T`) and fullscreen (`f` or double-click).
+
+Media keys and the Windows media overlay work as you'd expect.
+
+## Progress
+
+Granary reports your position to the server while playing and when you stop, so resume points and "continue
+watching" stay in sync with your other devices.
+
+## Advanced: your own mpv options
+
+Granary ships tuned defaults. Power users can add `%APPDATA%\Granary\mpv.conf`; it is layered on top of the defaults.
+Options that would break the integration (the window, scripts, config loading) are always forced back.

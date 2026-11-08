@@ -1,0 +1,36 @@
+---
+title: Introduction
+description: A native Windows client for your self-hosted media server, built around mpv.
+---
+
+Granary is a Windows 11 desktop client **compatible with [Silo](https://github.com/Silo-Server/silo-server) media
+servers**. It browses your libraries in a calm, minimal interface and plays everything through **libmpv** with
+**libplacebo** (`gpu-next` on Direct3D 11) instead of a browser video element.
+
+<Cards>
+  <Card title="Install" href="/docs/installation" description="Download, verify and run the per-user installer." />
+  <Card title="Connect" href="/docs/connecting" description="Add your server, sign in and pick a profile." />
+  <Card title="HDR and displays" href="/docs/hdr-and-displays" description="How Granary handles HDR, refresh rate and VRR." />
+  <Card title="Shortcuts" href="/docs/shortcuts" description="mpv-like keys that follow your keyboard layout." />
+</Cards>
+
+## Why a native client
+
+- **Direct play** of 4K HDR10 and Dolby Vision remuxes with hardware decoding: no browser codec limits.
+- **Correct HDR on OLED desktop monitors**, also when Windows HDR is always on. Tone mapping targets the real peak
+  brightness of the monitor the player is on.
+- **Smooth motion** at high refresh rates and with VRR; the refresh rate is only changed when that helps.
+- **Everything is restored.** Every HDR or refresh change is recorded before it happens and undone afterwards, even
+  after a crash.
+- **Opt-in receiver features**: bitstream passthrough, exclusive audio, channel layouts.
+
+<Callout title="Status">
+  Granary is a private test release (unsigned). Automated tests run against synthetic clips and a mock server on an
+  HDR laptop panel. Dolby Vision remuxes, OLED desktop monitors, VRR, receivers and real servers are covered by the
+  [manual test checklist](https://github.com/mrghxst/granary-desktop/blob/main/MANUAL_TEST_CHECKLIST.md).
+</Callout>
+
+<Callout type="warn" title="Trademark">
+  Granary is an independent project. It is not affiliated with or endorsed by Silo Media L.L.C.; "Silo" is their
+  trademark.
+</Callout>

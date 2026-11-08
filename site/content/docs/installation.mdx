@@ -1,0 +1,42 @@
+---
+title: Installation
+description: Requirements, the per-user installer and uninstalling.
+---
+
+## Requirements
+
+- Windows 11 x64 with a CPU that supports AVX2 (x86-64-v3): Intel Haswell (2013) or AMD Excavator/Zen and later.
+- A GPU with Direct3D 11 video decoding.
+- The WebView2 runtime. It ships with Windows 11; the installer downloads it if it is missing.
+
+## Install
+
+1. Download `Granary_<version>_x64-setup.exe` and its `.sha256` from the
+   [releases page](https://github.com/mrghxst/granary-desktop/releases).
+2. Check the hash in PowerShell and compare it with the `.sha256` file:
+
+   ```powershell
+   Get-FileHash -Algorithm SHA256 .\Granary_0.1.1_x64-setup.exe
+   ```
+
+3. Run the installer. It installs **per user**, so no administrator rights are needed.
+4. The build is not code-signed yet, so SmartScreen shows "Windows protected your PC". Choose **More info → Run
+   anyway**.
+5. Start Granary from the Start menu and [connect to your server](/docs/connecting).
+
+<Callout>Granary does not update itself. New versions appear on the releases page; install them over the old one.</Callout>
+
+## Uninstall
+
+- Use **Settings → Apps → Granary**.
+- Tick **Delete the application data** to also remove settings, logs and the shader cache.
+- Saved sign-ins are removed with **Remove** on Granary's start screen (they live in Windows Credential Manager).
+
+## Where things are
+
+| What | Path |
+| --- | --- |
+| Settings | `%APPDATA%\Granary\settings.json` |
+| Your own mpv options (optional) | `%APPDATA%\Granary\mpv.conf` |
+| Logs | `%LOCALAPPDATA%\Granary\logs\` |
+| Sign-ins | Windows Credential Manager |

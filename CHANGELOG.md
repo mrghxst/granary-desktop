@@ -22,9 +22,12 @@ follow [Semantic Versioning](https://semver.org/).
 - Optional quality tags (4K, HDR, audio) on posters (Settings → Appearance, off by default).
 - Seek-bar preview images for files without server preview sheets: Granary decodes a small frame from the file
   itself (HDR tone-mapped), cached as you hover. Settings → Player → Seek-bar previews (on by default).
+- A website with documentation in `site/` (Next.js static export with Fumadocs), deployed to GitHub Pages by the
+  `pages` workflow.
 
 ### Changed
 - Monochrome app icon (black and white) instead of the yellow one.
+- README rewritten: screenshots, feature overview, install, build, architecture and how the app was built.
 
 ## [0.1.1] - 2026-11-08
 Bug-fix release.

@@ -1,0 +1,24 @@
+{
+  "title": "Granary",
+  "pages": [
+    "---Getting started---",
+    "index",
+    "installation",
+    "connecting",
+    "---Using Granary---",
+    "browsing",
+    "playback",
+    "shortcuts",
+    "---Displays and audio---",
+    "hdr-and-displays",
+    "audio",
+    "settings",
+    "---Help---",
+    "troubleshooting",
+    "faq",
+    "---Project---",
+    "architecture",
+    "building",
+    "how-it-was-built"
+  ]
+}
