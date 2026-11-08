@@ -460,6 +460,10 @@ pub struct CatalogQuery {
     pub year_min: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub year_max: Option<i64>,
+    /// JSON array of rule groups (`groups`, listCatalogItems; rule shape `{field, op, value}` from
+    /// `silo-server/web/src/components/collections/CollectionGuidedRulesEditor.tsx@6791aac` L259-370).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub groups: Option<String>,
 }
 
 /// `CatalogFilters` (`getCatalogFilters`) subset: the facets Granary offers.
@@ -467,6 +471,11 @@ pub struct CatalogQuery {
 #[serde(default)]
 pub struct CatalogFilters {
     pub genres: Vec<String>,
+    pub content_ratings: Vec<String>,
+    pub studios: Vec<String>,
+    pub networks: Vec<String>,
+    pub countries: Vec<String>,
+    pub original_languages: Vec<String>,
 }
 
 #[cfg(test)]

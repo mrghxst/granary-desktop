@@ -99,7 +99,9 @@
       "added_at": "Recently added",
       "release_date": "Release date",
       "rating": "Rating",
-      "random": "Random"
+      "random": "Random",
+      "year": "Year",
+      "runtime": "Runtime"
     },
     "emptyLibrary": "This library is empty.",
     "searchLabel": "Search the server",
@@ -121,7 +123,23 @@
       "recommended": "Recommended",
       "library": "Library",
       "collections": "Collections"
-    }
+    },
+    "contentRating": "Age rating",
+    "studio": "Studio",
+    "network": "Network",
+    "language": "Original language",
+    "country": "Country",
+    "watchState": "Watch state",
+    "watchAll": "All",
+    "watchUnwatched": "Unwatched",
+    "watchInProgress": "In progress",
+    "watchWatched": "Watched",
+    "quality": "Quality",
+    "minRating": "IMDb rating",
+    "minRatingN": "{{n}}+",
+    "added": "Added",
+    "addedWithin": "Last {{n}} days",
+    "scrollTop": "Back to top"
   },
   "item": {
     "play": "Play",
@@ -167,7 +185,8 @@
     "castCrew": "Cast & crew",
     "trailers": "Trailers & more",
     "opensYoutube": "Opens on YouTube in your browser",
-    "moreLikeThis": "More like this"
+    "moreLikeThis": "More like this",
+    "back": "Back"
   },
   "settings": {
     "title": "Settings",

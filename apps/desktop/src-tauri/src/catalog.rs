@@ -35,6 +35,46 @@ pub struct CatalogQueryArgs {
     pub genre: Option<String>,
     pub year_min: Option<i64>,
     pub year_max: Option<i64>,
+    /// Extra filter rules, combined with "all"; unknown fields or operators are dropped.
+    pub rules: Vec<FilterRule>,
+}
+
+/// One catalog filter rule (`{field, op, value}`), as the web app builds them.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct FilterRule {
+    pub field: String,
+    pub op: String,
+    pub value: serde_json::Value,
+}
+
+/// Rule fields and operators the UI may send (web app guided editor, see `CatalogQuery::groups`).
+const RULES: &[(&str, &str)] = &[
+    ("genre", "is"),
+    ("content_rating", "is"),
+    ("studio", "is"),
+    ("network", "is"),
+    ("country", "is"),
+    ("original_language", "is"),
+    ("watched", "is"),
+    ("in_progress", "is"),
+    ("resolution", "is"),
+    ("hdr", "is"),
+    ("dolby_vision", "is"),
+    ("rating_imdb", "gte"),
+    ("added_at", "in_last"),
+];
+
+fn rule_groups(rules: Vec<FilterRule>) -> Option<String> {
+    let rules: Vec<FilterRule> = rules
+        .into_iter()
+        .filter(|r| RULES.contains(&(r.field.as_str(), r.op.as_str())))
+        .filter(|r| r.value.is_string() || r.value.is_number() || r.value.is_boolean())
+        .take(32)
+        .collect();
+    if rules.is_empty() {
+        return None;
+    }
+    serde_json::to_string(&serde_json::json!([{ "match": "all", "rules": rules }])).ok()
 }
 
 /// The sources the UI may browse; anything else is refused before a request is sent.
@@ -56,6 +96,7 @@ impl From<CatalogQueryArgs> for CatalogQuery {
             genre: clean(a.genre),
             year_min: a.year_min.filter(|y| (1800..=3000).contains(y)),
             year_max: a.year_max.filter(|y| (1800..=3000).contains(y)),
+            groups: rule_groups(a.rules),
         }
     }
 }
@@ -341,6 +382,32 @@ pub async fn serve_image<R: Runtime>(app: &AppHandle<R>, uri: &str) -> Response<
 #[allow(clippy::unwrap_used)] // test code
 mod tests {
     use super::*;
+
+    #[test]
+    fn filter_rules_are_allowlisted() {
+        let rule = |field: &str, op: &str, value: serde_json::Value| FilterRule {
+            field: field.into(),
+            op: op.into(),
+            value,
+        };
+        let q = CatalogQuery::from(CatalogQueryArgs {
+            rules: vec![
+                rule("studio", "is", serde_json::json!("A24")),
+                rule("hdr", "is", serde_json::json!(true)),
+                rule("path", "is", serde_json::json!("x")),
+                rule("studio", "regex", serde_json::json!(".*")),
+                rule("genre", "is", serde_json::json!({"x": 1})),
+            ],
+            ..CatalogQueryArgs::default()
+        });
+        assert_eq!(
+            q.groups.as_deref(),
+            Some(
+                r#"[{"match":"all","rules":[{"field":"studio","op":"is","value":"A24"},{"field":"hdr","op":"is","value":true}]}]"#
+            )
+        );
+        assert_eq!(CatalogQuery::from(CatalogQueryArgs::default()).groups, None);
+    }
 
     /// Host-side end-to-end path (Gate 5): sign in → profile → home → library → details → watch state → a valid
     /// play request for the chosen file and tracks → artwork through the image path.

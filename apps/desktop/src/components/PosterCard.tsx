@@ -40,7 +40,7 @@ export function PosterCard({ serverId, item, wide = false, onPlay }: CardProps) 
 
   return (
     <div
-      className={`group/card flex shrink-0 flex-col gap-2 ${wide ? "w-72" : "w-40"}`}
+      className={`media-card group/card flex shrink-0 flex-col gap-2 ${wide ? "w-72" : "w-40"}`}
       onContextMenu={(e) => {
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY });
@@ -48,7 +48,7 @@ export function PosterCard({ serverId, item, wide = false, onPlay }: CardProps) 
     >
       <Link
         to={to}
-        className="relative block overflow-hidden rounded-xl bg-surface-raised ring-ring transition duration-200 group-hover/card:-translate-y-0.5 group-hover/card:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.8)] focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none motion-reduce:group-hover/card:translate-y-0"
+        className="media-card-image relative block overflow-hidden rounded-xl bg-surface-raised ring-ring shadow-[0_24px_40px_-26px_rgba(0,0,0,0.8)] focus-visible:ring-2 focus-visible:outline-none"
         aria-label={sub ? `${item.title}, ${sub}` : item.title}
       >
         <div className={wide ? "aspect-video" : "aspect-[2/3]"}>
@@ -58,6 +58,7 @@ export function PosterCard({ serverId, item, wide = false, onPlay }: CardProps) 
               alt=""
               loading="lazy"
               decoding="async"
+              draggable={false}
               className="size-full object-cover"
               onError={() => {
                 setFailed(true);

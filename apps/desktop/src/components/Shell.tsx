@@ -1,7 +1,7 @@
 import { Clapperboard, Folder, Home, Info, Search, Server, Settings, Tv, UserRound } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, Outlet, useNavigate, useParams } from "react-router";
+import { NavigationType, NavLink, Outlet, useLocation, useNavigate, useNavigationType, useParams } from "react-router";
 import { goReauth, needsReauth } from "../lib/nav";
 import { bumpRefresh, serverEvents } from "../lib/events";
 import { silo, type LibraryView } from "../lib/silo";
@@ -52,6 +52,29 @@ export function Shell() {
   const { serverId = "" } = useParams();
   const base = `/servers/${encodeURIComponent(serverId)}`;
   const [libraries, setLibraries] = useState<LibraryView[]>([]);
+  const mainRef = useRef<HTMLElement>(null);
+  const location = useLocation();
+  const navType = useNavigationType();
+  const scrolls = useRef(new Map<string, number>());
+
+  // Each history entry keeps its scroll position: Back returns to the same spot, a new page starts at the top.
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    const key = location.key;
+    const saved = navType === NavigationType.Pop ? scrolls.current.get(key) : undefined;
+    main.scrollTop = saved ?? 0;
+    // Content loads after the first paint; try again once it had time to grow.
+    const retry = saved ? window.setTimeout(() => (main.scrollTop = saved), 350) : undefined;
+    const onScroll = () => {
+      scrolls.current.set(key, main.scrollTop);
+    };
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.clearTimeout(retry);
+      main.removeEventListener("scroll", onScroll);
+    };
+  }, [location.key, navType]);
 
   useEffect(() => {
     let alive = true;
@@ -145,7 +168,7 @@ export function Shell() {
           <Item to={`${base}/about`} icon={<Info className="size-[18px] shrink-0" />} label={t("shell.about")} />
         </ul>
       </nav>
-      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto focus:outline-none">
+      <main ref={mainRef} id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto focus:outline-none">
         <div className="mx-auto w-full max-w-[2400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-12">
           <Outlet />
         </div>

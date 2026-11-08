@@ -52,7 +52,7 @@ export function Popover({
       {open ? (
         <div
           id={id}
-          className={`absolute top-full z-30 mt-2 min-w-64 overflow-hidden rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl ${
+          className={`absolute top-full z-50 mt-2 w-max max-w-[min(34rem,calc(100vw-3rem))] min-w-64 overflow-hidden rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl ${
             align === "end" ? "right-0" : "left-0"
           }`}
         >

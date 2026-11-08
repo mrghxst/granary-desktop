@@ -99,7 +99,9 @@
       "added_at": "Zuletzt hinzugefügt",
       "release_date": "Erscheinungsdatum",
       "rating": "Bewertung",
-      "random": "Zufällig"
+      "random": "Zufällig",
+      "year": "Jahr",
+      "runtime": "Laufzeit"
     },
     "emptyLibrary": "Diese Mediathek ist leer.",
     "searchLabel": "Server durchsuchen",
@@ -121,7 +123,23 @@
       "recommended": "Empfohlen",
       "library": "Bibliothek",
       "collections": "Sammlungen"
-    }
+    },
+    "contentRating": "Altersfreigabe",
+    "studio": "Studio",
+    "network": "Sender",
+    "language": "Originalsprache",
+    "country": "Land",
+    "watchState": "Gesehen-Status",
+    "watchAll": "Alle",
+    "watchUnwatched": "Ungesehen",
+    "watchInProgress": "Angefangen",
+    "watchWatched": "Gesehen",
+    "quality": "Qualität",
+    "minRating": "IMDb-Bewertung",
+    "minRatingN": "ab {{n}}",
+    "added": "Hinzugefügt",
+    "addedWithin": "Letzte {{n}} Tage",
+    "scrollTop": "Nach oben"
   },
   "item": {
     "play": "Abspielen",
@@ -167,7 +185,8 @@
     "castCrew": "Besetzung & Crew",
     "trailers": "Trailer & mehr",
     "opensYoutube": "Öffnet YouTube im Browser",
-    "moreLikeThis": "Ähnliche Titel"
+    "moreLikeThis": "Ähnliche Titel",
+    "back": "Zurück"
   },
   "settings": {
     "title": "Einstellungen",

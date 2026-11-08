@@ -1,6 +1,7 @@
 //! Seek-bar previews for direct-played files without server trickplay (ADR-0009). One headless libmpv handle per
-//! source, opened on first hover and dropped when playback moves on; frames are cached per two-second bucket so
-//! sweeping back and forth over the seek bar decodes each spot once.
+//! source, opened on first hover and dropped when playback moves on. The overlay snaps hover positions to an interval of
+//! at least 30 s (longer for long files, `useLocalPreview.ts`), so a sweep over the bar seeks a remote file only a
+//! few dozen times; frames are cached per requested time so each spot is decoded once.
 use super::host::{Cmd, PlayerHost};
 use crate::settings::SettingsStore;
 use crate::silo::CmdResult;
@@ -8,8 +9,6 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager, State};
 
-/// Seconds per cache bucket (keyframes are rarely closer than this).
-const BUCKET: f64 = 2.0;
 /// Frames kept per source (about 10 KB each).
 const CACHE: usize = 400;
 
@@ -49,9 +48,10 @@ impl Previews {
     }
 }
 
+/// Cache key: the requested time in whole milliseconds.
 fn bucket(seconds: f64) -> Option<u64> {
-    // Finite and non-negative: the cast below cannot wrap.
-    (seconds.is_finite() && seconds >= 0.0).then(|| (seconds / BUCKET).floor() as u64)
+    // Finite and non-negative: the cast below cannot wrap (saturates at u64::MAX).
+    (seconds.is_finite() && seconds >= 0.0).then(|| (seconds * 1000.0).round() as u64)
 }
 
 const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -92,7 +92,7 @@ pub async fn player_preview(
         }
         return Ok(None);
     };
-    let at = b as f64 * BUCKET;
+    let at = b as f64 / 1000.0;
     let result = tauri::async_runtime::spawn_blocking(move || frame(&app, &source, b, at)).await;
     Ok(result.ok().flatten().map(|s| (*s).clone()))
 }
@@ -115,7 +115,7 @@ fn frame(app: &AppHandle, source: &str, bucket: u64, at: f64) -> Option<Arc<Stri
     }
     if p.thumb.is_none() {
         let dir = std::env::temp_dir().join("granary-previews");
-        match Thumbnailer::open(source, &dir, Duration::from_secs(12)) {
+        match Thumbnailer::open(source, &dir, Duration::from_secs(20)) {
             Ok(t) => p.thumb = Some(t),
             Err(e) => {
                 tracing::warn!(error = %e, "seek previews unavailable for this file");
@@ -124,7 +124,7 @@ fn frame(app: &AppHandle, source: &str, bucket: u64, at: f64) -> Option<Arc<Stri
             }
         }
     }
-    let jpg = p.thumb.as_ref()?.frame(at, Duration::from_secs(6));
+    let jpg = p.thumb.as_ref()?.frame(at, Duration::from_secs(15));
     match jpg {
         Ok(bytes) => {
             let url = Arc::new(format!("data:image/jpeg;base64,{}", base64(&bytes)));
@@ -165,7 +165,8 @@ mod tests {
     #[test]
     fn buckets_and_cache_bound() {
         assert_eq!(bucket(0.0), Some(0));
-        assert_eq!(bucket(3.9), Some(1));
+        assert_eq!(bucket(90.0), Some(90_000));
+        assert_eq!(bucket(3.9996), Some(4000));
         assert_eq!(bucket(-1.0), None);
         assert_eq!(bucket(f64::NAN), None);
         let mut p = Previews::default();

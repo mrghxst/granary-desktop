@@ -422,7 +422,21 @@ describe("connect flow", () => {
     expect(await screen.findByTestId("player-view")).toBeTruthy();
     expect(document.documentElement.dataset.videoActive).toBe("true");
     expect(screen.getByText("25:20 / 1:58:00")).toBeTruthy();
-    // The first frame fades the title card out.
+    // Still covered until the picture moves; the next advancing position fades the title card out.
+    expect(screen.getByTestId("launch-screen").className).toContain("opacity-100");
+    emit("player://state", {
+      active: true,
+      itemId: "m1",
+      fileId: "m1-f1",
+      phase: "playing",
+      position: 1520.5,
+      duration: 7080,
+      paused: false,
+      buffering: false,
+      volume: 100,
+      muted: false,
+      props: { speed: 1 },
+    });
     expect(screen.getByTestId("launch-screen").className).toContain("opacity-0");
 
     // mpv-like keys: space pauses, right arrow seeks by the seek step, m mutes, ? opens the shortcuts.

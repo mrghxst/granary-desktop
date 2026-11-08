@@ -72,15 +72,17 @@ function TrackRow({ info }: { info: TrackInfo }) {
   return (
     <>
       <span className="min-w-0 flex-1">
-        <span className="block truncate">{info.headline}</span>
-        {info.detail ? <span className="block truncate text-xs font-normal text-white/50">{info.detail}</span> : null}
+        <span className="block truncate text-[14px]">{info.headline}</span>
+        {info.detail ? (
+          <span className="mt-0.5 block truncate text-xs font-normal text-white/50">{info.detail}</span>
+        ) : null}
       </span>
       {info.badges.length > 0 ? (
         <span className="ml-2 flex shrink-0 flex-wrap justify-end gap-1">
           {info.badges.map((b) => (
             <span
               key={b}
-              className="rounded-[4px] border border-white/20 px-1.5 py-px text-[10px] font-semibold tracking-wide text-white/70 uppercase"
+              className="rounded-[5px] bg-white/[0.08] px-1.5 py-0.5 text-[10px] leading-none font-semibold tracking-wide text-white/75 uppercase ring-1 ring-white/10 ring-inset"
             >
               {b}
             </span>
@@ -132,20 +134,20 @@ function Popover({ title, onClose, children }: { title: string; onClose: () => v
     <div
       role="dialog"
       aria-label={title}
-      className="absolute right-4 bottom-24 z-10 max-h-[60vh] w-96 overflow-y-auto rounded-xl border border-white/10 bg-black/85 p-2 text-sm text-white shadow-2xl backdrop-blur"
+      className="absolute right-4 bottom-24 z-10 flex max-h-[min(70vh,38rem)] w-[26rem] max-w-[calc(100vw-2rem)] origin-bottom-right animate-[menu-in_160ms_cubic-bezier(0.2,0.8,0.2,1)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d10]/85 text-sm text-white shadow-[0_30px_80px_-24px_rgba(0,0,0,0.95)] backdrop-blur-2xl"
     >
-      <div className="flex items-center justify-between px-2 pt-1 pb-2">
-        <span className="font-semibold">{title}</span>
+      <div className="flex shrink-0 items-center justify-between py-3 pr-3 pl-5">
+        <span className="text-[15px] font-semibold tracking-tight">{title}</span>
         <button
           type="button"
           aria-label={t("player.close")}
-          className="rounded p-1 hover:bg-white/15"
+          className="grid size-8 place-items-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white/70"
           onClick={onClose}
         >
           <X className="size-4" />
         </button>
       </div>
-      {children}
+      <div className="min-h-0 overflow-y-auto overscroll-contain px-2 pb-2">{children}</div>
     </div>
   );
 }
@@ -157,11 +159,11 @@ function Choice({ selected, onSelect, children }: { selected: boolean; onSelect:
       role="menuitemradio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-white/10 ${
-        selected ? "bg-white/10 font-semibold" : ""
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-medium transition-colors focus-visible:outline-2 focus-visible:outline-white/70 ${
+        selected ? "bg-white/[0.12] text-white" : "text-white/85 hover:bg-white/[0.07] hover:text-white"
       }`}
     >
-      <Check className={`size-4 shrink-0 ${selected ? "opacity-100" : "opacity-0"}`} />
+      <Check className={`size-4 shrink-0 transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
       {children}
     </button>
   );
@@ -233,7 +235,7 @@ function SeekBar({
   const preview = drag ?? hover;
   const tile = preview !== null && trickplay ? trickplayTile(trickplay, preview) : undefined;
   const scale = tile ? Math.min(1, 240 / tile.width) : 1;
-  const local = useLocalPreview(localPreviews && !trickplay, preview);
+  const local = useLocalPreview(localPreviews && !trickplay, preview, duration);
   const chapter = preview !== null ? chapterAt(chapters, preview) : undefined;
 
   return (
@@ -1160,6 +1162,7 @@ function PlayerControls() {
               selected={i === audioIndex}
               onSelect={() => {
                 selectAudio(i);
+                setMenu(null);
               }}
             >
               <TrackRow
@@ -1183,6 +1186,7 @@ function PlayerControls() {
               selected={o.key === currentSub}
               onSelect={() => {
                 selectSubtitle(o);
+                setMenu(null);
               }}
             >
               <TrackRow info={o.info} />
@@ -1231,6 +1235,7 @@ function PlayerControls() {
               selected={Math.abs(s - speed) < 0.001}
               onSelect={() => {
                 set("speed", s);
+                setMenu(null);
               }}
             >
               {s === 1 ? t("player.speedNormal") : `${String(s)}×`}
@@ -1365,54 +1370,87 @@ function PlayerControls() {
   );
 }
 
+/** Whether the last playback ended in fullscreen; the next one starts the same way. */
+const PLAYER_FULLSCREEN_KEY = "granary.player.fullscreen";
+
+function readPlayerFullscreen(): boolean | null {
+  try {
+    const v = localStorage.getItem(PLAYER_FULLSCREEN_KEY);
+    return v === null ? null : v === "1";
+  } catch {
+    return null;
+  }
+}
+
+function writePlayerFullscreen(on: boolean) {
+  try {
+    localStorage.setItem(PLAYER_FULLSCREEN_KEY, on ? "1" : "0");
+  } catch {
+    // Storage unavailable: the next playback starts in the window state it finds.
+  }
+}
+
 /**
  * The player overlay while a playback attempt runs (remounted per file, so menus and per-file picks start fresh), and
- * the error card after a fatal end.
+ * the error card after a fatal end. The player and the library each keep their own window state: playback starts in
+ * fullscreen when the last one ended there, and leaving it puts the window back the way browsing had it.
  */
 export function PlayerView() {
   const { t } = useTranslation();
-  const { state, ctx, error, dismissError, launch } = usePlayer();
+  const { state, ctx, error, dismissError, launch, setWindow } = usePlayer();
   const fileKey = ctx ? `${ctx.serverId}|${ctx.watch.content_id}|${ctx.version.file_id}` : "none";
 
-  // Playback over: the WebView must be visible again for the library, and a mini/fullscreen player window goes back
-  // to the normal window (phase-6 review L7).
   const wasActive = useRef(false);
+  const browseFullscreen = useRef<boolean | null>(null);
   useEffect(() => {
     if (state.active) {
+      if (wasActive.current) return;
       wasActive.current = true;
+      void player
+        .window()
+        .then(async (w) => {
+          browseFullscreen.current = w.fullscreen;
+          const want = readPlayerFullscreen();
+          if (want !== null && want !== w.fullscreen && !w.mini) setWindow(await player.fullscreen(want));
+        })
+        .catch(() => undefined);
       return;
     }
+    // Playback over: the WebView must be visible again for the library, and a mini/fullscreen player window goes
+    // back to the browsing window state (phase-6 review L7).
     void player.overlay(true).catch(() => undefined);
-    if (wasActive.current) {
-      wasActive.current = false;
-      void player
-        .mini(false)
-        .then(() => player.fullscreen(false))
-        .catch(() => undefined);
-    }
-  }, [state.active]);
+    if (!wasActive.current) return;
+    wasActive.current = false;
+    void player
+      .window()
+      .then(async (w) => {
+        if (!w.mini) writePlayerFullscreen(w.fullscreen);
+        if (w.mini) await player.mini(false);
+        setWindow(await player.fullscreen(browseFullscreen.current ?? false));
+      })
+      .catch(() => undefined);
+  }, [state.active, setWindow]);
 
-  if (state.active)
-    return (
-      <>
-        <PlayerControls key={fileKey} />
-        <LaunchScreen launch={launch} />
-      </>
-    );
-  if (!error) return <LaunchScreen launch={launch} />;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 p-6" role="alertdialog">
-      <div className="flex max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold">{t("player.failed")}</h2>
-        <p className="text-sm text-muted-foreground">{errorMessage(t, error)}</p>
-        <button
-          type="button"
-          className="self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-          onClick={dismissError}
-        >
-          {t("player.close")}
-        </button>
-      </div>
-    </div>
+    <>
+      {state.active ? (
+        <PlayerControls key={fileKey} />
+      ) : error ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 p-6" role="alertdialog">
+          <div className="flex max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold">{t("player.failed")}</h2>
+            <p className="text-sm text-muted-foreground">{errorMessage(t, error)}</p>
+            <button
+              type="button"
+              className="self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              onClick={dismissError}
+            >
+              {t("player.close")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <LaunchScreen launch={launch} />
+    </>
   );
 }

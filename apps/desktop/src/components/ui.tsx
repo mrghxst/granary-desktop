@@ -1,4 +1,6 @@
 import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
 /* Small primitives in the Silo web-app look (tokens from styles/tokens.css). */
@@ -102,4 +104,24 @@ export function Page({ title, children }: { title: string; children: ReactNode }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <section className={`rounded-lg border border-border bg-card p-6 ${className}`}>{children}</section>;
+}
+
+/** "Back" pill at the top of a page: the previous screen, or `fallback` when the page was opened directly. */
+export function BackButton({ fallback }: { fallback: string }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+        if (idx > 0) void navigate(-1);
+        else void navigate(fallback);
+      }}
+      className="flex h-9 items-center gap-1.5 self-start rounded-full border border-border bg-black/20 pr-4 pl-3 text-sm font-medium text-muted-foreground backdrop-blur transition hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <ArrowLeft className="size-4" />
+      {t("item.back")}
+    </button>
+  );
 }

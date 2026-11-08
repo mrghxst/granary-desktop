@@ -1466,7 +1466,13 @@ impl SiloApi for MockSiloApi {
             .collect();
         genres.sort();
         genres.dedup();
-        Ok(CatalogFilters { genres })
+        Ok(CatalogFilters {
+            genres,
+            content_ratings: vec!["PG".into(), "PG-13".into(), "R".into()],
+            studios: vec!["Northlight Pictures".into()],
+            original_languages: vec!["en".into(), "de".into()],
+            ..CatalogFilters::default()
+        })
     }
 }
 

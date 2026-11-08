@@ -20,6 +20,8 @@ import { PlayerContext, type Launch, type PlayerApi, type PlayerError, type Star
 
 /** The launch screen gives up after this long even without a first frame (the controls' spinner takes over). */
 const LAUNCH_TIMEOUT_MS = 30000;
+/** Playing but the position has not moved yet: lift the launch screen after this long anyway. */
+const FIRST_FRAME_GRACE_MS = 500;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PlayerState>(IDLE_STATE);
@@ -32,6 +34,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [launch, setLaunch] = useState<Launch | null>(null);
   // The launch ends at the first frame of the new file, so it must first see this attempt leave the old state.
   const launchArmed = useRef(false);
+  // Position when the new attempt first reported "playing": the window is see-through until mpv presents frames,
+  // and a moving position is the sign it does.
+  const firstPlaying = useRef<number | null>(null);
   const ctxRef = useRef(ctx);
   const autoplayCancelled = useRef(false);
   const settingsRef = useRef(settings);
@@ -99,7 +104,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const start = useCallback(
     async (serverId: string, itemId: string, opts: StartOptions = {}) => {
       launchArmed.current = false;
+      firstPlaying.current = null;
       setLaunch({ serverId, ...opts.art, backdrop: opts.art?.backdrop ?? opts.watch?.backdrop_url ?? null });
+      // Artwork for the launch screen from the item itself when the caller had none (rows, cards, next episode);
+      // in parallel, never holding up playback.
+      if (!opts.art?.poster || !opts.art.logo) {
+        void catalog
+          .item(serverId, itemId)
+          .then((d) => {
+            setLaunch((l) =>
+              l?.serverId === serverId
+                ? {
+                    ...l,
+                    title: l.title ?? d.title,
+                    backdrop: l.backdrop ?? d.backdrop_url ?? null,
+                    logo: l.logo ?? d.logo_url ?? null,
+                    poster: l.poster ?? d.poster_url ?? null,
+                  }
+                : l,
+            );
+          })
+          .catch(() => undefined);
+      }
       try {
         return await startInner(serverId, itemId, opts);
       } catch (e) {
@@ -180,9 +206,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!launch) return;
     const { phase } = state;
-    if (phase === "loading" || phase === "idle") launchArmed.current = true;
-    else if (launchArmed.current && (phase === "playing" || phase === "paused") && !state.buffering) setLaunch(null);
+    if (phase === "loading" || phase === "idle") {
+      launchArmed.current = true;
+      firstPlaying.current = null;
+      return;
+    }
+    if (phase === "playing" && firstPlaying.current === null) firstPlaying.current = state.position;
+    const shown =
+      launchArmed.current &&
+      !state.buffering &&
+      (phase === "paused" ||
+        (phase === "playing" && firstPlaying.current !== null && state.position > firstPlaying.current + 0.04));
+    if (shown) setLaunch(null);
   }, [launch, state]);
+  // Playing without position updates (a still or a slow first report): do not hold the card for long.
+  const playingNow = launch !== null && state.phase === "playing" && !state.buffering;
+  useEffect(() => {
+    if (!playingNow) return;
+    const id = setTimeout(() => {
+      if (launchArmed.current) setLaunch(null);
+    }, FIRST_FRAME_GRACE_MS);
+    return () => {
+      clearTimeout(id);
+    };
+  }, [playingNow]);
   useEffect(() => {
     if (!launch) return;
     const id = setTimeout(() => {

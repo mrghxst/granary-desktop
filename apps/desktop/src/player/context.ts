@@ -23,6 +23,7 @@ export interface LaunchArt {
   subtitle?: string | null;
   backdrop?: string | null;
   logo?: string | null;
+  poster?: string | null;
 }
 
 export interface Launch extends LaunchArt {

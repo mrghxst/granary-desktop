@@ -176,7 +176,12 @@ Error codes for `login`: 400, 401, 403, 406, 408, 409, 413, 415, 422, 429, 500, 
   - `total*: int`, `total_exact*: bool` and `window_cursor*`;
   - `effective_sort?: {field, order}` and `search_diagnostics?`.
 - The body form is `POST /api/v2/catalog/query` (`queryCatalogItems`, OAS:L155465), with `x-silo-retry-safety: natural_idempotent`.
+- `groups` (used by Granary's library filters since 0.3): a JSON array `[{"match":"all","rules":[{"field","op","value"}]}]`.
+  The rule shapes are taken from the web app's guided rules editor (`web/src/components/collections/CollectionGuidedRulesEditor.tsx`aac L259-370).
+  Granary sends only these allowlisted pairs (host `catalog.rs` `RULES`): `genre`, `content_rating`, `studio`, `network`, `country` and `original_language` with `is`;
+  `watched`, `in_progress`, `hdr` and `dolby_vision` with `is` + bool; `resolution` `is` `"2160p"`; `rating_imdb` `gte` number; `added_at` `in_last` (`"30d"`).
 - Facets come from `GET /api/v2/catalog/filters` (`getCatalogFilters`, OAS:L151423) and `GET /api/v2/catalog/filters/search`.
+  Granary reads `genres`, `content_ratings`, `studios`, `networks`, `countries` and `original_languages` (string arrays) from it.
 - Search mode is described by `GET /api/v2/catalog/search/capabilities` (`getCatalogSearchCapabilities`, OAS:L155758; shape not dumped).
 
 **`CatalogItem`** card (OAS:L26983):
@@ -778,7 +783,7 @@ Facts confirmed while implementing (all `@6791aac`):
 | GET | /api/v2/library/{id}/sections/{section_id}/items | Row items | OAS:L187591 | VERIFIED (shape UNVERIFIED) |
 | GET | /api/v2/catalog | Browse/search/filter | OAS:L150065 | VERIFIED |
 | POST | /api/v2/catalog/query | Body-form browse | OAS:L155465 | VERIFIED |
-| GET | /api/v2/catalog/filters | Facets (Granary reads `genres`) | OAS:L151423 | VERIFIED |
+| GET | /api/v2/catalog/filters | Facets (Granary reads genres, ratings, studios, networks, countries, languages) | OAS:L151423 | VERIFIED |
 | GET | /api/v2/catalog/search/capabilities | Search mode | OAS:L155758 | VERIFIED (shape UNVERIFIED) |
 | GET | /api/v2/catalog/items/{id} | Detail page | OAS:L152009 | VERIFIED |
 | GET | /api/v2/catalog/people/{id} | Person (bio, photo, dates) | OAS:L155139 `getPerson` | VERIFIED |

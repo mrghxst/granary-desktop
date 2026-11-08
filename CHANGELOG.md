@@ -5,6 +5,26 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Library filters: watch state, 4K / HDR / Dolby Vision, minimum IMDb rating, recently added, age rating, language,
+  studio, network and country, next to genre and decade; more sorts (year, runtime).
+- Back button on detail and person pages; scroll position is restored when you go back.
+- Rows (cast, trailers, more like this) can be dragged with the mouse.
+- A new app icon.
+
+### Changed
+- Scrollbars and the A–Z rail follow the theme (thin rounded thumb, rail docked to the right edge); cards lift and
+  zoom slightly on hover.
+- Player menus are cleaner and close after you pick an audio track, subtitle or speed.
+- Fullscreen is remembered separately for the player and for browsing.
+- Seek-bar previews ask for a frame only once the pointer rests and step at least 30 s (more on long files), so they
+  stay quick on slow remote files.
+- The launch screen shows the poster and stays until the picture is actually moving, without the see-through flash.
+
+### Fixed
+- The poster is back on movie and series pages; audio and subtitle menus open above the cast row.
+- Switching audio tracks no longer leaves audio muted or out of sync on direct-played files.
+
 ## [0.2.0] - 2026-11-08
 Closer to the web app, still minimal: richer detail pages, library tabs, local seek previews, a website.
 

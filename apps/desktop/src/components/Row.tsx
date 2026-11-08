@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { dragScroll } from "../lib/dragScroll";
 
-/** A titled horizontal row that scrolls with wheel/trackpad, keyboard focus, or the arrow buttons. */
+/** A titled horizontal row that scrolls with wheel/trackpad, mouse drag, keyboard focus, or the arrow buttons. */
 export function Row({ title, children }: { title: string; children: ReactNode }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -41,7 +42,14 @@ export function Row({ title, children }: { title: string; children: ReactNode })
           </button>
         </div>
       </div>
-      <div ref={ref} className="scrollbar-none -mx-1 flex gap-4 overflow-x-auto px-1 pt-1 pb-2">
+      <div
+        ref={ref}
+        onPointerDown={dragScroll}
+        onDragStart={(e) => {
+          e.preventDefault();
+        }}
+        className="scrollbar-none -mx-2 flex gap-4 overflow-x-auto px-2 pt-2 pb-3"
+      >
         {children}
       </div>
     </section>

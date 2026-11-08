@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, ChevronDown, Layers, Shuffle, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowUp, Check, ChevronDown, Layers, Shuffle, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
@@ -12,6 +12,7 @@ import {
   type CatalogItem,
   type CatalogQuery,
   type CollectionCard,
+  type FilterRule,
   type PageInfo,
 } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
@@ -22,7 +23,7 @@ import { useLoad } from "../lib/useLoad";
 import { usePlay } from "../lib/usePlay";
 
 /** Sort fields from the catalog filters document (docs/research/silo-api.md §4.2). */
-const SORTS = ["title", "-added_at", "-release_date", "-rating", "random"] as const;
+const SORTS = ["title", "-added_at", "-release_date", "-year", "-rating", "runtime", "random"] as const;
 type Sort = (typeof SORTS)[number];
 const PAGE = 60;
 const LETTERS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
@@ -359,13 +360,17 @@ function Option({ selected, onSelect, children }: { selected: boolean; onSelect:
   );
 }
 
-/** A–Z rail: filters the grid to titles starting with a letter (`name_prefix`); the active letter clears it. */
+/**
+ * A–Z rail in the web app's shape (silo-server/web/src/components/catalog/LetterBar.tsx@6791aac): a rounded panel
+ * pinned to the window's right edge, the current letter in a filled circle. A letter filters the grid to titles
+ * starting with it (`name_prefix`); the current letter clears it.
+ */
 function LetterRail({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const { t } = useTranslation();
   return (
     <nav
       aria-label={t("browse.jumpToLetter")}
-      className="sticky top-4 hidden max-h-[calc(100vh-6rem)] w-6 shrink-0 flex-col items-center justify-between self-start py-1 md:flex"
+      className="surface-panel fixed top-[calc(50%+2rem)] right-1.5 z-30 hidden h-[min(42rem,calc(100dvh-12rem))] -translate-y-1/2 flex-col items-stretch rounded-full py-1.5 select-none sm:right-2.5 md:flex"
     >
       {LETTERS.map((l) => (
         <button
@@ -375,10 +380,8 @@ function LetterRail({ value, onChange }: { value: string | null; onChange: (v: s
           onClick={() => {
             onChange(value === l ? null : l);
           }}
-          className={`flex size-6 items-center justify-center rounded-full text-[11px] leading-none font-semibold transition focus-visible:outline-2 focus-visible:outline-ring ${
-            value === l
-              ? "bg-foreground text-background"
-              : "text-muted-foreground hover:scale-125 hover:text-foreground motion-reduce:hover:scale-100"
+          className={`flex min-h-0 w-6 flex-1 items-center justify-center rounded-full text-[11px] leading-none font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+            value === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {l}
@@ -388,29 +391,151 @@ function LetterRail({ value, onChange }: { value: string | null; onChange: (v: s
   );
 }
 
-function LibraryTab({ serverId, libraryId }: { serverId: string; libraryId: string }) {
+/** Round "back to top" button, bottom right, once the page has scrolled a screen down. */
+export function ScrollTop() {
   const { t } = useTranslation();
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const main = document.getElementById("main");
+    if (!main) return;
+    const onScroll = () => {
+      setShown(main.scrollTop > main.clientHeight);
+    };
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+  return (
+    <button
+      type="button"
+      aria-label={t("browse.scrollTop")}
+      title={t("browse.scrollTop")}
+      tabIndex={shown ? 0 : -1}
+      onClick={() => {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        document.getElementById("main")?.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+      }}
+      className={`surface-panel fixed right-1.5 bottom-5 z-30 flex size-11 items-center justify-center rounded-full transition duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:right-2.5 ${
+        shown ? "opacity-100" : "pointer-events-none translate-y-2 opacity-0"
+      }`}
+    >
+      <ArrowUp className="size-5" />
+    </button>
+  );
+}
+
+type WatchState = "all" | "unwatched" | "in_progress" | "watched";
+
+interface Filters {
+  genre: string | null;
+  decade: number | null;
+  contentRating: string | null;
+  studio: string | null;
+  network: string | null;
+  language: string | null;
+  country: string | null;
+  watch: WatchState;
+  fourK: boolean;
+  hdr: boolean;
+  dolbyVision: boolean;
+  minRating: number | null;
+  addedDays: number | null;
+}
+
+const NO_FILTERS: Filters = {
+  genre: null,
+  decade: null,
+  contentRating: null,
+  studio: null,
+  network: null,
+  language: null,
+  country: null,
+  watch: "all",
+  fourK: false,
+  hdr: false,
+  dolbyVision: false,
+  minRating: null,
+  addedDays: null,
+};
+
+/** Rule shapes from the web app's guided filter editor (see `FilterRule`). */
+function filterRules(f: Filters): FilterRule[] {
+  const rules: FilterRule[] = [];
+  const is = (field: string, value: string | boolean | null) => {
+    if (value !== null && value !== false) rules.push({ field, op: "is", value });
+  };
+  is("content_rating", f.contentRating);
+  is("studio", f.studio);
+  is("network", f.network);
+  is("original_language", f.language);
+  is("country", f.country);
+  if (f.watch === "watched") is("watched", true);
+  if (f.watch === "in_progress") is("in_progress", true);
+  if (f.watch === "unwatched") {
+    rules.push({ field: "watched", op: "is", value: false }, { field: "in_progress", op: "is", value: false });
+  }
+  if (f.fourK) is("resolution", "2160p");
+  is("hdr", f.hdr);
+  is("dolby_vision", f.dolbyVision);
+  if (f.minRating !== null) rules.push({ field: "rating_imdb", op: "gte", value: f.minRating });
+  if (f.addedDays !== null) rules.push({ field: "added_at", op: "in_last", value: `${String(f.addedDays)}d` });
+  return rules;
+}
+
+function activeCount(f: Filters): number {
+  return (Object.keys(NO_FILTERS) as (keyof Filters)[]).filter((k) => f[k] !== NO_FILTERS[k]).length;
+}
+
+function languageName(code: string, locale: string): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function regionName(code: string, locale: string): string {
+  if (!/^[A-Za-z]{2}$/.test(code)) return code;
+  try {
+    return new Intl.DisplayNames([locale], { type: "region" }).of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function LibraryTab({ serverId, libraryId }: { serverId: string; libraryId: string }) {
+  const { t, i18n } = useTranslation();
   const [sort, setSort] = useState<Sort>("title");
   const [letter, setLetter] = useState<string | null>(null);
-  const [genre, setGenre] = useState<string | null>(null);
-  const [decade, setDecade] = useState<number | null>(null);
+  const [f, setF] = useState<Filters>(NO_FILTERS);
   const [shuffleSeed, setShuffleSeed] = useState(0);
-  const { data: filters } = useLoad(`${serverId}/${libraryId}/filters`, () => catalog.filters(serverId, libraryId));
-  const query = useMemo<CatalogQuery>(
-    () => ({
+  const { data: facets } = useLoad(`${serverId}/${libraryId}/filters`, () => catalog.filters(serverId, libraryId));
+  const query = useMemo<CatalogQuery>(() => {
+    const rules = filterRules(f);
+    return {
       libraryId,
       sort,
       ...(letter ? { namePrefix: letter } : {}),
-      ...(genre ? { genre } : {}),
-      ...(decade ? { yearMin: decade, yearMax: decade + 9 } : {}),
-    }),
-    [libraryId, sort, letter, genre, decade],
-  );
-  const filtered = genre !== null || decade !== null;
+      ...(f.genre ? { genre: f.genre } : {}),
+      ...(f.decade ? { yearMin: f.decade, yearMax: f.decade + 9 } : {}),
+      ...(rules.length > 0 ? { rules } : {}),
+    };
+  }, [libraryId, sort, letter, f]);
+  const count = activeCount(f);
   const sortLabel = (s: Sort) => t(`browse.sorts.${s.replace("-", "")}`);
+  const set =
+    <K extends keyof Filters>(key: K) =>
+    (v: Filters[K]) => {
+      setF((x) => ({ ...x, [key]: v }));
+    };
+  const str = (key: "contentRating" | "studio" | "network" | "language" | "country") => ({
+    value: f[key],
+    onChange: set(key),
+  });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 md:pr-10">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -447,37 +572,117 @@ function LibraryTab({ serverId, libraryId }: { serverId: string; libraryId: stri
           trigger={() => (
             <span
               className={`flex h-9 items-center gap-2 rounded-full border px-4 text-sm transition hover:border-foreground/40 ${
-                filtered ? "border-foreground text-foreground" : "border-border"
+                count > 0 ? "border-foreground text-foreground" : "border-border"
               }`}
             >
               <SlidersHorizontal className="size-4" />
               {t("browse.filters")}
-              {filtered ? (
+              {count > 0 ? (
                 <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">
-                  {Number(genre !== null) + Number(decade !== null)}
+                  {count}
                 </span>
               ) : null}
             </span>
           )}
         >
           {() => (
-            <div className="flex w-80 flex-col gap-4 p-3">
-              <FilterChips title={t("browse.genre")} values={filters?.genres ?? []} value={genre} onChange={setGenre} />
+            <div className="flex max-h-[min(36rem,calc(100dvh-12rem))] w-[min(34rem,calc(100vw-6rem))] flex-col gap-5 overflow-y-auto p-4">
+              <FilterChips
+                title={t("browse.watchState")}
+                values={["all", "unwatched", "in_progress", "watched"]}
+                format={(v) =>
+                  t(
+                    `browse.watch${v === "in_progress" ? "InProgress" : v.charAt(0).toUpperCase() + v.slice(1)}` as "browse.watchAll",
+                  )
+                }
+                value={f.watch}
+                onChange={(v) => {
+                  set("watch")((v ?? "all") as WatchState);
+                }}
+              />
+              <ToggleChips
+                title={t("browse.quality")}
+                items={[
+                  {
+                    label: "4K",
+                    on: f.fourK,
+                    toggle: () => {
+                      set("fourK")(!f.fourK);
+                    },
+                  },
+                  {
+                    label: "HDR",
+                    on: f.hdr,
+                    toggle: () => {
+                      set("hdr")(!f.hdr);
+                    },
+                  },
+                  {
+                    label: "Dolby Vision",
+                    on: f.dolbyVision,
+                    toggle: () => {
+                      set("dolbyVision")(!f.dolbyVision);
+                    },
+                  },
+                ]}
+              />
+              <FilterChips
+                title={t("browse.genre")}
+                values={facets?.genres ?? []}
+                value={f.genre}
+                onChange={set("genre")}
+              />
               <FilterChips
                 title={t("browse.decade")}
                 values={DECADES.map(String)}
                 format={(d) => `${d}s`}
-                value={decade === null ? null : String(decade)}
+                value={f.decade === null ? null : String(f.decade)}
                 onChange={(d) => {
-                  setDecade(d === null ? null : Number(d));
+                  set("decade")(d === null ? null : Number(d));
                 }}
               />
-              {filtered ? (
+              <FilterChips
+                title={t("browse.minRating")}
+                values={["6", "7", "8"]}
+                format={(n) => t("browse.minRatingN", { n })}
+                value={f.minRating === null ? null : String(f.minRating)}
+                onChange={(n) => {
+                  set("minRating")(n === null ? null : Number(n));
+                }}
+              />
+              <FilterChips
+                title={t("browse.added")}
+                values={["7", "30", "90"]}
+                format={(n) => t("browse.addedWithin", { n })}
+                value={f.addedDays === null ? null : String(f.addedDays)}
+                onChange={(n) => {
+                  set("addedDays")(n === null ? null : Number(n));
+                }}
+              />
+              <FilterChips
+                title={t("browse.contentRating")}
+                values={facets?.content_ratings ?? []}
+                {...str("contentRating")}
+              />
+              <FilterChips
+                title={t("browse.language")}
+                values={facets?.original_languages ?? []}
+                format={(c) => languageName(c, i18n.language)}
+                {...str("language")}
+              />
+              <FilterChips title={t("browse.studio")} values={facets?.studios ?? []} {...str("studio")} />
+              <FilterChips title={t("browse.network")} values={facets?.networks ?? []} {...str("network")} />
+              <FilterChips
+                title={t("browse.country")}
+                values={facets?.countries ?? []}
+                format={(c) => regionName(c, i18n.language)}
+                {...str("country")}
+              />
+              {count > 0 ? (
                 <button
                   type="button"
                   onClick={() => {
-                    setGenre(null);
-                    setDecade(null);
+                    setF(NO_FILTERS);
                   }}
                   className="self-start text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
@@ -499,20 +704,24 @@ function LibraryTab({ serverId, libraryId }: { serverId: string; libraryId: stri
           </button>
         ) : null}
       </div>
-      <div className="flex gap-4">
-        <div className="min-w-0 flex-1">
-          <ItemGrid
-            serverId={serverId}
-            query={query}
-            nonce={sort === "random" ? shuffleSeed : 0}
-            emptyText={t("browse.emptyLibrary")}
-          />
-        </div>
-        <LetterRail value={letter} onChange={setLetter} />
-      </div>
+      <ItemGrid
+        serverId={serverId}
+        query={query}
+        nonce={sort === "random" ? shuffleSeed : 0}
+        emptyText={t("browse.emptyLibrary")}
+      />
+      <LetterRail value={letter} onChange={setLetter} />
+      <ScrollTop />
     </div>
   );
 }
+
+const chip = (on: boolean) =>
+  `rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-ring ${
+    on
+      ? "border-foreground bg-foreground text-background"
+      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
+  }`;
 
 function FilterChips({
   title,
@@ -531,7 +740,7 @@ function FilterChips({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{title}</span>
-      <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+      <div className="flex flex-wrap gap-1.5">
         {values.map((v) => (
           <button
             key={v}
@@ -540,13 +749,24 @@ function FilterChips({
             onClick={() => {
               onChange(value === v ? null : v);
             }}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              value === v
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-muted-foreground hover:text-foreground"
-            }`}
+            className={chip(value === v)}
           >
             {format(v)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ToggleChips({ title, items }: { title: string; items: { label: string; on: boolean; toggle: () => void }[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{title}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((x) => (
+          <button key={x.label} type="button" aria-pressed={x.on} onClick={x.toggle} className={chip(x.on)}>
+            {x.label}
           </button>
         ))}
       </div>

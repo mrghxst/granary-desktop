@@ -315,6 +315,24 @@ export interface CatalogQuery {
   genre?: string;
   yearMin?: number;
   yearMax?: number;
+  /** Extra filter rules (combined with "all"); the host allowlists fields and operators. */
+  rules?: FilterRule[];
+}
+
+export interface FilterRule {
+  field: string;
+  op: "is" | "gte" | "in_last";
+  value: string | number | boolean;
+}
+
+/** Facets of `GET /api/v2/catalog/filters` that Granary offers. */
+export interface CatalogFilters {
+  genres: string[];
+  content_ratings: string[];
+  studios: string[];
+  networks: string[];
+  countries: string[];
+  original_languages: string[];
 }
 
 /** What the native player needs to start (Phase 6 plays it; the browser video-element path does not exist). */
@@ -363,8 +381,7 @@ export const catalog = {
   collectionItems: (serverId: string, libraryId: string, collectionId: string, cursor: string | null) =>
     call<CatalogItemCollection>("collection_items", { serverId, libraryId, collectionId, cursor }),
   similar: (serverId: string, itemId: string) => call<CatalogItem[]>("catalog_similar", { serverId, itemId }),
-  filters: (serverId: string, libraryId: string) =>
-    call<{ genres: string[] }>("catalog_filters", { serverId, libraryId }),
+  filters: (serverId: string, libraryId: string) => call<CatalogFilters>("catalog_filters", { serverId, libraryId }),
 };
 
 /** YouTube thumbnail for a trailer, fetched through the host like any artwork (public HTTPS host). */

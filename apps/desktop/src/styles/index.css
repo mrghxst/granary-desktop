@@ -108,3 +108,84 @@ html[data-video-active="true"] body {
 html[data-poster-tags="true"] .poster-tags {
   display: flex;
 }
+
+/*
+ * Scrollbars: thin, rounded, theme-tinted, no arrow buttons; brighter while hovered. Values follow the web app's
+ * .overlay-scroll (silo-server/web/src/app.css@6791aac:1056-1074). Chromium ignores ::-webkit-scrollbar once
+ * scrollbar-width/scrollbar-color are set, so only the pseudo-elements are used.
+ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 16%, transparent) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  border-width: 2px;
+  background-color: color-mix(in srgb, var(--foreground) 32%, transparent);
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Floating panels (letter rail, back-to-top): silo-server/web/src/app.css@6791aac:2032-2039. */
+.surface-panel {
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 24px 50px -34px rgb(0 0 0 / 0.65);
+  backdrop-filter: blur(16px);
+  color: var(--muted-foreground);
+}
+
+/* Card hover: lift + brighten, the artwork zooms inside its rounded frame (app.css@6791aac:1399-1407, 1530-1537). */
+.media-card {
+  transition:
+    transform 250ms cubic-bezier(0.25, 0.8, 0.25, 1),
+    filter 150ms ease;
+}
+.media-card:hover,
+.media-card:focus-within {
+  filter: brightness(1.1);
+  transform: translateY(-4px);
+}
+.media-card .media-card-image img {
+  transition: transform 300ms cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.media-card:hover .media-card-image img {
+  transform: scale(1.06);
+}
+
+/* A row being dragged with the mouse: no text selection, no link clicks mid-drag. */
+.dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.dragging a,
+.dragging button {
+  pointer-events: none;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

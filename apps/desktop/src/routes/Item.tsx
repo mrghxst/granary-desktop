@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
-import { Alert } from "../components/ui";
+import { Alert, BackButton } from "../components/ui";
 import {
   artwork,
   catalog,
@@ -173,25 +173,27 @@ function PlayPanel({
               />
             )}
           >
-            {(close) =>
-              v.audio_tracks.map((a, i) => (
-                <TrackOption
-                  key={i}
-                  selected={i === choice.audioIndex}
-                  info={audioInfo(a, i18n.language, labels.audio)}
-                  onSelect={() => {
-                    // Forced subtitles follow the audio language; keep a subtitle the user picked by hand.
-                    const automatic = choice.subtitleIndex === defaultSubtitle(watch, v, choice.audioIndex);
-                    setChoice({
-                      ...choice,
-                      audioIndex: i,
-                      subtitleIndex: automatic ? defaultSubtitle(watch, v, i) : choice.subtitleIndex,
-                    });
-                    close();
-                  }}
-                />
-              ))
-            }
+            {(close) => (
+              <div className="max-h-80 overflow-y-auto">
+                {v.audio_tracks.map((a, i) => (
+                  <TrackOption
+                    key={i}
+                    selected={i === choice.audioIndex}
+                    info={audioInfo(a, i18n.language, labels.audio)}
+                    onSelect={() => {
+                      // Forced subtitles follow the audio language; keep a subtitle the user picked by hand.
+                      const automatic = choice.subtitleIndex === defaultSubtitle(watch, v, choice.audioIndex);
+                      setChoice({
+                        ...choice,
+                        audioIndex: i,
+                        subtitleIndex: automatic ? defaultSubtitle(watch, v, i) : choice.subtitleIndex,
+                      });
+                      close();
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </Popover>
         ) : null}
         <Popover
@@ -454,6 +456,8 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
   const { t } = useTranslation();
   const backdrop = artwork(serverId, item.backdrop_url);
   const logo = artwork(serverId, item.logo_url);
+  const poster = artwork(serverId, item.poster_url);
+  const [posterFailed, setPosterFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const tmdb = item.ratings.find((r) => r.source === "tmdb") ?? item.ratings[0];
   const tags = qualityTags(item.overlay_summary);
@@ -461,10 +465,14 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
   const writers = dedupe(item.crew.filter((c) => WRITER_JOBS.has(c.job)));
   const creators = item.crew.filter((c) => c.job === "Creator");
   const actions = <UserActions serverId={serverId} item={item} />;
-  const art: LaunchArt = { backdrop: item.backdrop_url ?? null, logo: item.logo_url ?? null };
+  const art: LaunchArt = {
+    backdrop: item.backdrop_url ?? null,
+    logo: item.logo_url ?? null,
+    poster: item.poster_url ?? null,
+  };
 
   return (
-    <section className="relative isolate rounded-2xl border border-border/60 bg-card">
+    <section className="relative isolate z-10 rounded-2xl border border-border/60 bg-card">
       {/* Artwork is clipped to the box; the track popovers are not. */}
       <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden rounded-2xl">
         {backdrop ? (
@@ -477,61 +485,73 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
         <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-card/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
       </div>
-      <div className="flex min-h-[26rem] max-w-3xl flex-col justify-end gap-4 p-6 lg:p-10">
-        {item.series_title && item.series_id ? (
-          <Link
-            to={itemPath(serverId, item.series_id)}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            {item.series_title}
-            {item.season_number != null ? ` · ${t("item.seasonN", { n: item.season_number })}` : ""}
-            {item.episode_number != null ? ` · ${t("item.episodeN", { n: item.episode_number })}` : ""}
-          </Link>
-        ) : null}
-        {logo && !logoFailed ? (
+      <div className="flex min-h-[26rem] items-end gap-8 p-6 lg:gap-10 lg:p-10">
+        {poster && !posterFailed ? (
           <img
-            src={logo}
-            alt={item.title}
-            className="max-h-28 max-w-sm object-contain object-left drop-shadow-2xl"
+            src={poster}
+            alt=""
+            className="hidden w-44 shrink-0 animate-[fade-in_400ms_ease-out] self-end rounded-xl border border-white/10 shadow-2xl md:block lg:w-56"
             onError={() => {
-              setLogoFailed(true);
+              setPosterFailed(true);
             }}
           />
-        ) : (
-          <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">{item.title}</h1>
-        )}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {item.year ? <Badge strong>{item.year}</Badge> : null}
-          {item.content_rating ? <Badge strong>{item.content_rating}</Badge> : null}
-          {runtimeLabel(item.runtime) ? <Badge strong>{runtimeLabel(item.runtime)}</Badge> : null}
-          {item.type === "series" && item.season_count ? (
-            <Badge strong>{t("item.seasonCount", { count: item.season_count })}</Badge>
-          ) : null}
-          {tags.map((x) => (
-            <Badge key={x}>{x}</Badge>
-          ))}
-          {tmdb ? (
-            <span className="ml-1 inline-flex items-center gap-1 text-xs font-semibold" title={tmdb.name}>
-              <Star className="size-3.5 fill-foreground" />
-              {tmdb.display}
-              <span className="font-medium text-muted-foreground">{tmdb.name}</span>
-            </span>
-          ) : null}
-        </div>
-        {item.genres.length > 0 ? (
-          <p className="text-sm text-muted-foreground">{item.genres.slice(0, 4).join(" · ")}</p>
         ) : null}
-        {item.tagline ? <p className="text-sm text-foreground/80 italic">{item.tagline}</p> : null}
-        {item.overview ? <p className="line-clamp-4 text-sm leading-relaxed lg:text-base">{item.overview}</p> : null}
-        <CreditLine serverId={serverId} label={t("item.directedBy")} people={directors} />
-        <CreditLine serverId={serverId} label={t("item.createdBy")} people={creators} />
-        <CreditLine serverId={serverId} label={t("item.writtenBy")} people={writers} />
-        <div className="pt-2">
-          {PLAYABLE.has(item.type) ? (
-            <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
+        <div className="flex min-w-0 max-w-3xl flex-1 flex-col justify-end gap-4">
+          {item.series_title && item.series_id ? (
+            <Link
+              to={itemPath(serverId, item.series_id)}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              {item.series_title}
+              {item.season_number != null ? ` · ${t("item.seasonN", { n: item.season_number })}` : ""}
+              {item.episode_number != null ? ` · ${t("item.episodeN", { n: item.episode_number })}` : ""}
+            </Link>
+          ) : null}
+          {logo && !logoFailed ? (
+            <img
+              src={logo}
+              alt={item.title}
+              className="max-h-28 max-w-sm object-contain object-left drop-shadow-2xl"
+              onError={() => {
+                setLogoFailed(true);
+              }}
+            />
           ) : (
-            <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />
+            <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">{item.title}</h1>
           )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {item.year ? <Badge strong>{item.year}</Badge> : null}
+            {item.content_rating ? <Badge strong>{item.content_rating}</Badge> : null}
+            {runtimeLabel(item.runtime) ? <Badge strong>{runtimeLabel(item.runtime)}</Badge> : null}
+            {item.type === "series" && item.season_count ? (
+              <Badge strong>{t("item.seasonCount", { count: item.season_count })}</Badge>
+            ) : null}
+            {tags.map((x) => (
+              <Badge key={x}>{x}</Badge>
+            ))}
+            {tmdb ? (
+              <span className="ml-1 inline-flex items-center gap-1 text-xs font-semibold" title={tmdb.name}>
+                <Star className="size-3.5 fill-foreground" />
+                {tmdb.display}
+                <span className="font-medium text-muted-foreground">{tmdb.name}</span>
+              </span>
+            ) : null}
+          </div>
+          {item.genres.length > 0 ? (
+            <p className="text-sm text-muted-foreground">{item.genres.slice(0, 4).join(" · ")}</p>
+          ) : null}
+          {item.tagline ? <p className="text-sm text-foreground/80 italic">{item.tagline}</p> : null}
+          {item.overview ? <p className="line-clamp-4 text-sm leading-relaxed lg:text-base">{item.overview}</p> : null}
+          <CreditLine serverId={serverId} label={t("item.directedBy")} people={directors} />
+          <CreditLine serverId={serverId} label={t("item.createdBy")} people={creators} />
+          <CreditLine serverId={serverId} label={t("item.writtenBy")} people={writers} />
+          <div className="pt-2">
+            {PLAYABLE.has(item.type) ? (
+              <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
+            ) : (
+              <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />
+            )}
+          </div>
         </div>
       </div>
     </section>
@@ -635,13 +655,14 @@ function PersonCard({ serverId, credit }: { serverId: string; credit: Credit }) 
     .join("");
   const body = (
     <>
-      <span className="block aspect-[2/3] overflow-hidden rounded-xl bg-surface-raised">
+      <span className="media-card-image block aspect-[2/3] overflow-hidden rounded-xl bg-surface-raised">
         {photo && !failed ? (
           <img
             src={photo}
             alt=""
             loading="lazy"
-            className="size-full object-cover grayscale-[30%] transition group-hover/p:grayscale-0"
+            draggable={false}
+            className="size-full object-cover"
             onError={() => {
               setFailed(true);
             }}
@@ -659,12 +680,12 @@ function PersonCard({ serverId, credit }: { serverId: string; credit: Credit }) 
   return credit.person_id ? (
     <Link
       to={personPath(serverId, credit.person_id)}
-      className="group/p block w-28 shrink-0 focus-visible:outline-2 focus-visible:outline-ring"
+      className="media-card group/p block w-28 shrink-0 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
     >
       {body}
     </Link>
   ) : (
-    <div className="w-28 shrink-0">{body}</div>
+    <div className="media-card w-28 shrink-0">{body}</div>
   );
 }
 
@@ -695,13 +716,14 @@ function TrailersAndMore({ serverId, item }: { serverId: string; item: CatalogIt
 function Thumb({ src, children }: { src: string | undefined; children?: ReactNode }) {
   const [failed, setFailed] = useState(false);
   return (
-    <span className="relative block aspect-video overflow-hidden rounded-xl bg-surface-raised">
+    <span className="media-card-image relative block aspect-video overflow-hidden rounded-xl bg-surface-raised">
       {src && !failed ? (
         <img
           src={src}
           alt=""
           loading="lazy"
-          className="size-full object-cover transition duration-300 group-hover/t:scale-105"
+          draggable={false}
+          className="size-full object-cover"
           onError={() => {
             setFailed(true);
           }}
@@ -728,7 +750,7 @@ function TrailerCard({ serverId, video }: { serverId: string; video: ItemVideo }
       type="button"
       onClick={() => void openTrailer(video.site_key)}
       title={t("item.opensYoutube")}
-      className="group/t w-72 shrink-0 text-left focus-visible:outline-2 focus-visible:outline-ring"
+      className="media-card group/t w-72 shrink-0 text-left focus-visible:outline-2 focus-visible:outline-ring"
     >
       <Thumb src={trailerThumb(serverId, video)}>
         <span className="absolute top-2 left-2">
@@ -758,7 +780,7 @@ function ExtraCard({
       type="button"
       disabled={disabled}
       onClick={onPlay}
-      className="group/t w-72 shrink-0 text-left focus-visible:outline-2 focus-visible:outline-ring"
+      className="media-card group/t w-72 shrink-0 text-left focus-visible:outline-2 focus-visible:outline-ring"
     >
       <Thumb src={artwork(serverId, extra.still_url)}>
         {extra.duration_seconds ? (
@@ -912,20 +934,23 @@ export function Item() {
   const seriesId = item.type === "series" ? item.content_id : item.type === "season" ? item.series_id : null;
 
   return (
-    <article className="flex flex-col gap-10">
-      <Hero serverId={serverId} item={item} />
-      {seriesId ? (
-        <EpisodeList
-          serverId={serverId}
-          seriesId={seriesId}
-          initialSeason={item.type === "season" ? item.season_number : item.play_season_number}
-        />
-      ) : null}
-      <CastAndCrew serverId={serverId} item={item} />
-      <TrailersAndMore serverId={serverId} item={item} />
-      {item.type === "movie" || item.type === "series" ? (
-        <MoreLikeThis serverId={serverId} itemId={item.content_id} />
-      ) : null}
+    <article className="flex flex-col gap-6">
+      <BackButton fallback={`/servers/${encodeURIComponent(serverId)}/home`} />
+      <div className="flex flex-col gap-10">
+        <Hero serverId={serverId} item={item} />
+        {seriesId ? (
+          <EpisodeList
+            serverId={serverId}
+            seriesId={seriesId}
+            initialSeason={item.type === "season" ? item.season_number : item.play_season_number}
+          />
+        ) : null}
+        <CastAndCrew serverId={serverId} item={item} />
+        <TrailersAndMore serverId={serverId} item={item} />
+        {item.type === "movie" || item.type === "series" ? (
+          <MoreLikeThis serverId={serverId} itemId={item.content_id} />
+        ) : null}
+      </div>
     </article>
   );
 }

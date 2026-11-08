@@ -1,8 +1,70 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- Granary app icon (original artwork, AGPL-3.0-or-later): a grain kernel enclosing a play triangle, monochrome. -->
-  <rect x="32" y="32" width="960" height="960" rx="216" fill="#000"/>
-  <rect x="34" y="34" width="956" height="956" rx="214" fill="none" stroke="#fff" stroke-opacity="0.14" stroke-width="4"/>
-  <path d="M512 170 C690 274 744 426 744 560 C744 722 640 846 512 864 C384 846 280 722 280 560 C280 426 334 274 512 170 Z"
-        fill="#f4f4f5"/>
-  <path d="M460 438 L460 682 L654 560 Z" fill="#000"/>
+  <!-- Granary app icon (original artwork, AGPL-3.0-or-later): a faceted grain kernel holding a play triangle. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="28%" r="85%">
+      <stop offset="0" stop-color="#2a2a33"/>
+      <stop offset="0.55" stop-color="#111116"/>
+      <stop offset="1" stop-color="#050507"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.10"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="56%" r="50%">
+      <stop offset="0" stop-color="#e9e4ff" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#e9e4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="left" x1="0.15" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#e4e4ea"/>
+      <stop offset="1" stop-color="#a9a9b4"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0.9" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#d9d9e0"/>
+      <stop offset="0.6" stop-color="#b9b9c3"/>
+      <stop offset="1" stop-color="#7d7d89"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1b22"/>
+      <stop offset="1" stop-color="#050507"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="26"/>
+      <feOffset dy="30"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.65"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="depth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.5" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.28"/>
+    </linearGradient>
+    <clipPath id="kernel">
+      <path d="M512 160 C700 270 756 428 756 566 C756 732 648 858 512 876 C376 858 268 732 268 566 C268 428 324 270 512 160 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Squircle tile with a soft top light and a hairline rim. -->
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#bg)"/>
+  <rect x="34" y="34" width="956" height="956" rx="222" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <ellipse cx="512" cy="560" rx="380" ry="380" fill="url(#glow)"/>
+
+  <!-- Kernel: two facets meeting at the crease, a specular streak, then the play mark pressed in. -->
+  <g filter="url(#shadow)">
+    <g clip-path="url(#kernel)">
+      <rect x="250" y="150" width="262" height="740" fill="url(#left)"/>
+      <rect x="512" y="150" width="262" height="740" fill="url(#right)"/>
+      <path d="M512 160 C470 300 470 380 512 452 C554 380 554 300 512 160 Z" fill="#fff" fill-opacity="0.18"/>
+      <path d="M512 150 L512 452" stroke="#000" stroke-opacity="0.16" stroke-width="5"/>
+      <path d="M352 380 C372 300 420 236 474 196 C430 262 404 330 396 420 Z" fill="url(#shine)" fill-opacity="0.55"/>
+      <rect x="250" y="150" width="524" height="740" fill="url(#depth)"/>
+    </g>
+    <path d="M512 160 C700 270 756 428 756 566 C756 732 648 858 512 876 C376 858 268 732 268 566 C268 428 324 270 512 160 Z"
+          fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="3"/>
+    <path d="M474 474 L474 690 L650 582 Z" fill="url(#play)" stroke="url(#play)" stroke-width="34" stroke-linejoin="round"/>
+  </g>
 </svg>

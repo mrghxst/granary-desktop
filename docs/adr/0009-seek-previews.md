@@ -27,9 +27,13 @@
   it is `zscale` (linearise, BT.709 primaries) + `tonemap=hable` + `zscale` back to BT.709, all inside the preview
   handle. The main player's GPU pipeline is never touched.
 - Host command `player_preview(seconds)` returns a JPEG data URL (CSP already allows `data:` images), caches 400
-  frames per source in 2 s buckets, decodes one frame at a time, and remembers a source that failed to open so it is
-  not retried on every hover. The overlay hook keeps one request in flight and always fetches the newest hover
-  position next; while a frame loads it shows a decoded neighbour up to 10 s away.
+  frames per source (keyed by requested time), decodes one frame at a time, and remembers a source that failed to open so it is
+  not retried on every hover. The overlay hook snaps hover positions to an interval of at
+  least 30 s (about 120 frames per file for long ones, at most 2 min), waits 140 ms for the pointer to rest before
+  asking, keeps one request in flight and always fetches the newest hover position next; while a frame loads it shows
+  a decoded neighbour up to two intervals away. Revised 2026-11-08: the first version used 2 s buckets and asked on
+  every bucket crossed, which on slow, high-latency remote sources meant many seeks and frames that arrived late or
+  timed out on large files. Open and frame timeouts are now 20 s and 15 s.
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 
@@ -37,7 +41,7 @@
 - Measured on the dev machine (test media, mock server through the relay): open 0.24 s, a new frame 35–90 ms (SDR
   1080p to HDR10 2160p), cached 4 ms. Integration test `preview_frames_from_real_files` checks SDR and HDR against the
   pinned DLL.
-- Extra traffic only while hovering: each new bucket reads around one keyframe (the demuxer readahead is off).
+- Extra traffic only while hovering: each new preview spot reads around one keyframe (the demuxer readahead is off).
 - Dolby Vision profile 5 (no HDR10 base layer) is not reshaped by libavfilter, so its previews have wrong colours;
   profiles 7/8 use the HDR10 base and look right. Known issue, low impact (previews only).
 - No new dependency or licence: the bundled libmpv/FFmpeg already provide everything (zscale/zimg is part of the

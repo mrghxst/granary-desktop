@@ -595,7 +595,10 @@ impl Controller {
                 let sid = self
                     .mpv_sub_id(*stream_index)
                     .ok_or_else(|| ControllerError::Player("subtitle track not in this stream".into()))?;
-                self.set("sid", &sid);
+                // Re-selecting the current track would make mpv refill it from the stream for nothing.
+                if self.backend.get_property("sid").as_deref() != Some(sid.as_str()) {
+                    self.set("sid", &sid);
+                }
             }
             SubtitleChoice::External { track_id } => {
                 let url = self
@@ -630,8 +633,23 @@ impl Controller {
             self.args.audio_index = Some(index);
             return Ok(());
         }
+        let aid = (index + 1).to_string();
+        if self.args.audio_index == Some(index) && self.backend.get_property("aid").as_deref() == Some(aid.as_str()) {
+            return Ok(());
+        }
         self.args.audio_index = Some(index);
-        self.set("aid", &(index + 1).to_string());
+        self.set("aid", &aid);
+        // A new audio track on a network stream makes mpv refill only that track while video runs on, then catch
+        // audio up (silence, then audio/video drifting back together). One exact seek to the same position restarts
+        // both in sync instead.
+        if let Some(pos) = self
+            .backend
+            .get_property("time-pos")
+            .and_then(|p| p.parse::<f64>().ok())
+            && let Err(e) = self.backend.seek_absolute(pos)
+        {
+            tracing::warn!(error = %e, "resync after the audio switch failed");
+        }
         Ok(())
     }
 
