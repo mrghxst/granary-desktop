@@ -237,6 +237,14 @@ export function Settings() {
             { value: "true-black", label: t("settings.themeBlack") },
           ]}
         />
+        <Toggle
+          label={t("settings.posterTags")}
+          hint={t("settings.posterTagsHint")}
+          checked={s.posterTags}
+          onChange={(posterTags) => {
+            set((d) => ({ ...d, posterTags }));
+          }}
+        />
       </Section>
 
       <Section id="s-servers" title={t("settings.servers")}>

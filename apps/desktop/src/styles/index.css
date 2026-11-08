@@ -104,3 +104,7 @@ html[data-video-active="true"] body {
     transform: translateX(300%);
   }
 }
+
+html[data-poster-tags="true"] .poster-tags {
+  display: flex;
+}

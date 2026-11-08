@@ -105,7 +105,23 @@
     "searchLabel": "Search the server",
     "searchPlaceholder": "Movies, shows, episodes…",
     "noResults": "Nothing found for “{{q}}”.",
-    "searchHint": "Type to search all libraries."
+    "searchHint": "Type to search all libraries.",
+    "shuffle": "Shuffle",
+    "filters": "Filters",
+    "genre": "Genre",
+    "decade": "Decade",
+    "clearFilters": "Clear filters",
+    "startsWith": "Starts with {{letter}}",
+    "jumpToLetter": "Jump to letter",
+    "views": "Library views",
+    "backToCollections": "Back to collections",
+    "emptyCollection": "This collection is empty.",
+    "noCollections": "This library has no collections.",
+    "tabs": {
+      "recommended": "Recommended",
+      "library": "Library",
+      "collections": "Collections"
+    }
   },
   "item": {
     "play": "Play",
@@ -217,7 +233,9 @@
     "subtitles": "Subtitles",
     "subScale": "Subtitle size",
     "preferSdh": "Prefer subtitles for the hard of hearing",
-    "about": "Granary is an independent desktop client, compatible with Silo media servers."
+    "about": "Granary is an independent desktop client, compatible with Silo media servers.",
+    "posterTags": "Quality tags on posters",
+    "posterTagsHint": "Shows 4K, HDR and audio badges on poster cards."
   },
   "player": {
     "handoff": "Starting playback…",

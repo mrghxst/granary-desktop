@@ -15,7 +15,7 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 - [x] 10 Final verification & handoff — DONE — gate: clean clone of dd9b7a8 (pnpm install --frozen-lockfile, fetch-libmpv, verify.ps1 12 steps, release build) all exit 0 (docs/evidence/phase-10/clean-clone.txt), reviewer docs/reviews/final.md PASS WITH FINDINGS → M1 + L1–L5 resolved, security review docs/security.md (cargo audit 0 vulnerabilities, pnpm audit clean), docs complete, CI green, FINAL REPORT printed
 
 ## Current step
-0.2 web-app parity round (user list of 8 items): detail page + player done; next library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags, seek previews for files without trickplay, README + Pages site.
+0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags done; next seek previews for files without trickplay, README + Pages site.
 All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
 ## Decisions (link ADRs)
@@ -105,6 +105,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay. Remaini
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-08 0.2 step 2: library tabs (Recommended rows, Library grid, Collections), infinite scroll (IntersectionObserver, button fallback), A–Z rail (namePrefix), genre/decade filters, sort popover, shuffle; poster quality tags setting (poster_tags, default off); monochrome icon regenerated with tauri icon. Verified in the running app against the mock server; verify.ps1 12/12.
 - 2026-11-08 0.2 step 1: 16 new OAS operations (flags, rating, person, library sections/collections, similar, filters) in silo-api with contract tests (14/14), docs/research/silo-api.md §13 + endpoint table; detail page redesign, person route, language-first track pickers (detail + player), launch screen until first frame, open_trailer command (YouTube key only). Verified in the running app against the mock server (screenshots not committed).
 - 2026-11-08 Fix 0.1.1 (user report on 0.1.0): video hidden while the overlay is shown. Cause: `WS_CLIPSIBLINGS` on the video child clipped it under the full-client WRY container. Removed it; on-screen pixel check (scripts/overlay-pixels.ps1) added to playback-evidence (shown 0 → 5 colour families, hidden 5); ADR-0003 Amendment 1; evidence docs/evidence/overlay-fix (19/19). Draft release v0.1.1 from 3436cac, CI asset SHA-256 6b45f2f2…5f5b verified; install-test not run because the user has 0.1.0 installed (manual upgrade).
 - 2026-11-08 Gate 10 PASSED: clean-clone build of dd9b7a8 green, final review resolved, every phase DONE, FINAL REPORT printed.

@@ -17,6 +17,12 @@ follow [Semantic Versioning](https://semver.org/).
 - More like this on movie and series pages.
 - A full-screen launch screen (backdrop, logo, loading line) from Play until the first frame, instead of an empty
   window.
+- Libraries have Recommended, Library and Collections tabs. The grid loads more as you scroll, and has an A–Z rail,
+  genre and decade filters, sort and shuffle.
+- Optional quality tags (4K, HDR, audio) on posters (Settings → Appearance, off by default).
+
+### Changed
+- Monochrome app icon (black and white) instead of the yellow one.
 
 ## [0.1.1] - 2026-11-08
 Bug-fix release.

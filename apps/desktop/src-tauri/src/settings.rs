@@ -14,6 +14,8 @@ pub struct Settings {
     pub language: String,
     /// `midnight-cinema` or `true-black`.
     pub theme: String,
+    /// Quality tags (4K, HDR, audio) on poster cards.
+    pub poster_tags: bool,
     pub player: PlayerSettings,
     pub display: DisplaySettings,
     pub audio: AudioSettings,
@@ -87,6 +89,7 @@ impl Default for Settings {
         Self {
             language: "system".into(),
             theme: "midnight-cinema".into(),
+            poster_tags: false,
             player: PlayerSettings::default(),
             display: DisplaySettings::default(),
             audio: AudioSettings::default(),

@@ -6,6 +6,8 @@ import i18n, { detectLanguage } from "../i18n";
 export interface Settings {
   language: "system" | "en" | "de";
   theme: "midnight-cinema" | "true-black";
+  /** Quality tags (4K, HDR, audio) on poster cards. */
+  posterTags: boolean;
   player: {
     /** mpv `hwdec`. */
     hwdec: "auto-safe" | "auto-copy-safe" | "no";
@@ -95,6 +97,7 @@ export async function listAudioDevices(): Promise<AudioDevice[]> {
 export const DEFAULT_SETTINGS: Settings = {
   language: "system",
   theme: "midnight-cinema",
+  posterTags: false,
   player: { hwdec: "auto-safe", autoplayNext: true, seekStep: 10 },
   display: { hdrMode: "content", refresh: "auto", monitors: {} },
   audio: {
@@ -133,6 +136,8 @@ export async function saveSettings(s: Settings): Promise<Settings> {
 /** Apply the UI-level settings: theme on <html>, language. */
 export function applySettings(s: Settings): void {
   document.documentElement.dataset.theme = s.theme;
+  if (s.posterTags) document.documentElement.dataset.posterTags = "true";
+  else delete document.documentElement.dataset.posterTags;
   const lng = s.language === "system" ? detectLanguage() : s.language;
   if (i18n.language !== lng) void i18n.changeLanguage(lng);
   document.documentElement.lang = lng;

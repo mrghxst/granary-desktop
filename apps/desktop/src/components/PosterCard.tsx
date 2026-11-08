@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { artwork, type CatalogItem } from "../lib/catalog";
+import { qualityTags } from "../lib/format";
 import { itemPath } from "../lib/nav";
 import { ContextMenu } from "./ContextMenu";
 
@@ -35,6 +36,7 @@ export function PosterCard({ serverId, item, wide = false, onPlay }: CardProps) 
   const progress = item.position_seconds && duration > 0 ? Math.min(1, item.position_seconds / duration) : 0;
   const to = itemPath(serverId, item.content_id);
   const sub = subtitle(item);
+  const tags = wide ? [] : qualityTags(item.overlay_summary).slice(0, 3);
 
   return (
     <div
@@ -67,6 +69,19 @@ export function PosterCard({ serverId, item, wide = false, onPlay }: CardProps) 
             </div>
           )}
         </div>
+        {tags.length > 0 ? (
+          // Shown only with the "quality tags on posters" setting (html[data-poster-tags]).
+          <span className="poster-tags absolute top-2 left-2 hidden max-w-[calc(100%-2.5rem)] flex-wrap gap-1">
+            {tags.map((x) => (
+              <span
+                key={x}
+                className="rounded-[4px] bg-black/70 px-1.5 py-px text-[9px] font-bold tracking-wide text-white uppercase backdrop-blur"
+              >
+                {x}
+              </span>
+            ))}
+          </span>
+        ) : null}
         {item.user_state?.played ? (
           <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-black/60 text-white">
             <Check className="size-3.5" aria-label={t("browse.watched")} />

@@ -466,6 +466,13 @@ mod demo {
                 played: m.played,
                 ..CatalogItemUserState::default()
             }),
+            overlay_summary: Some(CatalogItemOverlay {
+                resolution: Some("4K".into()),
+                hdr: Some("HDR10".into()),
+                audio: Some("EAC3".into()),
+                audio_channels: Some("5.1".into()),
+                ..CatalogItemOverlay::default()
+            }),
             ..CatalogItem::default()
         }
     }

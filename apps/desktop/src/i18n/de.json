@@ -105,7 +105,23 @@
     "searchLabel": "Server durchsuchen",
     "searchPlaceholder": "Filme, Serien, Episoden…",
     "noResults": "Nichts gefunden für „{{q}}“.",
-    "searchHint": "Tippe, um alle Mediatheken zu durchsuchen."
+    "searchHint": "Tippe, um alle Mediatheken zu durchsuchen.",
+    "shuffle": "Zufällig",
+    "filters": "Filter",
+    "genre": "Genre",
+    "decade": "Jahrzehnt",
+    "clearFilters": "Filter zurücksetzen",
+    "startsWith": "Beginnt mit {{letter}}",
+    "jumpToLetter": "Zu Buchstabe springen",
+    "views": "Bibliotheksansichten",
+    "backToCollections": "Zurück zu den Sammlungen",
+    "emptyCollection": "Diese Sammlung ist leer.",
+    "noCollections": "Diese Bibliothek hat keine Sammlungen.",
+    "tabs": {
+      "recommended": "Empfohlen",
+      "library": "Bibliothek",
+      "collections": "Sammlungen"
+    }
   },
   "item": {
     "play": "Abspielen",
@@ -217,7 +233,9 @@
     "subtitles": "Untertitel",
     "subScale": "Untertitelgröße",
     "preferSdh": "Untertitel für Hörgeschädigte bevorzugen",
-    "about": "Granary ist ein unabhängiger Desktop-Client, kompatibel mit Silo-Medienservern."
+    "about": "Granary ist ein unabhängiger Desktop-Client, kompatibel mit Silo-Medienservern.",
+    "posterTags": "Qualitäts-Tags auf Postern",
+    "posterTagsHint": "Zeigt 4K-, HDR- und Audio-Badges auf den Postern."
   },
   "player": {
     "handoff": "Wiedergabe wird gestartet …",
