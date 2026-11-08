@@ -30,3 +30,11 @@
 ## Consequences
 - Repeat visits and restarts show artwork immediately, also offline. Disk use is bounded.
 - Artwork changed on the server can take up to 7 days to appear (Clear forces it).
+
+## Amendment 1 (2026-11-08, after 0.4.1)
+- Seek-preview sheets (server trickplay; keys start with `trickplay/`, `silo-server/internal/trickplay/manifest.go@6791aac`
+  L9, L41-44, or requested with `&p=1`) never go to disk: an in-memory LRU of 64 MiB (`PreviewSheets`) holds them.
+  A one-time sweep (marker `swept-v2`) removes sheets and unreadable files earlier versions stored.
+- Stale entries are served immediately and refreshed in the background (stale-while-revalidate).
+- Torn writes (`*.tmp`) are deleted when the cache index loads; the keep list is capped at 5,000 names.
+- Local preview scratch files (`%TEMP%\granary-previews`, named `<kind><pid>-<n>`) of other runs are swept at startup.

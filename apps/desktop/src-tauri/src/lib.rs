@@ -137,8 +137,11 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     });
     app.manage(playback::events::EventsState::default());
     app.manage(playback::preview::PreviewState::default());
+    // Leftover preview scratch files from a run that did not end cleanly.
+    std::thread::spawn(playback::preview::sweep_temp);
     app.manage(artcache::ArtCache::default());
     app.manage(seekr::SeekrState::default());
+    app.manage(catalog::PreviewSheets::default());
 
     let main = app
         .config()

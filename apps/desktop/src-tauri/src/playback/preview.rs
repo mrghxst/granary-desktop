@@ -114,6 +114,33 @@ impl Frames {
     }
 }
 
+/// Scratch folder for the preview decoder's single-frame files and screenshots (each deleted right after use).
+pub fn temp_dir() -> std::path::PathBuf {
+    std::env::temp_dir().join("granary-previews")
+}
+
+/// Startup: remove scratch files a previous run left behind (crash, power loss). Files are named
+/// `<kind><pid>-<n>.<ext>`; a file of this process is never touched. The folder itself goes when it is empty.
+pub fn sweep_temp() {
+    sweep_dir(&temp_dir(), std::process::id());
+}
+
+fn sweep_dir(dir: &std::path::Path, own_pid: u32) {
+    let Ok(list) = std::fs::read_dir(dir) else { return };
+    for e in list.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let pid = name
+            .get(1..)
+            .and_then(|r| r.split('-').next())
+            .and_then(|n| n.parse::<u32>().ok());
+        if pid != Some(own_pid) {
+            let _ = std::fs::remove_file(e.path());
+        }
+    }
+    // Fails while other files remain, which is fine.
+    let _ = std::fs::remove_dir(dir);
+}
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     // A poisoned lock only means an earlier decode panicked; the data is still consistent.
     m.lock().unwrap_or_else(PoisonError::into_inner)
@@ -266,7 +293,7 @@ fn ensure_open(state: &PreviewState, d: &mut Decoder, source: &str) -> bool {
         return false;
     }
     if d.thumb.is_none() {
-        let dir = std::env::temp_dir().join("granary-previews");
+        let dir = temp_dir();
         match Thumbnailer::open(source, &dir, OPEN_TIMEOUT) {
             Ok(t) => d.thumb = Some(t),
             Err(e) => {
@@ -391,6 +418,27 @@ fn warm(_app: &AppHandle, _source: &str) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[allow(clippy::unwrap_used)] // test code
+    fn sweep_removes_only_other_runs_files() {
+        let d = std::env::temp_dir().join(format!("granary-previews-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for n in ["p1-0.jpg", "f1-3.mkv", "p42-1.jpg", "junk"] {
+            std::fs::write(d.join(n), b"x").unwrap();
+        }
+        sweep_dir(&d, 42);
+        let mut left: Vec<String> = std::fs::read_dir(&d)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(left, vec!["p42-1.jpg"]);
+        sweep_dir(&d, 7);
+        assert!(!d.exists(), "an empty folder is removed");
+    }
 
     #[test]
     fn base64_matches_rfc4648_vectors() {

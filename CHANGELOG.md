@@ -5,6 +5,16 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Seek-preview sheets from the server are kept in memory only (at most 64 MB) and never written to disk; sheets an
+  earlier version stored in the artwork cache are removed once.
+- Cached artwork that is due for its weekly refresh is shown at once and refreshed in the background, instead of
+  waiting for the server.
+
+### Fixed
+- No leftover files on disk: interrupted artwork-cache writes and local seek-preview scratch files from a run that
+  did not end cleanly are removed at the next start, and the list of kept artwork is capped.
+
 ## [0.4.1] - 2026-11-08
 Fixes and polish: a working right-click menu with more actions, Seekr seek previews, an artwork cache, the right subtitles at start and steadier audio switches.
 

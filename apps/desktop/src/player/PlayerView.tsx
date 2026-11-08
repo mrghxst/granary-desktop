@@ -242,7 +242,12 @@ function SeekBar({
   const shown = drag ?? position;
   const preview = drag ?? hover;
   const tile = preview !== null ? providerTile(provider, preview) : undefined;
-  const tileSrc = tile ? (artwork(tile.server === "file" ? serverId : tile.server, tile.url) ?? "") : "";
+  // `&p=1`: server sheets stay in the host's memory, never in the artwork cache on disk.
+  const tileSrc = tile
+    ? tile.server === "file"
+      ? `${artwork(serverId, tile.url) ?? ""}&p=1`
+      : (artwork(tile.server, tile.url) ?? "")
+    : "";
   // Background images report no errors: probe the sheet once so an expired one triggers a fresh lookup.
   useEffect(() => {
     if (!tileSrc) return;

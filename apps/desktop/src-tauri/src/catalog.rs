@@ -386,6 +386,10 @@ fn image_response(r: Result<ImageData, CommandError>) -> Response<Vec<u8>> {
 
 /// Serve one artwork request: the reference is resolved against the saved server origin and fetched without
 /// credentials (ADR-0004 amendment 3).
+///
+/// - Seek-preview sheets (server trickplay, `&p=1`) live only in memory ([`PreviewSheets`]); they never touch the disk.
+/// - Other artwork comes from the bounded disk cache (ADR-0010). A stale copy is served at once and refreshed in the
+///   background (stale-while-revalidate), so cached posters never wait for the network.
 pub async fn serve_image<R: Runtime>(app: &AppHandle<R>, uri: &str) -> Response<Vec<u8>> {
     let Some((server_id, reference)) = parse_image_uri(uri) else {
         return image_response(Err(CommandError::invalid("artwork URI".into())));
@@ -395,6 +399,22 @@ pub async fn serve_image<R: Runtime>(app: &AppHandle<R>, uri: &str) -> Response<
         return image_response(crate::seekr::serve_sheet(app, &reference).await);
     }
     let key = crate::artcache::cache_key(&server_id, &reference);
+    if image_flag(uri) || crate::artcache::is_preview_sheet(&reference) {
+        let sheets = app.state::<PreviewSheets>();
+        if let Some(hit) = sheets.0.get(&key) {
+            return image_response(Ok(ImageData {
+                content_type: hit.0.clone(),
+                bytes: hit.1.clone(),
+            }));
+        }
+        let r = app.state::<SiloState>().artwork(&server_id, &reference).await;
+        if let Ok(img) = &r
+            && raster_image_type(&img.content_type).is_some()
+        {
+            sheets.0.put(key, img.content_type.clone(), img.bytes.clone());
+        }
+        return image_response(r);
+    }
     let dir = artwork_dir();
     let cached = {
         let (k, d, a) = (key.clone(), dir.clone(), app.clone());
@@ -403,32 +423,49 @@ pub async fn serve_image<R: Runtime>(app: &AppHandle<R>, uri: &str) -> Response<
             .ok()
             .flatten()
     };
-    if let Some(c) = &cached
-        && !c.stale
-    {
+    if let Some(c) = cached {
+        if c.stale {
+            let a = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Ok(img) = a.state::<SiloState>().artwork(&server_id, &reference).await {
+                    store(&a, dir, key, img);
+                }
+            });
+        }
         return image_response(Ok(ImageData {
-            content_type: c.content_type.clone(),
-            bytes: c.bytes.clone(),
+            content_type: c.content_type,
+            bytes: c.bytes,
         }));
     }
-    let state = app.state::<SiloState>();
-    match state.artwork(&server_id, &reference).await {
+    match app.state::<SiloState>().artwork(&server_id, &reference).await {
         Ok(img) => {
-            let (ct, bytes, a) = (img.content_type.clone(), img.bytes.clone(), app.clone());
-            // Only what would be served is stored.
-            if raster_image_type(&ct).is_some() {
-                tauri::async_runtime::spawn_blocking(move || a.state::<ArtCache>().put(&dir, &key, &ct, &bytes));
-            }
+            store(app, dir, key, img.clone());
             image_response(Ok(img))
         }
-        // Offline or the server is down: an old copy beats a blank card.
-        Err(e) => match cached {
-            Some(c) => image_response(Ok(ImageData {
-                content_type: c.content_type,
-                bytes: c.bytes,
-            })),
-            None => image_response(Err(e)),
-        },
+        Err(e) => image_response(Err(e)),
+    }
+}
+
+/// `&p=1` on an image URI: a seek-preview sheet (memory only).
+fn image_flag(uri: &str) -> bool {
+    url::Url::parse(uri).is_ok_and(|u| u.query_pairs().any(|(k, v)| k == "p" && v == "1"))
+}
+
+/// Write fetched artwork to the disk cache in the background (only what would be served).
+fn store<R: Runtime>(app: &AppHandle<R>, dir: std::path::PathBuf, key: String, img: ImageData) {
+    if raster_image_type(&img.content_type).is_none() {
+        return;
+    }
+    let a = app.clone();
+    tauri::async_runtime::spawn_blocking(move || a.state::<ArtCache>().put(&dir, &key, &img.content_type, &img.bytes));
+}
+
+/// Seek-preview sheets of the files being played, in memory only (64 MiB, least recently used dropped first).
+pub struct PreviewSheets(pub crate::artcache::MemCache);
+
+impl Default for PreviewSheets {
+    fn default() -> Self {
+        Self(crate::artcache::MemCache::new(64 * 1024 * 1024))
     }
 }
 
@@ -460,6 +497,7 @@ pub async fn artwork_cache_info(app: AppHandle) -> CmdResult<(u64, u64)> {
 /// Delete the artwork cache.
 #[tauri::command]
 pub async fn artwork_cache_clear(app: AppHandle) -> CmdResult<()> {
+    app.state::<PreviewSheets>().0.clear();
     let _ = tauri::async_runtime::spawn_blocking(move || app.state::<ArtCache>().clear(&artwork_dir())).await;
     Ok(())
 }

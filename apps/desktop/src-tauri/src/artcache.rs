@@ -12,11 +12,11 @@
 //! are left out of the cache key so the same image is not stored again and again.
 //! Each file stores its full key and content type in a small header, so a hash collision can never serve the wrong
 //! image.
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 /// Hard upper bound of the cache on disk.
@@ -33,6 +33,10 @@ pub const REVALIDATE: Duration = Duration::from_secs(7 * 24 * 3600);
 const MAX_ENTRY: usize = 8 * 1024 * 1024;
 const MAGIC: &[u8; 4] = b"GRA1";
 const KEEP_FILE: &str = "keep.txt";
+/// At most this many kept names are remembered.
+const MAX_KEEP: usize = 5000;
+/// Marker written once older caches were swept of seek-preview sheets (stored on disk before 0.4.2).
+const SWEPT_FILE: &str = "swept-v2";
 
 #[derive(Debug, Clone)]
 struct Entry {
@@ -75,6 +79,86 @@ pub fn cache_key(server_id: &str, reference: &str) -> String {
         .collect();
     params.sort_unstable();
     format!("{server_id}\n{path}?{}", params.join("&"))
+}
+
+/// Seek-preview sprite sheets (server trickplay keys start with `trickplay/`, silo-server
+/// `internal/trickplay/manifest.go@6791aac` L9, L41-44) only matter while that file plays: they stay in memory.
+pub fn is_preview_sheet(reference: &str) -> bool {
+    reference.split('?').next().unwrap_or_default().contains("trickplay/")
+}
+
+type MemEntry = Arc<(String, Vec<u8>)>;
+
+/// Byte-bounded in-memory LRU for images that must never reach the disk (seek-preview sheets).
+pub struct MemCache {
+    inner: Mutex<(VecDeque<(String, MemEntry)>, usize)>,
+    limit: usize,
+}
+
+impl MemCache {
+    pub fn new(limit: usize) -> Self {
+        Self {
+            inner: Mutex::default(),
+            limit,
+        }
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, (VecDeque<(String, MemEntry)>, usize)> {
+        // A poisoned lock only means an earlier call panicked; the cache stays usable.
+        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    pub fn get(&self, key: &str) -> Option<MemEntry> {
+        let mut g = self.lock();
+        let i = g.0.iter().position(|(k, _)| k == key)?;
+        let e = g.0.remove(i)?;
+        let v = Arc::clone(&e.1);
+        g.0.push_back(e);
+        Some(v)
+    }
+
+    pub fn put(&self, key: String, content_type: String, bytes: Vec<u8>) {
+        if bytes.len() > self.limit / 4 {
+            return;
+        }
+        let mut g = self.lock();
+        if let Some(i) = g.0.iter().position(|(k, _)| *k == key)
+            && let Some((_, old)) = g.0.remove(i)
+        {
+            g.1 = g.1.saturating_sub(old.1.len());
+        }
+        g.1 += bytes.len();
+        g.0.push_back((key, Arc::new((content_type, bytes))));
+        while g.1 > self.limit {
+            let Some((_, old)) = g.0.pop_front() else { break };
+            g.1 = g.1.saturating_sub(old.1.len());
+        }
+    }
+
+    pub fn clear(&self) {
+        let mut g = self.lock();
+        g.0.clear();
+        g.1 = 0;
+    }
+
+    #[cfg(test)]
+    fn bytes(&self) -> usize {
+        self.lock().1
+    }
+}
+
+/// The key stored in a cache file's header, read without loading the image.
+fn stored_key(path: &Path) -> Option<String> {
+    use std::io::Read;
+    let mut f = fs::File::open(path).ok()?;
+    let mut head = [0u8; 6];
+    f.read_exact(&mut head).ok()?;
+    if &head[..4] != MAGIC {
+        return None;
+    }
+    let mut key = vec![0u8; usize::from(u16::from_le_bytes([head[4], head[5]]))];
+    f.read_exact(&mut key).ok()?;
+    String::from_utf8(key).ok()
 }
 
 /// File name for a key: two independent 64-bit FNV-1a hashes (collisions are caught by the stored key anyway).
@@ -127,10 +211,23 @@ impl Index {
         self.total = 0;
         self.loaded = true;
         let _ = fs::create_dir_all(dir);
+        let sweep = !dir.join(SWEPT_FILE).exists();
         if let Ok(list) = fs::read_dir(dir) {
             for e in list.flatten() {
                 let name = e.file_name().to_string_lossy().into_owned();
+                // A write cut short by a crash or power loss was never counted: remove it.
+                if name.ends_with(".tmp") {
+                    let _ = fs::remove_file(e.path());
+                    continue;
+                }
                 if !name.ends_with(".img") {
+                    continue;
+                }
+                // Once per cache: preview sheets older versions stored on disk, and unreadable files.
+                if sweep
+                    && stored_key(&e.path()).is_none_or(|k| is_preview_sheet(k.split_once('\n').map_or("", |x| x.1)))
+                {
+                    let _ = fs::remove_file(e.path());
                     continue;
                 }
                 let Ok(meta) = e.metadata() else { continue };
@@ -156,6 +253,9 @@ impl Index {
                 Some((name.to_owned(), at))
             })
             .collect();
+        if sweep {
+            let _ = fs::write(dir.join(SWEPT_FILE), b"");
+        }
     }
 
     fn kept(&self, name: &str, now: SystemTime) -> bool {
@@ -205,6 +305,14 @@ impl Index {
     fn save_keep(&mut self, now: SystemTime) {
         self.keep
             .retain(|_, at| now.duration_since(*at).unwrap_or_default() < KEEP_FOR);
+        if self.keep.len() > MAX_KEEP {
+            let mut by_age: Vec<(SystemTime, String)> = self.keep.iter().map(|(n, at)| (*at, n.clone())).collect();
+            by_age.sort();
+            let extra = self.keep.len() - MAX_KEEP;
+            for (_, n) in by_age.into_iter().take(extra) {
+                self.keep.remove(&n);
+            }
+        }
         let text: String = self
             .keep
             .iter()
@@ -305,6 +413,14 @@ impl ArtCache {
         }
         idx.keep.clear();
         let _ = fs::remove_file(idx.dir.join(KEEP_FILE));
+        // Anything else that is not ours to keep (stray temp files).
+        if let Ok(list) = fs::read_dir(&idx.dir) {
+            for e in list.flatten() {
+                if e.file_name().to_string_lossy().ends_with(".tmp") {
+                    let _ = fs::remove_file(e.path());
+                }
+            }
+        }
     }
 }
 
@@ -384,5 +500,57 @@ mod tests {
         assert!(!idx.entries.contains_key("old.img"));
         assert!(!idx.entries.contains_key("b.img"));
         let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn startup_sweeps_preview_sheets_and_torn_writes() {
+        let d = dir("sw");
+        let c = ArtCache::default();
+        c.put(&d, &cache_key("s1", "/api/v2/artwork/poster?w=300"), "image/jpeg", b"p");
+        c.put(
+            &d,
+            &cache_key("s1", "https://cdn.example/trickplay/7/3/0.3.jpg?sig=a"),
+            "image/jpeg",
+            b"t",
+        );
+        fs::write(d.join("0000.img.tmp"), b"half").unwrap();
+        // Older versions had no sweep marker.
+        let _ = fs::remove_file(d.join(SWEPT_FILE));
+        let c2 = ArtCache::default();
+        assert!(c2.get(&d, &cache_key("s1", "/api/v2/artwork/poster?w=300")).is_some());
+        assert!(
+            c2.get(&d, &cache_key("s1", "https://cdn.example/trickplay/7/3/0.3.jpg"))
+                .is_none()
+        );
+        assert!(!d.join("0000.img.tmp").exists());
+        assert_eq!(
+            c2.size(&d),
+            fs::metadata(d.join(file_name(&cache_key("s1", "/api/v2/artwork/poster?w=300"))))
+                .unwrap()
+                .len()
+        );
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn memory_cache_is_bounded_and_lru() {
+        assert!(is_preview_sheet("/api/v2/artwork/trickplay/9/1/2.1.jpg?exp=1"));
+        assert!(!is_preview_sheet("/api/v2/artwork/posters/9.jpg?k=trickplay/"));
+        let m = MemCache::new(100);
+        m.put("a".into(), "image/jpeg".into(), vec![0; 20]);
+        m.put("b".into(), "image/jpeg".into(), vec![0; 20]);
+        assert!(m.get("a").is_some()); // a is now the most recent
+        for k in ["c", "d", "e", "f"] {
+            m.put(k.into(), "image/jpeg".into(), vec![0; 20]);
+        }
+        assert!(m.bytes() <= 100);
+        assert!(m.get("a").is_some() && m.get("b").is_none());
+        m.put("huge".into(), "image/jpeg".into(), vec![0; 60]);
+        assert!(
+            m.get("huge").is_none(),
+            "an entry over a quarter of the limit is not kept"
+        );
+        m.clear();
+        assert_eq!(m.bytes(), 0);
     }
 }
