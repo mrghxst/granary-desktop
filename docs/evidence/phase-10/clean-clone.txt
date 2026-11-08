@@ -1,0 +1,32 @@
+Phase 10 step 1: clean-clone build (scratchpad script: gh repo clone into %TEMP%\granary-cleanclone, then each step below). 2026-11-08.
+The first attempt on 1c10c83 failed in cargo test (libmpv_options.rs parallel DLL copy, os error 32); fixed in dd9b7a8 and re-run:
+
+STEP clone exit=0 secs=3
+HEAD=dd9b7a8d4cc647e28e0044ce213d331b90d43418
+STEP pnpm-install-frozen exit=0 secs=17
+STEP fetch-libmpv exit=0 secs=5
+<== C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-libmpv.ps1 -> exit 0 (0.7s)
+<== node scripts/gen-licenses.mjs --check -> exit 0 (4.3s)
+<== cargo fmt --all -- --check -> exit 0 (1.6s)
+<== cargo clippy --workspace --all-targets --locked -- -D warnings -> exit 0 (139.9s)
+<== cargo test --workspace --locked -> exit 0 (175.3s)
+<== pnpm -r --if-present typecheck -> exit 0 (3.2s)
+<== pnpm -r --if-present lint -> exit 0 (11.5s)
+<== pnpm -r --if-present format:check -> exit 0 (1.4s)
+<== pnpm -r --if-present test -> exit 0 (7.2s)
+<== pnpm --filter desktop build -> exit 0 (5.1s)
+<== C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/secret-scan.ps1 -> exit 0 (1.0s)
+VERIFY OK
+STEP verify exit=0 secs=352
+<== exit 0
+<== exit 0
+installer : C:\Users\mr\AppData\Local\Temp\granary-cleanclone\target\release\bundle\nsis\Granary_0.1.0_x64-setup.exe (38 MB)
+sha256    : 729e27a662177acf9b54b94d349a2d9a3441b4b497c816264e34562901c0960a
+STEP release-build exit=0 secs=369
+Granary_0.1.0_x64-setup.exe.sha256       93
+729e27a662177acf9b54b94d349a2d9a3441b4b497c816264e34562901c0960a  Granary_0.1.0_x64-setup.exe
+CLEANCLONE DONE
+cleanclone exit 0
+
+Later commits (6a14e97 and after) change only scripts/install-test.ps1, docs and PROGRESS; nothing that verify or the build use.
+The installer is not byte-identical to the CI build (a78a23e5...); NSIS/Tauri builds embed timestamps and paths (not reproducible, known).
