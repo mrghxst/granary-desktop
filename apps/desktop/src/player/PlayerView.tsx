@@ -57,6 +57,8 @@ import { useLocalPreview } from "./useLocalPreview";
 
 const HIDE_PLAYING_MS = 2500;
 const SPINNER_DELAY_MS = 350;
+/** How long a new skip or next-episode prompt shows by itself while the controls are hidden. */
+const PROMPT_POP_MS = 8000;
 /** OLED: static controls do not stay on a paused picture for long either. */
 const HIDE_PAUSED_MS = 30000;
 /** A paused picture dims the controls first. */
@@ -572,11 +574,10 @@ function PlayerControls() {
   // the player is loading or buffering so the spinner says why the picture stopped, as in other players.
   // It also comes back with every new file (this component remounts per file while the previous one may have hidden
   // the overlay), so the launch screen covers the transparent window instead of showing the desktop through it.
+  // A skip or next-episode prompt that just became available pops up on its own for a few seconds (the up-next
+  // countdown for as long as it runs), even with the controls hidden, so the viewer sees that skipping is possible.
   const launching = p.launch !== null;
-  useEffect(() => {
-    if (!active) return;
-    void player.overlay(visible || loading || launching).catch(() => undefined);
-  }, [active, visible, loading, launching]);
+  const [expired, setExpired] = useState<string | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -940,6 +941,21 @@ function PlayerControls() {
   // Next episode by hand: during credits (also mid-episode ones with an epilogue after them, next to Skip credits) and
   // again in the final stretch whenever the countdown is not running (autoplay off or cancelled).
   const showNext = near.next !== undefined && !counting && (marker?.kind === "credits" || inWindow);
+  const promptKey = counting ? "up-next" : skip ? `skip:${String(skip.to)}` : showNext ? "next" : null;
+  const popped = promptKey !== null && (promptKey === "up-next" || expired !== promptKey);
+  useEffect(() => {
+    if (promptKey === null || promptKey === "up-next") return;
+    const id = setTimeout(() => {
+      setExpired(promptKey);
+    }, PROMPT_POP_MS);
+    return () => {
+      clearTimeout(id);
+    };
+  }, [promptKey]);
+  useEffect(() => {
+    if (!active) return;
+    void player.overlay(visible || loading || launching || popped).catch(() => undefined);
+  }, [active, visible, loading, launching, popped]);
 
   const contextActions: MenuAction[] = [
     {

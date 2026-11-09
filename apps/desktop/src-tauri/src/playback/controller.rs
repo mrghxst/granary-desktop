@@ -191,6 +191,8 @@ pub struct Controller {
     sidecars: Vec<(String, String)>,
     /// Sidecar subtitle files, downloaded in the background as soon as the plan names them (by server URL).
     sub_files: SubFiles,
+    /// Whether this load's sidecars were queued for download (after the first frame, so startup has the line).
+    sidecars_prefetched: bool,
     /// `gapless-audio` value to put back once an audio switch that kept the open audio device has landed.
     gapless_restore: Option<String>,
 }
@@ -199,6 +201,8 @@ pub struct Controller {
 const SIDECAR_WAIT: Duration = Duration::from_secs(5);
 /// Larger sidecar files are left to mpv (a subtitle file is rarely over a few MB, even heavily typeset ASS).
 const SIDECAR_MAX: u64 = 16 << 20;
+/// At most this many separate subtitle files are downloaded ahead per load.
+const SIDECAR_AHEAD: usize = 8;
 
 /// Sidecar subtitle downloads by server URL: one per file, shared by the background prefetch and a selection that
 /// arrives while it runs. `None` inside means the download failed (mpv then reads the URL itself).
@@ -327,6 +331,7 @@ impl Controller {
             sync_check: None,
             sidecars: Vec::new(),
             sub_files: SubFiles::default(),
+            sidecars_prefetched: false,
             gapless_restore: None,
             stop_id: None,
             stopped: false,
@@ -451,7 +456,7 @@ impl Controller {
         self.resume_after_switch = false;
         self.sync_check = None;
         self.sidecars.clear();
-        self.prefetch_sidecars();
+        self.sidecars_prefetched = false;
         let info = self.plan_info(relayed);
         tracing::info!(
             session = %self.session_id,
@@ -563,6 +568,11 @@ impl Controller {
                         ..SyncCheck::default()
                     });
                 }
+                // Playback runs: download the sidecar subtitles now, never while the stream starts.
+                if !self.sidecars_prefetched {
+                    self.sidecars_prefetched = true;
+                    self.prefetch_sidecars();
+                }
                 // First frame of the load, or a seek finished.
                 if !self.started_reported || before.phase == Phase::Seeking {
                     self.started_reported = true;
@@ -656,7 +666,7 @@ impl Controller {
                 }
             },
             (_, _, Some(a)) if sub.mode != "off" && sub.mode != "burn_in" => {
-                if let Err(e) = self.add_sidecar(&a.url.clone()).await {
+                if let Err(e) = self.add_sidecar(&a.url.clone(), Duration::ZERO).await {
                     tracing::warn!(error = %e, "subtitle sidecar could not be added");
                 }
             }
@@ -682,14 +692,18 @@ impl Controller {
         })
     }
 
-    /// Start downloading every sidecar subtitle the plan names, so selecting one later only parses it.
+    /// Start downloading the plan's separate subtitle files (external and downloaded ones), so selecting one later only
+    /// parses it. Embedded tracks are never fetched ahead: the server extracts each one from the whole file, which on
+    /// a large remux competes with the video stream (0.4.3 regression). mpv selects those inside the stream instead.
     fn prefetch_sidecars(&mut self) {
-        let sub = &self.plan.subtitle;
-        let raws: Vec<String> = sub
+        let raws: Vec<String> = self
+            .plan
+            .subtitle
             .inventory
             .iter()
+            .filter(|t| t.source != "embedded")
             .filter_map(|t| t.url.clone())
-            .chain(sub.artifact.as_ref().map(|a| a.url.clone()))
+            .take(SIDECAR_AHEAD)
             .collect();
         for raw in raws {
             let Ok((url, _)) = self.media_url(&raw) else { continue };
@@ -705,7 +719,8 @@ impl Controller {
 
     /// Show the sidecar subtitle at `raw` (a server URL): from memory when it was downloaded ahead, so mpv only parses
     /// it; a track added before is selected again instead of stacking another copy.
-    async fn add_sidecar(&mut self, raw: &str) -> Result<(), ControllerError> {
+    /// Waits up to `wait` for a download still running; zero at startup, so the first frame never waits for it.
+    async fn add_sidecar(&mut self, raw: &str, wait: Duration) -> Result<(), ControllerError> {
         if let Some((_, sid)) = self.sidecars.iter().find(|(r, _)| r == raw) {
             let sid = sid.clone();
             self.set("sid", &sid);
@@ -715,11 +730,15 @@ impl Controller {
         let cell = self.sub_files.cell(raw);
         let fetch = url.clone();
         // Normally done long before; a download still running is waited for briefly, then mpv reads the URL itself.
-        let file = tokio::time::timeout(SIDECAR_WAIT, cell.get_or_init(|| download_subtitle(fetch)))
-            .await
-            .ok()
-            .cloned()
-            .flatten();
+        let file = match cell.get() {
+            Some(done) => done.clone(),
+            None if wait.is_zero() => None,
+            None => tokio::time::timeout(wait, cell.get_or_init(|| download_subtitle(fetch)))
+                .await
+                .ok()
+                .cloned()
+                .flatten(),
+        };
         let target = match &file {
             Some(bytes) => format!("hex://{}", hex(bytes)),
             None => url,
@@ -766,7 +785,7 @@ impl Controller {
                     .find(|t| &t.track_id == track_id)
                     .and_then(|t| t.url.clone())
                     .ok_or_else(|| ControllerError::Player("no such subtitle".into()))?;
-                self.add_sidecar(&url).await?;
+                self.add_sidecar(&url, SIDECAR_WAIT).await?;
             }
         }
         Ok(())
@@ -1898,12 +1917,23 @@ mod tests {
         });
         let mut r = rig(args()).await;
         let c = &mut r.controller;
-        c.plan.subtitle.inventory = vec![SubtitleInventoryItem {
-            track_id: "ext-1".into(),
-            url: Some(format!("http://127.0.0.1:{port}/sub.srt")),
-            ..SubtitleInventoryItem::default()
-        }];
+        c.plan.subtitle.inventory = vec![
+            SubtitleInventoryItem {
+                track_id: "ext-1".into(),
+                source: "external".into(),
+                url: Some(format!("http://127.0.0.1:{port}/sub.srt")),
+                ..SubtitleInventoryItem::default()
+            },
+            // Embedded: the server would extract it from the whole file, so it is never fetched ahead.
+            SubtitleInventoryItem {
+                track_id: "emb-2".into(),
+                source: "embedded".into(),
+                url: Some(format!("http://127.0.0.1:{port}/2.vtt")),
+                ..SubtitleInventoryItem::default()
+            },
+        ];
         c.prefetch_sidecars();
+        tokio::time::sleep(Duration::from_millis(200)).await;
         r.backend.set_property("sid", "3").unwrap();
         let c = &mut r.controller;
         c.select_subtitle(&SubtitleChoice::External {

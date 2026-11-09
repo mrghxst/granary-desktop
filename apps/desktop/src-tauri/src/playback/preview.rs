@@ -37,6 +37,8 @@ const PACE: Duration = Duration::from_millis(300);
 const WARM_DELAY: Duration = Duration::from_secs(4);
 /// The background fill waits this long after the last hover request.
 const HOVER_QUIET: Duration = Duration::from_millis(1500);
+/// The background fill waits until the main player has this many seconds buffered.
+const WARM_CACHE: f64 = 20.0;
 const OPEN_TIMEOUT: Duration = Duration::from_secs(20);
 const FRAME_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -179,7 +181,17 @@ impl Sched {
         let pick = (0..self.fetched.len())
             .find(|&i| Some(self.fetched[i].key) == wanted)
             .or_else(|| (0..self.fetched.len()).max_by_key(|&i| self.fetched[i].asked))?;
-        Some(self.fetched.swap_remove(pick))
+        let next = self.fetched.swap_remove(pick);
+        // Hover keyframes the pointer has left are not decoded: that would only delay the one it is on (AIOStreams does
+        // the same). Background ones are kept; filling the cache is their purpose.
+        let (keep, stale): (Vec<_>, Vec<_>) = std::mem::take(&mut self.fetched)
+            .into_iter()
+            .partition(|f| f.asked == 0 || Some(f.key) == wanted);
+        self.fetched = keep;
+        for f in stale {
+            self.busy.remove(&f.key);
+        }
+        Some(next)
     }
 
     /// Store a decoded frame; whether the page should get it (newer than what it shows, or the wanted one).
@@ -486,11 +498,17 @@ pub async fn player_preview_warm(
     Ok(())
 }
 
-/// Whether the main player can spare bandwidth: a file is playing or paused, not loading, seeking or buffering.
+/// Whether the main player can spare bandwidth: a file is playing or paused, not loading, seeking or buffering, and
+/// at least [`WARM_CACHE`] is buffered ahead (on a large remux the first seconds after a start or seek need the whole
+/// line).
 fn healthy(app: &AppHandle) -> bool {
     let host = app.state::<PlayerHost>();
-    tauri::async_runtime::block_on(host.ask(Cmd::State))
-        .is_some_and(|s| s.active && !s.buffering && matches!(s.phase, Some(Phase::Playing | Phase::Paused)))
+    let playing = tauri::async_runtime::block_on(host.ask(Cmd::State))
+        .is_some_and(|s| s.active && !s.buffering && matches!(s.phase, Some(Phase::Playing | Phase::Paused)));
+    playing
+        && tauri::async_runtime::block_on(host.ask(Cmd::CacheAhead))
+            .flatten()
+            .is_none_or(|ahead| ahead >= WARM_CACHE)
 }
 
 fn push(app: &AppHandle, generation: u64, key: u64, url: Arc<String>) {
@@ -734,7 +752,7 @@ mod tests {
         want(&mut s, 20.0);
         want(&mut s, 30.0);
         assert_eq!(s.take_wanted().map(|j| (j.1, j.2)), Some((30_000, 3)));
-        // Both arrive; the wanted one decodes first, the older one is still decoded after it (it fills the cache).
+        // Both arrive; the wanted one decodes first, and the one the pointer left is dropped (not decoded, not busy).
         s.fetched.push(Fetched {
             asked: 1,
             key: 10_000,
@@ -751,8 +769,9 @@ mod tests {
             s.finish(30_000, 3, Some(Arc::new("c".into()))),
             "the wanted frame is pushed"
         );
-        // An older frame arriving after a newer one was shown is cached but not pushed.
-        assert_eq!(s.take_fetched().map(|f| f.key), Some(10_000));
+        assert!(s.take_fetched().is_none());
+        assert!(!s.busy.contains(&10_000));
+        // An older frame finishing after a newer one was shown is cached but not pushed.
         assert!(!s.finish(10_000, 1, Some(Arc::new("a".into()))));
         assert!(s.frames.keys.contains_key(&10_000));
         // A failed key is not retried until the pointer moves to another key.

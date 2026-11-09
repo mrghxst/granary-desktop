@@ -42,6 +42,8 @@ const CHUNK: u64 = 256 * 1024;
 const MAX_ELEMENT: u64 = 48 * 1024 * 1024;
 /// How far into a cluster to look for the keyframe when the index has no relative position.
 const MAX_CLUSTER_SCAN: u64 = 24 * 1024 * 1024;
+/// A keyframe this close to its cluster start is read in the same request as the cluster header.
+const NEAR_BLOCK: u64 = 256 * 1024;
 
 /// Random access to the bytes of a file: HTTP range requests in the app, a local file in tests.
 pub trait RangeSource {
@@ -376,17 +378,32 @@ impl MkvIndex {
     }
 
     /// The keyframe's block payload (track number vint + timestamp + flags + frame data) for `cue`.
-    fn keyframe(&self, w: &mut Window<'_, impl RangeSource + ?Sized>, cue: &Cue) -> io::Result<Vec<u8>> {
+    /// The keyframe block for `cue` and where it starts. `guess` sizes the block read (see [`Self::frame_file_sized`]).
+    /// Like AIOStreams' reader: a block near the cluster start comes in one request with the cluster header; one deep
+    /// inside the cluster (audio blocks first, common in large remuxes) is read at its own offset, so the bytes before
+    /// it are never downloaded.
+    fn keyframe(
+        &self,
+        w: &mut Window<'_, impl RangeSource + ?Sized>,
+        cue: &Cue,
+        guess: u64,
+    ) -> io::Result<(Vec<u8>, u64)> {
         let cluster_off = self.segment_start + cue.cluster;
+        w.chunk = match cue.relative {
+            Some(rel) if rel < NEAR_BLOCK => 12 + rel + guess,
+            Some(_) => 12,
+            None => guess.max(CHUNK * 2),
+        };
         let cluster = w.header_at(cluster_off)?;
         if cluster.id != CLUSTER {
             return Err(bad("cue does not point at a cluster"));
         }
         let data_start = cluster_off + cluster.len as u64;
+        w.chunk = guess.max(4096);
         if let Some(rel) = cue.relative
             && let Ok(Some(block)) = self.block_at(w, data_start + rel)
         {
-            return Ok(block);
+            return Ok((block, data_start + rel));
         }
         // No (usable) relative position: walk the cluster's children to the first keyframe of the video track.
         let end = cluster.size.map_or(u64::MAX, |s| data_start + s);
@@ -397,7 +414,7 @@ impl MkvIndex {
                 break;
             }
             if let Some(block) = self.block_at(w, off)? {
-                return Ok(block);
+                return Ok((block, off));
             }
             off += h.len as u64 + h.size.ok_or_else(|| bad("unknown-size cluster child"))?;
         }
@@ -447,8 +464,8 @@ impl MkvIndex {
         self.frame_file_sized(src, cue, CHUNK).map(|f| f.file)
     }
 
-    /// Like [`Self::frame_file`], reading `first` bytes from the cluster start in the first request (a guess of the
-    /// keyframe's size, so most keyframes take one request), and reporting what the keyframe really needed.
+    /// Like [`Self::frame_file`], reading `first` bytes of the keyframe block in its request (a guess of the
+    /// keyframe's size, so most keyframes take one request), and reporting what the block really needed.
     pub fn frame_file_sized(
         &self,
         src: &mut (impl RangeSource + ?Sized),
@@ -456,8 +473,8 @@ impl MkvIndex {
         first: u64,
     ) -> io::Result<FrameFile> {
         let mut w = Window::with_chunk(src, first);
-        let block = self.keyframe(&mut w, cue)?;
-        let needed = w.reach.saturating_sub(self.segment_start + cue.cluster);
+        let (block, at) = self.keyframe(&mut w, cue, first)?;
+        let needed = w.reach.saturating_sub(at);
         let reads = w.reads;
         let (_, n) = read_vint(&block).ok_or_else(|| bad("block track"))?;
         let mut simple = Vec::with_capacity(block.len());
@@ -475,7 +492,7 @@ impl MkvIndex {
 /// A single-frame file and what reading its keyframe cost.
 pub struct FrameFile {
     pub file: Vec<u8>,
-    /// Bytes from the cluster start the keyframe needed (to size the next first read).
+    /// Bytes the keyframe block needed from its own start (to size the next block read).
     pub needed: u64,
     /// Range requests made.
     pub reads: u32,
@@ -565,6 +582,11 @@ mod tests {
 
     /// A small file: audio track 1, video track 2, two clusters, Cues after the clusters, found via SeekHead.
     fn sample(relative: bool) -> Vec<u8> {
+        sample_with(relative, b"aaaa")
+    }
+
+    /// Like [`sample`], with `audio` as the audio block before the first video keyframe.
+    fn sample_with(relative: bool, audio_payload: &[u8]) -> Vec<u8> {
         let audio = element(
             TRACK_ENTRY,
             &[uint_element(TRACK_NUMBER, 1), uint_element(TRACK_TYPE, 2)].concat(),
@@ -575,7 +597,7 @@ mod tests {
             CLUSTER,
             &[
                 uint_element(CLUSTER_TIMESTAMP, 0),
-                element(SIMPLE_BLOCK, &block(1, b"aaaa", true)),
+                element(SIMPLE_BLOCK, &block(1, audio_payload, true)),
                 element(SIMPLE_BLOCK, &block(2, b"KEY-ONE", true)),
             ]
             .concat(),
@@ -616,7 +638,7 @@ mod tests {
         };
         // Relative positions: in c1 the video block follows the 9+1 byte timestamp and the audio block.
         let ts_len = uint_element(CLUSTER_TIMESTAMP, 0).len() as u64;
-        let audio_len = element(SIMPLE_BLOCK, &block(1, b"aaaa", true)).len() as u64;
+        let audio_len = element(SIMPLE_BLOCK, &block(1, audio_payload, true)).len() as u64;
         let cues = element(
             CUES,
             &[
@@ -683,6 +705,30 @@ mod tests {
                 assert_eq!(&tail[4..], want);
             }
         }
+    }
+
+    /// Counts the bytes a read returned.
+    struct Counted(Mem, u64);
+
+    impl RangeSource for Counted {
+        fn read_at(&mut self, offset: u64, len: u64) -> io::Result<Vec<u8>> {
+            let b = self.0.read_at(offset, len)?;
+            self.1 += b.len() as u64;
+            Ok(b)
+        }
+    }
+
+    #[test]
+    fn a_keyframe_deep_in_its_cluster_is_read_at_its_own_offset() {
+        // 600 KiB of audio before the video keyframe: none of it is downloaded, and the size learned is the block's.
+        let data = sample_with(true, &vec![b'a'; 600 * 1024]);
+        let idx = MkvIndex::load(&mut Mem(data.clone(), 0)).unwrap();
+        let cue = idx.cue_for(0.0).unwrap();
+        let mut src = Counted(Mem(data, 0), 0);
+        let f = idx.frame_file_sized(&mut src, &cue, 4096).unwrap();
+        assert!(src.1 < 16 * 1024, "read {} bytes", src.1);
+        assert!(f.needed < 64, "needed {}", f.needed);
+        assert!(f.file.ends_with(b"KEY-ONE"));
     }
 
     #[test]

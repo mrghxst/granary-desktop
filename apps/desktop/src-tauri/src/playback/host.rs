@@ -200,6 +200,8 @@ pub enum Cmd {
     Stats(oneshot::Sender<serde_json::Value>),
     /// The stream a seek-preview handle may open, if any (ADR-0009).
     PreviewSource(oneshot::Sender<Option<String>>),
+    /// Seconds the main player has buffered ahead (`demuxer-cache-duration`), if playing.
+    CacheAhead(oneshot::Sender<Option<f64>>),
     State(oneshot::Sender<UiState>),
     MediaKey(&'static str),
     Event(MpvEvent),
@@ -453,6 +455,13 @@ impl Runner {
                         .as_ref()
                         .and_then(|c| c.preview_url().map(str::to_owned)),
                 );
+            }
+            Cmd::CacheAhead(reply) => {
+                let ahead = self
+                    .active_backend()
+                    .and_then(|b| b.get_property("demuxer-cache-duration"))
+                    .and_then(|v| v.parse::<f64>().ok());
+                let _ = reply.send(ahead);
             }
             Cmd::State(reply) => {
                 let _ = reply.send(self.state.clone());

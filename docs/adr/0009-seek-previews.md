@@ -118,6 +118,22 @@
     256 KiB and 8 MiB. A short read only fetches the missing tail.
   - The background fill of the grid starts 4 s after playback, pauses while the pointer moves, and takes at most one
     keyframe per 300 ms. Answers about an earlier file are dropped by generation.
+- **Revision 6 (2026-11-09, 0.4.4): large files.** After 0.4.3, previews of small files were quick, but large ones
+  stayed slow and unreliable. We compared the read path with AIOStreams' (`container/src/mkv.rs`, `http.rs`
+  @87dee2c, read as data) and found three differences:
+  - **Reading from the cluster start.** Our reader always started at the cluster, then reached the block at
+    CueRelativePosition. In large remuxes audio blocks often come first, so the block can sit hundreds of KB to
+    MBs in. Those bytes were downloaded for nothing. They were also counted as the keyframe's size, so the read size
+    soon reached the 8 MiB cap. AIOStreams reads a near block (under 256 KiB in) with the cluster header and a far
+    one at its own offset. Granary now does the same, and learns only the block's own size
+    (`a_keyframe_deep_in_its_cluster_is_read_at_its_own_offset`).
+  - **Stale decodes.** Keyframes fetched for spots the pointer has left were still decoded. Like AIOStreams' render
+    thread, they are now dropped. Background-fill keyframes are kept.
+  - **One shared connection.** The relay's media client allowed HTTP/2. Through an HTTPS proxy, the video stream,
+    preview reads and subtitle downloads then shared one TCP connection and its flow-control window. Media requests
+    are now HTTP/1.1, one connection each, as with mpv and AIOStreams' `ureq` agent.
+  - The background fill also waits until the main player has 20 s buffered (`demuxer-cache-duration`), so it never
+    takes bandwidth from a start or a seek.
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 

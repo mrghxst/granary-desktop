@@ -19,6 +19,9 @@ pub fn forced(wid: isize) -> Vec<(String, String)> {
         // host decides what happens next (up next, back to details). A user mpv.conf cannot change this (phase-9 L1).
         ("idle", "yes".into()),
         ("keep-open", "yes".into()),
+        // Keep the video output (black) between titles and while one loads. The main window is transparent for the
+        // overlay, so without it the desktop showed through while the next episode or a slow start loaded.
+        ("force-window", "yes".into()),
         ("load-scripts", "no".into()),
         // The host owns SMTC and the screensaver policy (Phase 8).
         ("media-controls", "no".into()),
@@ -150,6 +153,7 @@ mod tests {
         assert_eq!(get(&o, "load-scripts"), Some("no"));
         assert_eq!(get(&o, "idle"), Some("yes"));
         assert_eq!(get(&o, "keep-open"), Some("yes"));
+        assert_eq!(get(&o, "force-window"), Some("yes"));
         assert_eq!(get(&o, "video-sync"), Some("audio"));
         assert_eq!(get(&o, "vo"), Some("gpu-next"));
         assert_eq!(o.iter().filter(|(k, _)| k == "config").count(), 1);

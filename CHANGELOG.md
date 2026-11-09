@@ -5,6 +5,26 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-11-09
+Fixes for 0.4.3: fast, reliable starts again, quicker seek previews on large files, no desktop showing through the
+player, and skip prompts that appear by themselves.
+
+### Fixed
+- Starting playback was slow, and large files sometimes failed or disconnected (0.4.3). Granary downloaded every
+  subtitle track in advance, including embedded ones, which the server extracts from the whole video file. That
+  competed with the video stream. Now only separate subtitle files are downloaded in advance, and only after the
+  picture is up. Embedded subtitles are read from the stream as before.
+- Media requests (video stream, seek previews, subtitles) each use their own connection to the server, so preview
+  downloads can no longer slow the video stream down.
+- Seek previews on large files: a keyframe deep inside its cluster is now read on its own. Before, everything from
+  the cluster start was downloaded, which on large remuxes made each preview read several megabytes. Frames the
+  pointer has already left are no longer decoded, and the background fill waits until 20 s of the video are
+  buffered.
+- The desktop no longer shows through the player while a title loads, or when the next episode starts. The video
+  surface now stays black between titles.
+- Skip intro, Skip recap, Skip credits and Next episode now appear by themselves for 8 s when they become available,
+  even with the controls hidden. The up-next countdown stays visible while it runs.
+
 ## [0.4.3] - 2026-11-09
 Seek previews that keep up with the pointer, a rendering quality setting, opt-in RTX and Intel Video Super
 Resolution, a Dolby Vision switch, and instant external subtitles.

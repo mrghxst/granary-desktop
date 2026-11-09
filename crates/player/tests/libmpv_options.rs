@@ -244,3 +244,48 @@ fn gpu_video_filters_run() {
         mpv.quit();
     }
 }
+
+/// `force-window=yes` keeps the video output (black) while idle, after `stop` and while the next file loads, so the
+/// transparent main window never shows the desktop between titles. Opens a window, so manual.
+#[test]
+#[ignore = "manual: needs a GPU and opens a window"]
+fn video_output_stays_between_titles() {
+    use granary_player::PlayerBackend;
+    use std::time::{Duration, Instant};
+    if !libmpv_available() {
+        return;
+    }
+    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-media/sdr_h264_1080p.mkv");
+    let configured = |mpv: &Mpv| mpv.get_property("vo-configured").unwrap_or_default();
+    let wait = |mpv: &Mpv, want: &str| {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(10) && configured(mpv) != want {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        configured(mpv)
+    };
+    for force in ["yes", "no"] {
+        let opts: Vec<(String, String)> = [
+            ("vo", "gpu-next"),
+            ("gpu-api", "d3d11"),
+            ("ao", "null"),
+            ("idle", "yes"),
+            ("keep-open", "yes"),
+            ("force-window", force),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+        let mpv = Mpv::new(&opts).unwrap();
+        let idle = wait(&mpv, "yes");
+        mpv.command(&["loadfile", file.to_str().unwrap()]).unwrap();
+        let playing = wait(&mpv, "yes");
+        mpv.command(&["stop"]).unwrap();
+        std::thread::sleep(Duration::from_millis(500));
+        let stopped = configured(&mpv);
+        println!("force-window={force}: idle={idle} playing={playing} after stop={stopped}");
+        if force == "yes" {
+            assert_eq!((idle.as_str(), stopped.as_str()), ("yes", "yes"));
+        }
+    }
+}

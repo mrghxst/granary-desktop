@@ -219,6 +219,11 @@ impl HttpSiloApi {
         let media = reqwest::Client::builder()
             .user_agent(format!("Granary/{} (Windows)", device.client_version))
             .redirect(reqwest::redirect::Policy::none())
+            // One TCP connection per media request (as mpv and other players do): over HTTP/2 the video stream, seek
+            // previews and subtitle downloads would share one connection and its flow-control window, so a burst of
+            // preview reads could stall a large stream.
+            .http1_only()
+            .pool_max_idle_per_host(4)
             .connect_timeout(Duration::from_secs(6))
             .read_timeout(Duration::from_secs(30))
             .build()
