@@ -5,6 +5,18 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Seek previews of 4K HEVC files whose keyframes have several slices (disc remuxes): the slices are decoded side by
+  side instead of one after the other. On a disc-like 2160p test clip a keyframe takes 65 to 140 ms instead of 155
+  to 520 ms. The first such keyframe of a file is checked against the picture decoded whole; if they differ, the
+  file is decoded as before.
+- The first keyframes of a high-bitrate file are fetched with one request instead of two (the first read is sized
+  from the file's byte rate).
+
+### Added
+- Stats overlay: how seek previews are made for the playing file, and what the last keyframe download and the last
+  decode cost.
+
 ## [0.4.6] - 2026-11-11
 Posters on the movie and series pages, the app opens where you left it, and seek previews that are quicker on a
 sweep and step back when playback needs the connection.

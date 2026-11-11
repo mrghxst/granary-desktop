@@ -1,11 +1,12 @@
-//! Seek-bar previews for direct-played files without server trickplay (ADR-0009, revision 5). One session per source,
+//! Seek-bar previews for direct-played files without server trickplay (ADR-0009, revisions 5 to 7). One session per source,
 //! opened in the background on the first request, so asking never blocks:
 //! - the page says which time the pointer is over ([`player_preview_want`]); the newest request wins;
 //! - Matroska files are read through their keyframe index: [`FETCHERS`] threads fetch the wanted keyframe (one range
 //!   request each, sized from the keyframes before it), so a link slow to answer keeps up with the pointer;
 //! - one thread decodes, the wanted keyframe first, else the newest fetched, and pushes each frame newer than the one
 //!   on screen to the page ([`EVENT_PREVIEW`]); the page shows the latest it got until the exact one arrives; a second
-//!   decoder joins only while the pointer is on the bar and the first is busy;
+//!   decoder joins only while the pointer is on the bar and the first is busy; HEVC keyframes of several slices are
+//!   decoded slice by slice on the source's strip decoders (`granary_player::hevc`);
 //! - while nobody hovers and the main player is healthy, a paced background fill decodes a coarse grid, so a far jump
 //!   has a stand-in at once;
 //! - playback comes first ([`Room`]): while the main player is short of buffered video, hovering fetches one keyframe
@@ -112,7 +113,8 @@ struct Fetched {
     /// The request it answers; 0 for the background fill.
     asked: u64,
     key: u64,
-    file: Vec<u8>,
+    /// The keyframe block as fetched.
+    block: Vec<u8>,
 }
 
 /// Scheduling state of one session.
@@ -148,6 +150,9 @@ struct Sched {
     decoding: bool,
     /// When the source failed to open.
     failed_at: Option<Instant>,
+    /// What the last keyframe download and the last decode cost (shown in the stats overlay).
+    fetch_cost: Option<(Duration, usize)>,
+    decode_cost: Option<Duration>,
     closed: bool,
 }
 
@@ -173,6 +178,8 @@ impl Sched {
             fetching: 0,
             decoding: false,
             failed_at: None,
+            fetch_cost: None,
+            decode_cost: None,
             closed: false,
         }
     }
@@ -474,6 +481,35 @@ impl PreviewState {
         *lock(&self.session) = None;
     }
 
+    /// Rows for the stats overlay: how previews are made for the playing file and what the last one cost, so a
+    /// slow link and a slow decode can be told apart.
+    pub fn summary(&self) -> Vec<(&'static str, String)> {
+        let Some(session) = lock(&self.session).clone() else {
+            return Vec::new();
+        };
+        let s = lock(&session.shared.state);
+        let how = match &s.mode {
+            Mode::Opening => "opening",
+            #[cfg(windows)]
+            Mode::Index(f) if f.split() == Some(true) => "keyframe index, slice by slice",
+            #[cfg(windows)]
+            Mode::Index(_) => "keyframe index",
+            Mode::Seek => "stream seeks",
+            Mode::Failed => "unavailable",
+        };
+        let mut rows = vec![("preview", format!("{how}, {} frames kept", s.frames.keys.len()))];
+        if let Some((took, bytes)) = s.fetch_cost {
+            rows.push((
+                "preview-fetch",
+                format!("{} ms, {:.2} MB", took.as_millis(), bytes as f64 / 1e6),
+            ));
+        }
+        if let Some(took) = s.decode_cost {
+            rows.push(("preview-decode", format!("{} ms", took.as_millis())));
+        }
+        rows
+    }
+
     /// The session for `source`, opening it (in the background) when the source changed.
     fn session_for(&self, app: &AppHandle, source: &str) -> Arc<Session> {
         let mut current = lock(&self.session);
@@ -646,6 +682,7 @@ fn deliver(
     generation: u64,
     (key, asked): (u64, u64),
     jpeg: Result<Vec<u8>, granary_player::PlayerError>,
+    took: Duration,
     first: bool,
 ) {
     let url = match jpeg {
@@ -659,6 +696,9 @@ fn deliver(
         let mut s = lock(&shared.state);
         if first {
             s.decoding = false;
+        }
+        if url.is_some() {
+            s.decode_cost = Some(took);
         }
         s.finish(key, asked, url.clone())
     };
@@ -740,7 +780,7 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
                     return;
                 }
                 let next = if indexed {
-                    s.take_fetched().map(|f| (f.key, f.asked, Ok(f.file)))
+                    s.take_fetched().map(|f| (f.key, f.asked, Ok(f.block)))
                 } else {
                     s.take_wanted().map(|(at, key, asked)| (key, asked, Err(at)))
                 };
@@ -754,11 +794,14 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
         // The second decoder may take what else is fetched.
         shared.wake.notify_all();
         let (key, asked, work) = job;
+        let started = Instant::now();
         let jpeg = match work {
             Ok(file) => thumb.decode(file, FRAME_TIMEOUT),
             Err(at) => thumb.frame(at, FRAME_TIMEOUT),
         };
-        deliver(app, shared, generation, (key, asked), jpeg, true);
+        let took = started.elapsed();
+        tracing::debug!(key, ms = took.as_millis() as u64, "seek preview decoded");
+        deliver(app, shared, generation, (key, asked), jpeg, took, true);
     }
 }
 
@@ -794,8 +837,15 @@ fn second_decoder(app: &AppHandle, shared: &Shared, fetcher: granary_player::thu
             }
         }
         let Some(t) = thumb.as_mut() else { return };
-        let jpeg = t.decode(job.file, FRAME_TIMEOUT);
-        deliver(app, shared, generation, (job.key, job.asked), jpeg, false);
+        let started = Instant::now();
+        let jpeg = t.decode(job.block, FRAME_TIMEOUT);
+        let took = started.elapsed();
+        tracing::debug!(
+            key = job.key,
+            ms = took.as_millis() as u64,
+            "seek preview decoded (second decoder)"
+        );
+        deliver(app, shared, generation, (job.key, job.asked), jpeg, took, false);
     }
 }
 
@@ -850,14 +900,26 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
             s.warm_after = Instant::now() + Duration::from_millis(500);
             continue;
         }
+        let started = Instant::now();
         let fetched = fetcher.fetch(at);
+        let took = started.elapsed();
         let mut s = lock(&shared.state);
         s.fetching -= 1;
+        if let Ok((_, block)) = &fetched {
+            tracing::debug!(
+                key,
+                ms = took.as_millis() as u64,
+                bytes = block.len(),
+                warm,
+                "seek preview keyframe fetched"
+            );
+            s.fetch_cost = Some((took, block.len()));
+        }
         if warm {
             s.warm_after = Instant::now() + PACE;
         }
         match fetched {
-            Ok((_, file)) => s.fetched.push(Fetched { asked, key, file }),
+            Ok((_, block)) => s.fetched.push(Fetched { asked, key, block }),
             Err(e) => {
                 tracing::debug!(error = %e, at, "seek preview keyframe not fetched");
                 s.busy.remove(&key);
@@ -969,12 +1031,12 @@ mod tests {
         s.fetched.push(Fetched {
             asked: 1,
             key: 10_000,
-            file: Vec::new(),
+            block: Vec::new(),
         });
         s.fetched.push(Fetched {
             asked: 3,
             key: 30_000,
-            file: Vec::new(),
+            block: Vec::new(),
         });
         let first = s.take_fetched().map(|f| f.key);
         assert_eq!(first, Some(30_000));
@@ -1065,7 +1127,7 @@ mod tests {
         s.fetched.push(Fetched {
             asked: 0,
             key: 1,
-            file: Vec::new(),
+            block: Vec::new(),
         });
         s.last_hover = Some(now);
         assert!(s.take_fetched_second(now).is_none(), "the first decoder is free");

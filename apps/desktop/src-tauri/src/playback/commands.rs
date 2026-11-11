@@ -463,8 +463,17 @@ pub async fn player_subtitle(host: State<'_, PlayerHost>, choice: SubtitleChoice
 }
 
 #[tauri::command]
-pub async fn player_stats(host: State<'_, PlayerHost>) -> CmdResult<serde_json::Value> {
-    Ok(host.ask(Cmd::Stats).await.unwrap_or_default())
+pub async fn player_stats(
+    host: State<'_, PlayerHost>,
+    preview: State<'_, super::preview::PreviewState>,
+) -> CmdResult<serde_json::Value> {
+    let mut stats = host.ask(Cmd::Stats).await.unwrap_or_default();
+    if let Some(map) = stats.as_object_mut() {
+        for (k, v) in preview.summary() {
+            map.insert(k.to_owned(), serde_json::json!(v));
+        }
+    }
+    Ok(stats)
 }
 
 #[tauri::command]

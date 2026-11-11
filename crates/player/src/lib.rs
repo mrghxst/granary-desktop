@@ -3,6 +3,7 @@
 
 pub mod backend;
 pub mod events;
+pub mod hevc;
 pub mod mkv;
 pub mod options;
 pub mod range;

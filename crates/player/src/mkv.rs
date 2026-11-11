@@ -21,6 +21,16 @@ const TRACK_ENTRY: u32 = 0xAE;
 const TRACK_NUMBER: u32 = 0xD7;
 const TRACK_TYPE: u32 = 0x83;
 const VIDEO: u32 = 0xE0;
+const CODEC_ID: u32 = 0x86;
+const CODEC_PRIVATE: u32 = 0x63A2;
+const CONTENT_ENCODINGS: u32 = 0x6D80;
+const PIXEL_WIDTH: u32 = 0xB0;
+const PIXEL_HEIGHT: u32 = 0xBA;
+const DISPLAY_WIDTH: u32 = 0x54B0;
+const DISPLAY_HEIGHT: u32 = 0x54BA;
+const DISPLAY_UNIT: u32 = 0x54B2;
+/// PixelCropBottom, -Top, -Left, -Right.
+const PIXEL_CROPS: [u32; 4] = [0x54AA, 0x54BB, 0x54CC, 0x54DD];
 const COLOUR: u32 = 0x55B0;
 const TRANSFER: u32 = 0x55BA;
 const CUES: u32 = 0x1C53_BB6B;
@@ -215,6 +225,8 @@ pub struct MkvIndex {
     track_entry: Vec<u8>,
     /// `TransferCharacteristics` of the video track (16 = PQ, 18 = HLG), when present.
     pub transfer: Option<u64>,
+    /// The parameter sets of an HEVC track whose keyframes may be decoded slice by slice ([`Self::strip_files`]).
+    hevc: Option<crate::hevc::ParamSets>,
     cues: Vec<Cue>,
 }
 
@@ -279,27 +291,44 @@ impl MkvIndex {
         }
 
         let (_, tracks) = w.payload_at(at(TRACKS).ok_or_else(|| bad("no Tracks"))?)?;
-        let (track_number, track_entry, transfer) = children(&tracks)
+        let (track_number, track_entry, transfer, hevc) = children(&tracks)
             .filter(|(id, _, _)| *id == TRACK_ENTRY)
             .find_map(|(_, entry, whole)| {
                 let mut number = None;
                 let mut kind = None;
                 let mut transfer = None;
+                let mut codec: &[u8] = &[];
+                let mut private: &[u8] = &[];
+                // Slices are only split when a strip is plainly a shorter picture: frame data stored as it is
+                // (no header stripping), square pixels, no container cropping.
+                let mut plain = true;
                 for (id, v, _) in children(entry) {
                     match id {
                         TRACK_NUMBER => number = Some(uint(v)),
                         TRACK_TYPE => kind = Some(uint(v)),
+                        CODEC_ID => codec = v,
+                        CODEC_PRIVATE => private = v,
+                        CONTENT_ENCODINGS => plain = false,
                         VIDEO => {
                             transfer = children(v)
                                 .filter(|(i, _, _)| *i == COLOUR)
                                 .flat_map(|(_, c, _)| children(c))
                                 .find(|(i, _, _)| *i == TRANSFER)
                                 .map(|(_, t, _)| uint(t));
+                            let field = |want: u32| children(v).find(|(i, _, _)| *i == want).map(|(_, x, _)| uint(x));
+                            let same = |shown: u32, coded: u32| field(shown).is_none_or(|d| Some(d) == field(coded));
+                            plain &= same(DISPLAY_WIDTH, PIXEL_WIDTH)
+                                && same(DISPLAY_HEIGHT, PIXEL_HEIGHT)
+                                && field(DISPLAY_UNIT).is_none_or(|u| u == 0)
+                                && PIXEL_CROPS.iter().all(|&c| field(c).is_none_or(|x| x == 0));
                         }
                         _ => {}
                     }
                 }
-                (kind == Some(1)).then_some((number?, whole.to_vec(), transfer))
+                let hevc = (plain && codec == b"V_MPEGH/ISO/HEVC")
+                    .then(|| crate::hevc::ParamSets::from_hvcc(private))
+                    .flatten();
+                (kind == Some(1)).then_some((number?, whole.to_vec(), transfer, hevc))
             })
             .ok_or_else(|| bad("no video track"))?;
 
@@ -350,6 +379,7 @@ impl MkvIndex {
             track_number,
             track_entry,
             transfer,
+            hevc,
             cues,
         })
     }
@@ -461,11 +491,63 @@ impl MkvIndex {
 
     /// A complete single-frame Matroska file holding the keyframe for `cue`.
     pub fn frame_file(&self, src: &mut (impl RangeSource + ?Sized), cue: &Cue) -> io::Result<Vec<u8>> {
-        self.frame_file_sized(src, cue, CHUNK).map(|f| f.file)
+        self.frame_file_sized(src, cue, CHUNK).map(|f| self.file(&f.block))
     }
 
-    /// Like [`Self::frame_file`], reading `first` bytes of the keyframe block in its request (a guess of the
-    /// keyframe's size, so most keyframes take one request), and reporting what the block really needed.
+    /// A complete single-frame Matroska file for a keyframe block from [`Self::frame_file_sized`].
+    pub fn file(&self, block: &[u8]) -> Vec<u8> {
+        single_frame_file(self.scale_ns, &self.track_entry, block)
+    }
+
+    /// One single-frame file per slice of an HEVC keyframe, top to bottom, each a picture as tall as its slice
+    /// ([`crate::hevc::split`]): decoded side by side and stacked they give the whole picture. `None` when the
+    /// keyframe is to be decoded whole (other codecs, one slice, anything unusual).
+    pub fn strip_files(&self, block: &[u8]) -> Option<Vec<Vec<u8>>> {
+        let sets = self.hevc.as_ref()?;
+        let (_, n) = read_vint(block)?;
+        let head = block.get(..n + 3)?;
+        let strips = crate::hevc::split(sets, block.get(n + 3..)?)?;
+        strips
+            .iter()
+            .map(|s| {
+                let mut simple = Vec::with_capacity(head.len() + s.frame.len());
+                simple.extend_from_slice(head);
+                simple.extend_from_slice(&s.frame);
+                Some(single_frame_file(self.scale_ns, &self.strip_track(s.rows)?, &simple))
+            })
+            .collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn hevc_sets(&self) -> Option<&crate::hevc::ParamSets> {
+        self.hevc.as_ref()
+    }
+
+    /// The video track header for a picture `rows` tall: display size and unit are left to default to the coded size.
+    fn strip_track(&self, rows: u32) -> Option<Vec<u8>> {
+        let h = header(&self.track_entry)?;
+        let mut entry = Vec::with_capacity(self.track_entry.len() + 16);
+        for (id, v, whole) in children(self.track_entry.get(h.len..)?) {
+            if id != VIDEO {
+                entry.extend_from_slice(whole);
+                continue;
+            }
+            let mut video = Vec::with_capacity(v.len() + 16);
+            for (vid, _, vwhole) in children(v) {
+                match vid {
+                    PIXEL_HEIGHT => video.extend(uint_element(PIXEL_HEIGHT, u64::from(rows))),
+                    DISPLAY_WIDTH | DISPLAY_HEIGHT | DISPLAY_UNIT => {}
+                    _ => video.extend_from_slice(vwhole),
+                }
+            }
+            entry.extend(element(VIDEO, &video));
+        }
+        Some(element(TRACK_ENTRY, &entry))
+    }
+
+    /// The keyframe block for `cue` (a SimpleBlock payload with timestamp 0), reading `first` bytes of it in its
+    /// request (a guess of the keyframe's size, so most keyframes take one request), and what it really needed.
+    /// [`Self::file`] or [`Self::strip_files`] make it decodable.
     pub fn frame_file_sized(
         &self,
         src: &mut (impl RangeSource + ?Sized),
@@ -482,16 +564,16 @@ impl MkvIndex {
         simple.extend_from_slice(&[0, 0, 0x80]); // timestamp 0, keyframe
         simple.extend_from_slice(block.get(n + 3..).ok_or_else(|| bad("short block"))?);
         Ok(FrameFile {
-            file: single_frame_file(self.scale_ns, &self.track_entry, &simple),
+            block: simple,
             needed,
             reads,
         })
     }
 }
 
-/// A single-frame file and what reading its keyframe cost.
+/// A keyframe block and what reading it cost.
 pub struct FrameFile {
-    pub file: Vec<u8>,
+    pub block: Vec<u8>,
     /// Bytes the keyframe block needed from its own start (to size the next block read).
     pub needed: u64,
     /// Range requests made.
@@ -728,7 +810,9 @@ mod tests {
         let f = idx.frame_file_sized(&mut src, &cue, 4096).unwrap();
         assert!(src.1 < 16 * 1024, "read {} bytes", src.1);
         assert!(f.needed < 64, "needed {}", f.needed);
-        assert!(f.file.ends_with(b"KEY-ONE"));
+        assert!(f.block.ends_with(b"KEY-ONE"));
+        assert!(idx.file(&f.block).ends_with(b"KEY-ONE"));
+        assert!(idx.strip_files(&f.block).is_none(), "not HEVC: decoded whole");
     }
 
     #[test]

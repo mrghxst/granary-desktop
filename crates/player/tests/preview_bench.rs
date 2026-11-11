@@ -119,3 +119,76 @@ fn preview_decode_variants() {
         );
     }
 }
+
+/// Keyframes of several slices (disc remuxes): decoded whole against slice by slice. Set `GRANARY_BENCH_FILE` to a
+/// Matroska file with such keyframes; a 4K one can be made with
+/// `ffmpeg -f lavfi -i testsrc2=size=3840x2160:rate=24:duration=12 -vf noise=alls=25:allf=t+u,format=p010le
+/// -c:v hevc_qsv -slices 4 -b:v 70M -g 24 -color_trc smpte2084 -color_primaries bt2020 -colorspace bt2020nc out.mkv`
+/// (libx265 only writes several slices together with wavefronts, which FFmpeg already decodes on several threads).
+#[test]
+#[ignore = "manual benchmark"]
+fn preview_decode_slices() {
+    use granary_player::thumbs::Thumbnailer;
+    let Ok(path) = std::env::var("GRANARY_BENCH_FILE") else {
+        println!("set GRANARY_BENCH_FILE");
+        return;
+    };
+    let mut src = FileRange::open(Path::new(&path)).unwrap();
+    let index = MkvIndex::load(&mut src).unwrap();
+    let mut t = Thumbnailer::open(&path, Duration::from_secs(15)).unwrap();
+    let fetcher = t.fetcher().unwrap();
+    // A handle like the app's for whole pictures, driven directly so the split cannot kick in.
+    let mut opts = thumbs::options();
+    if index.is_hdr() {
+        opts.retain(|(n, _)| n != "vf");
+        opts.push(("vf".into(), HDR.into()));
+    }
+    let mpv = Mpv::new(&opts).unwrap();
+    let files = Arc::new(MemoryFiles::default());
+    mpv.add_memory_protocol("bench-frame", Arc::clone(&files)).unwrap();
+    let (tx, rx) = channel();
+    mpv.spawn_events(move |e| {
+        let _ = tx.send(e);
+    })
+    .unwrap();
+    let median = |v: &mut Vec<f64>| {
+        v.sort_by(f64::total_cmp);
+        v[v.len() / 2]
+    };
+    for (i, cue) in index.cues().iter().take(8).enumerate() {
+        let (_, block) = fetcher.fetch(index.seconds(cue)).unwrap();
+        let (mut whole, mut split) = (Vec::new(), Vec::new());
+        for round in 0..4 {
+            let uri = format!("bench-frame://{i}-{round}.mkv");
+            files.insert(uri.clone(), Arc::from(index.file(&block)));
+            while rx.try_recv().is_ok() {}
+            let s = Instant::now();
+            mpv.command(&["loadfile", &uri]).unwrap();
+            let mut started = false;
+            loop {
+                match rx.recv_timeout(Duration::from_secs(10)).unwrap() {
+                    MpvEvent::StartFile => started = true,
+                    MpvEvent::PlaybackRestart if started => break,
+                    MpvEvent::EndFile { reason } if started => panic!("{reason:?}"),
+                    _ => {}
+                }
+            }
+            let _ = thumbs::encode_jpeg(&mpv.screenshot_raw().unwrap()).unwrap();
+            whole.push(s.elapsed().as_secs_f64() * 1000.0);
+            let s = Instant::now();
+            let _ = t.decode(block.clone(), Duration::from_secs(15)).unwrap();
+            // The first round also decodes whole, for the comparison.
+            if round > 0 {
+                split.push(s.elapsed().as_secs_f64() * 1000.0);
+            }
+        }
+        println!(
+            "keyframe {i}: {:8} bytes  whole {:6.1} ms  slice by slice {:6.1} ms  (split: {:?})",
+            block.len(),
+            median(&mut whole),
+            median(&mut split),
+            fetcher.split()
+        );
+    }
+    mpv.quit();
+}

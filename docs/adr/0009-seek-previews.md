@@ -137,6 +137,34 @@
 - Server trickplay sheets win when they exist. Setting **Seek-bar previews** (Player, on by default) turns local
   previews off, for example on a metered remote connection.
 
+- **Revision 7 (2026-11-11, after 0.4.6): 4K keyframes slice by slice.** Previews of 1080p files were quick, those
+  of large 4K files still slow. The benchmark clip had hidden why: it is encoded by libx265, which writes one slice
+  per picture with wavefronts, and FFmpeg decodes wavefront rows on several threads. Disc remuxes are different:
+  several independent slices per picture (four on the clips looked at), no wavefronts, keyframes of 1 to 4 MB.
+  FFmpeg decodes such slices one after the other whatever the thread count. Measured on a disc-like 2160p Main10
+  clip (4 slices, 70 Mbit/s, `preview_bench.rs::preview_decode_slices`): 155 to 520 ms per keyframe in the preview
+  handle, against 85 ms on the old clip; `vd-lavc-threads` made no difference.
+  - `crates/player/src/hevc.rs` turns each slice of an HEVC keyframe into a picture of its own: a sequence parameter
+    set with the slice's height (the conformance window kept where it applies) and a slice header marked as the
+    first of its picture. Intra prediction never crosses a slice boundary and previews skip the in-loop filters, so
+    the stacked strips are the picture. The idea is the one AIOStreams' thumbnailer uses; the code is written from
+    the H.265 syntax tables (their repository is AGPL-3.0-only, Granary is AGPL-3.0-or-later).
+  - `MkvIndex::strip_files` wraps each strip in a single-frame file with the track header's height adjusted;
+    `StripPool` (`thumbs.rs`) decodes them on up to four more headless handles (half the cores, two to four) and the
+    pictures are stacked before the JPEG is encoded. Same clip: 65 to 140 ms per keyframe (3.7 times faster on
+    the 4 MB ones).
+  - Guard rails: the first split keyframe of a file is also decoded whole, at the same time, and the two pictures are
+    compared on a coarse grid; a mismatch or a failed strip turns the split off for that file. Tiles, wavefronts,
+    dependent slices, slices that do not start at a CTB row, header-stripped tracks, non-square pixels and container
+    cropping are never split.
+  - The strip handles are created at the first split keyframe and closed with the session. A playing 4K remux can
+    hold six preview handles (two decoders, four strip decoders); they idle unless a preview is being made.
+  - The first read of a keyframe is sized from the file's average byte rate (a twelfth of a second, 256 KiB to
+    2 MiB), so the first 4K keyframes take one request instead of two.
+  - The stats overlay shows how previews are made for the playing file and what the last download and the last
+    decode cost (`preview`, `preview-fetch`, `preview-decode`), to tell a slow link from a slow decode on a real
+    server. The download time on a real remote link is still not measured here.
+
 ## Consequences
 - Measured on the dev machine (test media, mock server through the relay): open 0.24 s, a new frame 35–90 ms (SDR
   1080p to HDR10 2160p), cached 4 ms. Integration test `preview_frames_from_real_files` checks SDR and HDR against the

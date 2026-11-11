@@ -128,6 +128,29 @@ fn preview_frames_from_real_files() {
     }
 }
 
+/// An HEVC keyframe of several slices decodes slice by slice to the picture it gives decoded whole (ADR-0009,
+/// revision 7). The fixture is a 320x180 clip whose keyframes have three slices and a cropped bottom edge.
+#[test]
+fn hevc_slices_decode_on_their_own_to_the_same_picture() {
+    use granary_player::thumbs::Thumbnailer;
+    use std::time::Duration;
+    if !libmpv_available() {
+        return;
+    }
+    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hevc_slices.mkv");
+    let mut t = Thumbnailer::open(file.to_str().unwrap(), Duration::from_secs(15)).unwrap();
+    let fetcher = t.fetcher().unwrap();
+    assert_eq!(fetcher.split(), None, "nothing decoded yet");
+    let (_, block) = fetcher.fetch(0.0).unwrap();
+    // The first keyframe is decoded both ways and compared.
+    let whole = t.decode(block.clone(), Duration::from_secs(10)).unwrap();
+    assert!(whole.starts_with(&[0xFF, 0xD8]));
+    assert_eq!(fetcher.split(), Some(true), "the strips match the whole picture");
+    // From then on only the strips are decoded.
+    let stacked = t.decode(block, Duration::from_secs(10)).unwrap();
+    assert!(stacked.starts_with(&[0xFF, 0xD8]) && stacked.len() > 1000);
+}
+
 #[test]
 fn most_keyframes_take_one_range_request() {
     use granary_player::mkv::MkvIndex;
