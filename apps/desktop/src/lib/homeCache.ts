@@ -3,11 +3,13 @@
  * behind (stale-while-revalidate). Forgotten when the session or profile changes, so one profile's rows never show
  * under another; nothing is written to disk.
  */
-const rows = new Map<string, unknown>();
+import type { Section } from "./catalog";
+
+const rows = new Map<string, Section[]>();
 
 export const homeCache = {
-  get: <T>(serverId: string): T | undefined => rows.get(serverId) as T | undefined,
-  set: (serverId: string, value: unknown): void => {
+  get: (serverId: string): Section[] | undefined => rows.get(serverId),
+  set: (serverId: string, value: Section[]): void => {
     rows.set(serverId, value);
   },
   forget: (serverId: string): void => {

@@ -29,6 +29,10 @@ impl Ui for TauriUi {
     }
 
     fn playing_changed(&self, active: bool, playing: bool, item: Option<&MediaItem>) {
+        if !active {
+            // Nothing is playing: the preview decoder, its threads and its frames go now, not at the next hover.
+            self.app.state::<super::preview::PreviewState>().close();
+        }
         #[cfg(windows)]
         {
             let _ = self.app.run_on_main_thread(move || super::video::set_playing(active));

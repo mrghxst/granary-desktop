@@ -42,7 +42,7 @@ describe("ServerHome", () => {
           answer = r;
         }),
     );
-    vi.spyOn(catalog, "artworkKeep").mockResolvedValue(null as never);
+    vi.spyOn(catalog, "artworkKeep").mockResolvedValue(null);
     // First visit: nothing to show until the server answers.
     const first = mount();
     expect(screen.queryByRole("region", { name: "Fresh" })).toBeNull();

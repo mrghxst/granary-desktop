@@ -49,7 +49,7 @@ function Hero({ serverId, item, onPlay }: { serverId: string; item: CatalogItem;
           </Button>
           <Link
             to={itemPath(serverId, item.content_id)}
-            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-medium hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring"
           >
             <Info className="size-4" />
             {t("browse.details")}
@@ -66,7 +66,7 @@ export function ServerHome() {
   const { serverId = "" } = useParams();
   // Rows loaded before (this run, same session) are drawn at once and reloaded behind.
   const [loaded, setLoaded] = useState<{ serverId: string; sections: Section[] } | null>(null);
-  const sections = loaded?.serverId === serverId ? loaded.sections : (homeCache.get<Section[]>(serverId) ?? null);
+  const sections = loaded?.serverId === serverId ? loaded.sections : (homeCache.get(serverId) ?? null);
   const [error, setError] = useState<string | null>(null);
   // Started straight into a server: interactive once the home rows (or their error) are in.
   useEffect(() => {
@@ -83,7 +83,7 @@ export function ServerHome() {
       .then((s) => {
         if (!alive) return;
         const next = s.filter((x) => x.items.length > 0);
-        const before = homeCache.get<Section[]>(serverId);
+        const before = homeCache.get(serverId);
         // Unchanged rows keep their identity: nothing re-renders after a reload that brought nothing new.
         const same = before !== undefined && JSON.stringify(before) === JSON.stringify(next);
         const sections = same ? before : next;

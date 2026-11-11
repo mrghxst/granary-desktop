@@ -402,6 +402,11 @@ async fn source(app: &AppHandle, host: &PlayerHost, settings: &SettingsStore) ->
 }
 
 impl PreviewState {
+    /// Drop the open session (playback stopped): its threads end after the read or decode they are in.
+    pub fn close(&self) {
+        *lock(&self.session) = None;
+    }
+
     /// The session for `source`, opening it (in the background) when the source changed.
     fn session_for(&self, app: &AppHandle, source: &str) -> Arc<Session> {
         let mut current = lock(&self.session);
