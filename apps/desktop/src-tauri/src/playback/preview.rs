@@ -4,9 +4,12 @@
 //! - Matroska files are read through their keyframe index: [`FETCHERS`] threads fetch the wanted keyframe (one range
 //!   request each, sized from the keyframes before it), so a link slow to answer keeps up with the pointer;
 //! - one thread decodes, the wanted keyframe first, else the newest fetched, and pushes each frame newer than the one
-//!   on screen to the page ([`EVENT_PREVIEW`]); the page shows the latest it got until the exact one arrives;
+//!   on screen to the page ([`EVENT_PREVIEW`]); the page shows the latest it got until the exact one arrives; a second
+//!   decoder joins only while the pointer is on the bar and the first is busy;
 //! - while nobody hovers and the main player is healthy, a paced background fill decodes a coarse grid, so a far jump
-//!   has a stand-in at once.
+//!   has a stand-in at once;
+//! - playback comes first ([`Room`]): while the main player is short of buffered video, hovering fetches one keyframe
+//!   at a time and nothing ahead, and the background fill waits.
 //!
 //! Other files seek in a stream opened in the preview handle, newest request first. Frames are kept in memory only.
 //! The scheduling follows AIOStreams' thumbnailer (`thumbs/src/session.rs@87dee2c` of AIOStreams/media); decoding stays
@@ -37,8 +40,15 @@ const PACE: Duration = Duration::from_millis(300);
 const WARM_DELAY: Duration = Duration::from_secs(4);
 /// The background fill waits this long after the last hover request.
 const HOVER_QUIET: Duration = Duration::from_millis(1500);
-/// The background fill waits until the main player has this many seconds buffered.
-const WARM_CACHE: f64 = 20.0;
+/// The background fill waits until the main player has this many seconds buffered (or its buffer is full). Low
+/// enough that a link only a little faster than the file still gets its grid.
+const WARM_CACHE: f64 = 10.0;
+/// Below this many buffered seconds the main player is close to stalling: previews take the least they can.
+const LOW_CACHE: f64 = 4.0;
+/// How long a reading of the main player's buffer is used while hovering.
+const ROOM_TTL: Duration = Duration::from_millis(500);
+/// A source that failed to open is tried again after this long (a slow or busy link at the start of playback).
+const RETRY: Duration = Duration::from_secs(15);
 /// Neighbours of the keyframe under the pointer fetched ahead, in steps of the page's preview spots (negative:
 /// behind the direction of travel).
 const NEAR: [f64; 3] = [1.0, -1.0, 2.0];
@@ -70,6 +80,17 @@ impl Drop for Session {
 struct Shared {
     state: Mutex<Sched>,
     wake: Condvar,
+}
+
+/// How much of the connection previews may take, from the main player's buffer.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Room {
+    /// Loading, seeking, stalled or nearly out of buffered video: one keyframe at a time, only for the pointer.
+    Tight,
+    /// Playing with some buffer: hovering works at full speed; the background fill waits.
+    Normal,
+    /// Well buffered: the background fill may run too.
+    Plenty,
 }
 
 enum Mode {
@@ -118,6 +139,15 @@ struct Sched {
     step: f64,
     /// Direction the pointer last moved in: 1 forward, -1 back.
     dir: f64,
+    /// The last reading of the main player's buffer, and when it was taken.
+    room: Room,
+    room_at: Option<Instant>,
+    /// Keyframe downloads in flight.
+    fetching: usize,
+    /// The first decoder is in a decode.
+    decoding: bool,
+    /// When the source failed to open.
+    failed_at: Option<Instant>,
     closed: bool,
 }
 
@@ -138,8 +168,45 @@ impl Sched {
             last_hover: None,
             step: 0.0,
             dir: 1.0,
+            room: Room::Normal,
+            room_at: None,
+            fetching: 0,
+            decoding: false,
+            failed_at: None,
             closed: false,
         }
+    }
+
+    fn fail(&mut self) {
+        self.mode = Mode::Failed;
+        self.failed_at = Some(Instant::now());
+    }
+
+    fn hovering(&self, now: Instant) -> bool {
+        self.last_hover.is_some_and(|t| now.duration_since(t) < HOVER_QUIET)
+    }
+
+    /// A download for the pointer: the keyframe under it, else one next to it. While the main player is short of
+    /// buffer, one at a time and nothing ahead. Counts the download as in flight.
+    fn take_hover(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
+        let tight = self.room == Room::Tight;
+        if self.fetching >= if tight { 1 } else { FETCHERS } {
+            return None;
+        }
+        let job = self
+            .take_wanted()
+            .or_else(|| if tight { None } else { self.take_near(now) })?;
+        self.fetching += 1;
+        Some(job)
+    }
+
+    /// Work for the second decoder: only while the pointer is on the bar and the first decoder is busy, so an idle
+    /// bar and the background fill cost one core's worth of decoding at most.
+    fn take_fetched_second(&mut self, now: Instant) -> Option<Fetched> {
+        if !self.decoding || !self.hovering(now) {
+            return None;
+        }
+        self.take_fetched()
     }
 
     fn key_for(&self, at: f64) -> Option<u64> {
@@ -176,7 +243,7 @@ impl Sched {
         if self.step <= 0.0
             || !self.frames.keys.contains_key(&key)
             || self.busy.len() >= NEAR_AT_ONCE
-            || self.last_hover.is_none_or(|t| now.duration_since(t) >= HOVER_QUIET)
+            || !self.hovering(now)
         {
             return None;
         }
@@ -197,7 +264,7 @@ impl Sched {
     fn take_warm(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
         if !self.warm_wanted
             || now < self.warm_after
-            || self.last_hover.is_some_and(|t| now.duration_since(t) < HOVER_QUIET)
+            || self.hovering(now)
             || !self.busy.is_empty()
             || !self.fetched.is_empty()
         {
@@ -412,6 +479,7 @@ impl PreviewState {
         let mut current = lock(&self.session);
         if let Some(s) = current.as_ref()
             && s.source == source
+            && lock(&s.shared.state).failed_at.is_none_or(|t| t.elapsed() < RETRY)
         {
             return Arc::clone(s);
         }
@@ -434,7 +502,7 @@ impl PreviewState {
             .spawn(move || run(&app, &shared, &source, generation));
         if let Err(e) = spawned {
             tracing::warn!(error = %e, "seek previews: no render thread");
-            lock(&session.shared.state).mode = Mode::Failed;
+            lock(&session.shared.state).fail();
         }
         *current = Some(Arc::clone(&session));
         session
@@ -553,17 +621,51 @@ pub async fn player_preview_warm(
     Ok(())
 }
 
-/// Whether the main player can spare bandwidth: a file is playing or paused, not loading, seeking or buffering, and
-/// at least [`WARM_CACHE`] is buffered ahead (on a large remux the first seconds after a start or seek need the whole
-/// line).
-fn healthy(app: &AppHandle) -> bool {
+/// How much of the connection the main player can spare: [`Room::Tight`] unless a file is playing or paused (not
+/// loading, seeking or stalled) with [`LOW_CACHE`] buffered ahead; [`Room::Plenty`] from [`WARM_CACHE`] on, when the
+/// buffer is full, or when the player reports no buffer (a local file).
+fn room(app: &AppHandle) -> Room {
     let host = app.state::<PlayerHost>();
-    let playing = tauri::async_runtime::block_on(host.ask(Cmd::State))
+    let steady = tauri::async_runtime::block_on(host.ask(Cmd::State))
         .is_some_and(|s| s.active && !s.buffering && matches!(s.phase, Some(Phase::Playing | Phase::Paused)));
-    playing
-        && tauri::async_runtime::block_on(host.ask(Cmd::CacheAhead))
-            .flatten()
-            .is_none_or(|ahead| ahead >= WARM_CACHE)
+    if !steady {
+        return Room::Tight;
+    }
+    match tauri::async_runtime::block_on(host.ask(Cmd::CacheAhead)).flatten() {
+        Some(ahead) if ahead < LOW_CACHE => Room::Tight,
+        Some(ahead) if ahead < WARM_CACHE => Room::Normal,
+        _ => Room::Plenty,
+    }
+}
+
+/// Store a finished decode and push it to the page when it is newer than what the page shows.
+#[cfg(windows)]
+fn deliver(
+    app: &AppHandle,
+    shared: &Shared,
+    generation: u64,
+    (key, asked): (u64, u64),
+    jpeg: Result<Vec<u8>, granary_player::PlayerError>,
+    first: bool,
+) {
+    let url = match jpeg {
+        Ok(j) => Some(data_url(&j)),
+        Err(e) => {
+            tracing::debug!(error = %e, key, "seek preview frame failed");
+            None
+        }
+    };
+    let show = {
+        let mut s = lock(&shared.state);
+        if first {
+            s.decoding = false;
+        }
+        s.finish(key, asked, url.clone())
+    };
+    shared.wake.notify_all();
+    if show && let Some(url) = url {
+        push(app, generation, key, url);
+    }
 }
 
 fn push(app: &AppHandle, generation: u64, key: u64, url: Arc<String>) {
@@ -585,7 +687,7 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
         Ok(t) => t,
         Err(e) => {
             tracing::warn!(error = %e, "seek previews unavailable for this file");
-            lock(&shared.state).mode = Mode::Failed;
+            lock(&shared.state).fail();
             return;
         }
     };
@@ -619,6 +721,13 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
                     tracing::warn!(error = %e, "seek previews: fewer fetch threads");
                 }
             }
+            let (app, shared, f) = (app.clone(), Arc::clone(shared), f.clone());
+            let spawned = std::thread::Builder::new()
+                .name("preview-render-2".into())
+                .spawn(move || second_decoder(&app, &shared, f, generation));
+            if let Err(e) = spawned {
+                tracing::warn!(error = %e, "seek previews: one decoder only");
+            }
         }
     }
     shared.wake.notify_all();
@@ -636,37 +745,66 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
                     s.take_wanted().map(|(at, key, asked)| (key, asked, Err(at)))
                 };
                 if let Some(job) = next {
+                    s.decoding = true;
                     break job;
                 }
                 s = wait(shared, s, Duration::from_secs(10));
             }
         };
+        // The second decoder may take what else is fetched.
+        shared.wake.notify_all();
         let (key, asked, work) = job;
         let jpeg = match work {
             Ok(file) => thumb.decode(file, FRAME_TIMEOUT),
             Err(at) => thumb.frame(at, FRAME_TIMEOUT),
         };
-        let url = match jpeg {
-            Ok(j) => Some(data_url(&j)),
-            Err(e) => {
-                tracing::debug!(error = %e, key, "seek preview frame failed");
-                None
+        deliver(app, shared, generation, (key, asked), jpeg, true);
+    }
+}
+
+/// The second decoder (index mode): its libmpv handle is made at the first job, so files that are never swept
+/// quickly do not pay for it.
+#[cfg(windows)]
+fn second_decoder(app: &AppHandle, shared: &Shared, fetcher: granary_player::thumbs::KeyframeFetcher, generation: u64) {
+    use granary_player::thumbs::Thumbnailer;
+    let mut thumb: Option<Thumbnailer> = None;
+    loop {
+        let job = {
+            let mut s = lock(&shared.state);
+            loop {
+                if s.closed {
+                    return;
+                }
+                if let Some(job) = s.take_fetched_second(Instant::now()) {
+                    break job;
+                }
+                s = wait(shared, s, Duration::from_secs(10));
             }
         };
-        let show = lock(&shared.state).finish(key, asked, url.clone());
-        shared.wake.notify_all();
-        if show && let Some(url) = url {
-            push(app, generation, key, url);
+        if thumb.is_none() {
+            match Thumbnailer::for_index(fetcher.clone()) {
+                Ok(t) => thumb = Some(t),
+                Err(e) => {
+                    tracing::warn!(error = %e, "seek previews: one decoder only");
+                    // Hand the keyframe back to the first decoder.
+                    lock(&shared.state).fetched.push(job);
+                    shared.wake.notify_all();
+                    return;
+                }
+            }
         }
+        let Some(t) = thumb.as_mut() else { return };
+        let jpeg = t.decode(job.file, FRAME_TIMEOUT);
+        deliver(app, shared, generation, (job.key, job.asked), jpeg, false);
     }
 }
 
 #[cfg(not(windows))]
 fn run(_app: &AppHandle, shared: &Arc<Shared>, _source: &str, _generation: u64) {
-    lock(&shared.state).mode = Mode::Failed;
+    lock(&shared.state).fail();
 }
 
-/// A fetch thread (index mode): the wanted keyframe, else (when idle) the next background one.
+/// A fetch thread (index mode): the wanted keyframe, else one next to it, else (when idle) the next background one.
 #[cfg(windows)]
 fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs::KeyframeFetcher) {
     loop {
@@ -677,14 +815,25 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
                     return;
                 }
                 let now = Instant::now();
-                if let Some(job) = s.take_wanted().or_else(|| s.take_near(now)) {
+                if s.hovering(now) && s.room_at.is_none_or(|t| now.duration_since(t) >= ROOM_TTL) {
+                    // Claim the reading, so the other fetch threads do not ask too.
+                    s.room_at = Some(now);
+                    drop(s);
+                    let r = room(app);
+                    s = lock(&shared.state);
+                    s.room = r;
+                    continue;
+                }
+                if let Some(job) = s.take_hover(now) {
                     break (job, false);
                 }
                 if let Some(job) = s.take_warm(now) {
+                    s.fetching += 1;
                     break (job, true);
                 }
-                // Short when background work waits on a timer; otherwise a request wakes us.
-                let nap = if s.warm_wanted && !s.warm.is_empty() {
+                // Short when background work waits on a timer or the pointer waits for room; otherwise a request
+                // wakes us.
+                let nap = if (s.warm_wanted && !s.warm.is_empty()) || s.hovering(now) {
                     Duration::from_millis(250)
                 } else {
                     Duration::from_secs(10)
@@ -692,9 +841,10 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
                 s = wait(shared, s, nap);
             }
         };
-        if warm && !healthy(app) {
+        if warm && room(app) != Room::Plenty {
             // The main player needs the bandwidth: put the target back and look again later.
             let mut s = lock(&shared.state);
+            s.fetching -= 1;
             s.busy.remove(&key);
             s.warm.push_front((at, key));
             s.warm_after = Instant::now() + Duration::from_millis(500);
@@ -702,6 +852,7 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
         }
         let fetched = fetcher.fetch(at);
         let mut s = lock(&shared.state);
+        s.fetching -= 1;
         if warm {
             s.warm_after = Instant::now() + PACE;
         }
@@ -880,6 +1031,47 @@ mod tests {
         assert_eq!(s.take_near(now).map(|j| j.1), Some(90_000));
         assert_eq!(spot_step(7200.0), 10.0);
         assert_eq!(spot_step(600.0), 2.0);
+    }
+
+    #[test]
+    fn playback_short_of_buffer_gets_the_line() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        s.step = 10.0;
+        let now = Instant::now();
+        s.last_hover = Some(now);
+        s.room = Room::Tight;
+        want(&mut s, 100.0);
+        assert_eq!(s.take_hover(now).map(|j| j.1), Some(100_000));
+        // The pointer moves on while that download runs: the next one waits for it.
+        want(&mut s, 200.0);
+        assert!(s.take_hover(now).is_none());
+        s.fetching -= 1;
+        assert_eq!(s.take_hover(now).map(|j| j.1), Some(200_000));
+        s.fetching -= 1;
+        s.finish(200_000, 2, Some(Arc::new("a".into())));
+        assert!(s.take_hover(now).is_none(), "nothing is fetched ahead");
+        // With buffer to spare the neighbours follow.
+        s.room = Room::Normal;
+        assert_eq!(s.take_hover(now).map(|j| j.1), Some(210_000));
+        assert_eq!(s.fetching, 1);
+    }
+
+    #[test]
+    fn the_second_decoder_only_helps_a_busy_first_one_during_a_hover() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let now = Instant::now();
+        s.fetched.push(Fetched {
+            asked: 0,
+            key: 1,
+            file: Vec::new(),
+        });
+        s.last_hover = Some(now);
+        assert!(s.take_fetched_second(now).is_none(), "the first decoder is free");
+        s.decoding = true;
+        assert!(s.take_fetched_second(now + HOVER_QUIET).is_none(), "nobody hovers");
+        assert_eq!(s.take_fetched_second(now).map(|f| f.key), Some(1));
     }
 
     #[test]

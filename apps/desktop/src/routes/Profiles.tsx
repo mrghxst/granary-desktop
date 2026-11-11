@@ -1,15 +1,17 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { Alert, Button, Field, Page } from "../components/ui";
 import { errorMessage } from "../lib/errors";
-import { goSignIn } from "../lib/nav";
+import { goSignIn, type ProfilesState } from "../lib/nav";
 import { needsSignIn, silo, type ProfileView } from "../lib/silo";
 
 export function Profiles() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { serverId = "" } = useParams();
+  // Set when the app came here by itself (start, lost profile): the profile used last is picked again.
+  const auto = (useLocation().state as ProfilesState | null)?.auto === true;
   const [profiles, setProfiles] = useState<ProfileView[] | null>(null);
   const [pinFor, setPinFor] = useState<ProfileView | null>(null);
   const [pin, setPin] = useState("");
@@ -18,10 +20,35 @@ export function Profiles() {
 
   useEffect(() => {
     let alive = true;
-    silo
-      .profilesList(serverId)
-      .then((p) => {
-        if (alive) setProfiles(p);
+    const live = () => alive;
+    const last = auto
+      ? silo
+          .serversList()
+          .then((list) => list.find((s) => s.serverId === serverId)?.lastProfileId)
+          .catch(() => undefined)
+      : Promise.resolve(undefined);
+    Promise.all([silo.profilesList(serverId), last])
+      .then(async ([p, lastId]) => {
+        if (!alive) return;
+        const again = p.find((x) => x.id === lastId);
+        if (again && !again.hasPin) {
+          // No picker in between: the list shows only if selecting fails.
+          try {
+            await silo.profilesSelect(serverId, again.id);
+            if (live()) void navigate(`/servers/${encodeURIComponent(serverId)}/home`, { replace: true });
+            return;
+          } catch (err) {
+            if (!live()) return;
+            if (needsSignIn(err)) {
+              goSignIn(navigate, serverId, err);
+              return;
+            }
+            setError(errorMessage(t, err));
+          }
+        }
+        setProfiles(p);
+        // A locked profile only needs its PIN.
+        if (again?.hasPin) setPinFor(again);
       })
       .catch((err: unknown) => {
         if (!alive) return;
@@ -34,7 +61,7 @@ export function Profiles() {
     return () => {
       alive = false;
     };
-  }, [serverId, navigate, t]);
+  }, [serverId, navigate, t, auto]);
 
   async function choose(p: ProfileView, withPin?: string) {
     setBusy(true);

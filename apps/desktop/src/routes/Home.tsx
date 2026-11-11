@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { Alert, Button, Card } from "../components/ui";
 import { errorMessage } from "../lib/errors";
 import { appInfo, signalReady, type AppInfo } from "../lib/host";
+import { goResume, startup } from "../lib/nav";
 import { silo, type ServerView } from "../lib/silo";
 
 function serverPath(s: ServerView): string {
@@ -23,12 +24,18 @@ export function Home() {
   const reload = useCallback(() => {
     silo
       .serversList()
-      .then(setServers)
+      .then((list) => {
+        // Once per run: straight back into the server and profile used last.
+        const last = startup.opened ? undefined : list.find((s) => s.active && s.account);
+        startup.opened = true;
+        if (last) goResume(navigate, last.serverId);
+        setServers(list);
+      })
       .catch((e: unknown) => {
         setServers([]);
         setError(errorMessage(t, e));
       });
-  }, [t]);
+  }, [t, navigate]);
 
   useEffect(() => {
     let alive = true;
@@ -81,7 +88,13 @@ export function Home() {
                       {s.insecure ? ` · ${t("home.insecure")}` : ""}
                     </p>
                   </div>
-                  <Button onClick={() => void navigate(serverPath(s))}>
+                  <Button
+                    onClick={() => {
+                      // The server opened last is the one the next start returns to.
+                      if (s.account) void silo.serversActivate(s.serverId).catch(() => undefined);
+                      void navigate(serverPath(s));
+                    }}
+                  >
                     {s.account ? t("home.open") : t("home.signIn")}
                   </Button>
                   {s.account ? (

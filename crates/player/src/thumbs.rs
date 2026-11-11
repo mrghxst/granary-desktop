@@ -220,14 +220,6 @@ impl Thumbnailer {
     /// Open `source` (a URL or path mpv can read). Matroska files with an index are read through the index and
     /// nothing is opened in mpv yet; anything else is opened and waited for until it can seek.
     pub fn open(source: &str, timeout: Duration) -> Result<Self, PlayerError> {
-        let mpv = Mpv::new(&options())?;
-        let files = Arc::new(MemoryFiles::default());
-        mpv.add_memory_protocol(PROTOCOL, Arc::clone(&files))?;
-        let (tx, rx) = channel();
-        mpv.spawn_events(move |e| {
-            let _ = tx.send(e);
-        })
-        .map_err(|e| PlayerError::Unavailable(format!("preview event thread: {e}")))?;
         let indexed = range_source(source, timeout).and_then(|mut src| match MkvIndex::load(&mut *src) {
             Ok(index) => Some(index),
             Err(e) => {
@@ -235,34 +227,19 @@ impl Thumbnailer {
                 None
             }
         });
-        let mut t = Self {
-            mpv,
-            events: rx,
-            files,
-            source: source.to_owned(),
-            mode: Mode::Seek,
-            hdr_filter: false,
-        };
         if let Some(index) = indexed {
             tracing::info!(
                 keyframes = index.cues().len(),
                 "seek previews use the file's keyframe index"
             );
-            if index.is_hdr() {
-                t.set_hdr_filter()?;
-            }
-            t.mode = Mode::Index {
-                fetcher: KeyframeFetcher {
-                    index: Arc::new(index),
-                    source: source.to_owned(),
-                    timeout,
-                    sizes: Arc::default(),
-                },
-                last: None,
-                gamma_checked: false,
-            };
-            return Ok(t);
+            return Self::for_index(KeyframeFetcher {
+                index: Arc::new(index),
+                source: source.to_owned(),
+                timeout,
+                sizes: Arc::default(),
+            });
         }
+        let mut t = Self::bare(source)?;
         t.mpv.command(&["loadfile", source])?;
         t.wait(timeout, |e| matches!(e, MpvEvent::PlaybackRestart))?;
         let gamma = t.mpv.get_property("video-params/gamma").unwrap_or_default();
@@ -273,6 +250,41 @@ impl Thumbnailer {
             t.wait(timeout, |e| matches!(e, MpvEvent::PlaybackRestart))?;
         }
         Ok(t)
+    }
+
+    /// A decoder for the indexed source behind `fetcher`. Several can decode keyframes of one source side by side;
+    /// each has its own libmpv handle and reads nothing from the network itself.
+    pub fn for_index(fetcher: KeyframeFetcher) -> Result<Self, PlayerError> {
+        let mut t = Self::bare(&fetcher.source)?;
+        if fetcher.index.is_hdr() {
+            t.set_hdr_filter()?;
+        }
+        t.mode = Mode::Index {
+            fetcher,
+            last: None,
+            gamma_checked: false,
+        };
+        Ok(t)
+    }
+
+    /// A preview handle with nothing loaded.
+    fn bare(source: &str) -> Result<Self, PlayerError> {
+        let mpv = Mpv::new(&options())?;
+        let files = Arc::new(MemoryFiles::default());
+        mpv.add_memory_protocol(PROTOCOL, Arc::clone(&files))?;
+        let (tx, rx) = channel();
+        mpv.spawn_events(move |e| {
+            let _ = tx.send(e);
+        })
+        .map_err(|e| PlayerError::Unavailable(format!("preview event thread: {e}")))?;
+        Ok(Self {
+            mpv,
+            events: rx,
+            files,
+            source: source.to_owned(),
+            mode: Mode::Seek,
+            hdr_filter: false,
+        })
     }
 
     fn set_hdr_filter(&mut self) -> Result<(), PlayerError> {

@@ -5,6 +5,18 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- The app opens the server and profile used last. A profile with a PIN is preselected and only asks for the PIN.
+  The server list is still reachable from inside a server.
+
+### Changed
+- Seek previews decoded from the file: a second decoder helps while the pointer sweeps the bar (it is created at
+  the first sweep and idle otherwise). Playback comes first: while the player has less than 4 s buffered, or is
+  loading, seeking or stalled, previews fetch one keyframe at a time and nothing ahead.
+- The background preview grid starts at 10 s of buffered video instead of 20 s, and also when the player's buffer
+  is full, so slow links and small buffer settings get their grid too. A file whose previews failed to open is
+  tried again after 15 s.
+
 ## [0.4.5] - 2026-11-11
 A speed and health pass: seek previews that answer small pointer moves from memory, a Home page that is there at
 once when you come back to it, and a tidier interface.

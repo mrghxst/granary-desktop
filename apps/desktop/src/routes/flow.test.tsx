@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import { AppRoutes } from "../App";
 import i18n from "../i18n";
+import { startup } from "../lib/nav";
 import type { CommandError, ProfileView, ServerView } from "../lib/silo";
 
 /* A fake host behind `invoke`, mirroring the Rust mock server (alice / pw, Kids PIN 1234). */
@@ -237,6 +238,8 @@ beforeEach(async () => {
   host.calls = [];
   host.revokeNext = false;
   host.profileSelected = false;
+  // As later in a run: the server list stays put. The startup test clears it.
+  startup.opened = true;
 });
 
 describe("connect flow", () => {
@@ -481,6 +484,36 @@ describe("connect flow", () => {
     // Translated from the code, not the host's English message (phase-6 review M5).
     expect(screen.getByText("The stream could not be recovered.")).toBeTruthy();
     expect(host.calls.some((c) => c.cmd === "player_overlay" && c.args?.visible === true)).toBe(true);
+  });
+
+  it("returns to the server and profile used last when the app starts", async () => {
+    startup.opened = false;
+    const saved: ServerView = {
+      serverId: SERVER_ID,
+      origin: ORIGIN,
+      serverVersion: "1.4.0",
+      untested: false,
+      insecure: false,
+      active: true,
+      account: { userId: "u1", username: "alice" },
+      lastProfileId: "p-main",
+    };
+    host.servers = [saved];
+    host.signedIn = true;
+    const first = renderAt("/");
+    await waitFor(() => {
+      expect(host.calls.some((c) => c.cmd === "profiles_select" && c.args?.profileId === "p-main")).toBe(true);
+      expect(host.calls.some((c) => c.cmd === "home_sections")).toBe(true);
+    });
+    first.unmount();
+
+    // A locked profile is only preselected: its PIN is asked for.
+    startup.opened = false;
+    host.calls = [];
+    host.servers = [{ ...saved, lastProfileId: "p-kids" }];
+    renderAt("/");
+    expect(await screen.findByLabelText(/PIN/)).toBeTruthy();
+    expect(host.calls.some((c) => c.cmd === "profiles_select")).toBe(false);
   });
 
   it("sends the user to the profile picker when no profile is selected", async () => {

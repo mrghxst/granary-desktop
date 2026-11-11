@@ -457,10 +457,15 @@ impl Runner {
                 );
             }
             Cmd::CacheAhead(reply) => {
-                let ahead = self
-                    .active_backend()
-                    .and_then(|b| b.get_property("demuxer-cache-duration"))
-                    .and_then(|v| v.parse::<f64>().ok());
+                // A full buffer (the demuxer idles) counts as unlimited: with a small buffer setting or a high
+                // bitrate it may hold only a few seconds and still be all the player will ever read ahead.
+                let ahead = self.active_backend().and_then(|b| {
+                    if b.get_property("demuxer-cache-idle").as_deref() == Some("yes") {
+                        return Some(f64::INFINITY);
+                    }
+                    b.get_property("demuxer-cache-duration")
+                        .and_then(|v| v.parse::<f64>().ok())
+                });
                 let _ = reply.send(ahead);
             }
             Cmd::State(reply) => {

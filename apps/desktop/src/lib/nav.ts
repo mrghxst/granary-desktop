@@ -2,6 +2,20 @@ import type { NavigateFunction } from "react-router";
 import { isCommandError, needsSignIn } from "./silo";
 
 /** Router state of the sign-in screen. */
+export interface ProfilesState {
+  /** Reached without the user asking for the picker (app start, lost profile): pick the last profile again. */
+  auto?: boolean;
+}
+
+/** The app opens the last server once per run; afterwards the server list is a place the user chose to go to. */
+export const startup = { opened: false };
+
+/** Where the app starts for a signed-in server: its profile picker, which re-selects the last profile. */
+export function goResume(navigate: NavigateFunction, serverId: string): void {
+  const state: ProfilesState = { auto: true };
+  void navigate(`${serverBase(serverId)}/profiles`, { replace: true, state });
+}
+
 export interface LoginState {
   /** The server rejected the stored session (as opposed to "never signed in"). */
   revoked?: boolean;
@@ -27,7 +41,7 @@ export function needsReauth(e: unknown): boolean {
 
 /** Navigate for an error accepted by {@link needsReauth}. */
 export function goReauth(navigate: NavigateFunction, serverId: string, err: unknown): void {
-  if (needsProfile(err)) void navigate(`${serverBase(serverId)}/profiles`, { replace: true });
+  if (needsProfile(err)) goResume(navigate, serverId);
   else goSignIn(navigate, serverId, err);
 }
 
