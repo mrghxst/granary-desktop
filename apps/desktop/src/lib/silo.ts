@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { homeCache } from "./homeCache";
 
 /* Mirrors apps/desktop/src-tauri/src/silo.rs (serde camelCase). Tokens never reach the WebView. */
 
@@ -73,19 +74,27 @@ function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
 }
 
+/** A call that changes whose rows the server returns (sign-in/out, profile): cached home rows are dropped. */
+function session<T>(serverId: string, done: Promise<T>): Promise<T> {
+  homeCache.forget(serverId);
+  return done.finally(() => {
+    homeCache.forget(serverId);
+  });
+}
+
 export const silo = {
   /** Saved servers; empty outside the desktop host. */
   serversList: (): Promise<ServerView[]> => (isTauri() ? invoke<ServerView[]>("servers_list") : Promise.resolve([])),
   serversProbe: (url: string) => call<ProbeView>("servers_probe", { url }),
   serversAdd: (url: string) => call<ServerView>("servers_add", { url }),
-  serversRemove: (serverId: string) => call<null>("servers_remove", { serverId }),
+  serversRemove: (serverId: string) => session(serverId, call<null>("servers_remove", { serverId })),
   serversActivate: (serverId: string) => call<null>("servers_activate", { serverId }),
   authLogin: (serverId: string, username: string, password: string) =>
-    call<LoginView>("auth_login", { serverId, username, password }),
-  authLogout: (serverId: string) => call<null>("auth_logout", { serverId }),
+    session(serverId, call<LoginView>("auth_login", { serverId, username, password })),
+  authLogout: (serverId: string) => session(serverId, call<null>("auth_logout", { serverId })),
   profilesList: (serverId: string) => call<ProfileView[]>("profiles_list", { serverId }),
   profilesSelect: (serverId: string, profileId: string, pin?: string) =>
-    call<null>("profiles_select", { serverId, profileId, pin: pin ?? null }),
+    session(serverId, call<null>("profiles_select", { serverId, profileId, pin: pin ?? null })),
   librariesList: (serverId: string) => call<LibraryView[]>("libraries_list", { serverId }),
 };
 
@@ -93,6 +102,7 @@ export const silo = {
 export async function onRevoked(handler: (serverId: string) => void): Promise<UnlistenFn> {
   if (!isTauri()) return () => undefined;
   return listen<{ serverId: string }>("auth://revoked", (e) => {
+    homeCache.forget(e.payload.serverId);
     handler(e.payload.serverId);
   });
 }

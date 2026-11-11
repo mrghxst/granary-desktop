@@ -7,6 +7,7 @@ import { Row } from "../components/Row";
 import { Alert, Button } from "../components/ui";
 import { artwork, catalog, type CatalogItem, type HomeSurface, type Section } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
+import { homeCache } from "../lib/homeCache";
 import { signalReady } from "../lib/host";
 import { goReauth, itemPath, needsReauth } from "../lib/nav";
 
@@ -27,7 +28,13 @@ function Hero({ serverId, item, onPlay }: { serverId: string; item: CatalogItem;
   return (
     <section className="relative isolate overflow-hidden rounded-2xl border border-border/60 bg-card">
       {backdrop ? (
-        <img src={backdrop} alt="" className="absolute inset-0 -z-10 size-full object-cover opacity-60" />
+        <img
+          src={backdrop}
+          alt=""
+          decoding="async"
+          fetchPriority="high"
+          className="absolute inset-0 -z-10 size-full object-cover opacity-60"
+        />
       ) : null}
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/70 to-transparent" />
       <div className="flex min-h-[18rem] max-w-2xl flex-col justify-end gap-4 p-6 lg:min-h-[24rem] lg:p-10">
@@ -57,7 +64,9 @@ export function ServerHome() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { serverId = "" } = useParams();
-  const [sections, setSections] = useState<Section[] | null>(null);
+  // Rows loaded before (this run, same session) are drawn at once and reloaded behind.
+  const [loaded, setLoaded] = useState<{ serverId: string; sections: Section[] } | null>(null);
+  const sections = loaded?.serverId === serverId ? loaded.sections : (homeCache.get<Section[]>(serverId) ?? null);
   const [error, setError] = useState<string | null>(null);
   // Started straight into a server: interactive once the home rows (or their error) are in.
   useEffect(() => {
@@ -73,7 +82,13 @@ export function ServerHome() {
       .homeSections(serverId)
       .then((s) => {
         if (!alive) return;
-        setSections(s.filter((x) => x.items.length > 0));
+        const next = s.filter((x) => x.items.length > 0);
+        const before = homeCache.get<Section[]>(serverId);
+        // Unchanged rows keep their identity: nothing re-renders after a reload that brought nothing new.
+        const same = before !== undefined && JSON.stringify(before) === JSON.stringify(next);
+        const sections = same ? before : next;
+        homeCache.set(serverId, sections);
+        setLoaded((l) => (l?.serverId === serverId && l.sections === sections ? l : { serverId, sections }));
         setError(null);
         // Artwork of what is being watched stays in the artwork cache longest (ADR-0010).
         const keep = s
