@@ -22,6 +22,9 @@
   --color-surface-raised: var(--surface-raised);
   --radius-lg: var(--radius);
   --font-sans: var(--font-body);
+  /* One pace for every hover/focus/colour transition. */
+  --default-transition-duration: var(--duration);
+  --default-transition-timing-function: var(--ease);
 }
 
 html,
@@ -36,6 +39,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+/* The same focus ring everywhere a component does not set its own (zero specificity: utilities win). */
+:where(a, button, input, select, textarea, [role="button"]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* The player route makes the page transparent so the native video window below the WebView shows through. */
@@ -154,16 +163,16 @@ html[data-poster-tags="true"] .poster-tags {
 /* Card hover: lift + brighten, the artwork zooms inside its rounded frame (app.css@6791aac:1399-1407, 1530-1537). */
 .media-card {
   transition:
-    transform 250ms cubic-bezier(0.25, 0.8, 0.25, 1),
-    filter 150ms ease;
+    transform 200ms var(--ease),
+    filter var(--duration) var(--ease);
 }
 .media-card:hover,
 .media-card:focus-within {
   filter: brightness(1.1);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 .media-card .media-card-image img {
-  transition: transform 300ms cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 200ms var(--ease);
 }
 .media-card:hover .media-card-image img {
   transform: scale(1.06);

@@ -121,7 +121,7 @@ export function PosterCard({ serverId, item, wide = false, onPlay, surface }: Ca
     >
       <Link
         to={to}
-        className="media-card-image relative block overflow-hidden rounded-xl bg-surface-raised ring-ring shadow-[0_24px_40px_-26px_rgba(0,0,0,0.8)] focus-visible:ring-2 focus-visible:outline-none"
+        className="media-card-image relative block overflow-hidden rounded-xl bg-surface-raised ring-ring outline outline-1 -outline-offset-1 outline-white/[0.07] focus-visible:ring-2 focus-visible:outline-none"
         aria-label={sub ? `${item.title}, ${sub}` : item.title}
       >
         <div className={wide ? "aspect-video" : "aspect-[2/3]"}>

@@ -8,10 +8,10 @@ import { useTranslation } from "react-i18next";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-primary-foreground hover:opacity-90",
-  secondary: "bg-secondary text-foreground hover:bg-surface-hover",
-  ghost: "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
-  danger: "text-destructive hover:bg-surface-hover",
+  primary: "border-transparent bg-primary text-primary-foreground hover:bg-primary/90",
+  secondary: "border-border bg-secondary text-foreground hover:bg-surface-hover",
+  ghost: "border-transparent text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+  danger: "border-transparent text-destructive hover:bg-destructive/10",
 };
 
 export function Button({
@@ -23,7 +23,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
+      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
       {...rest}
     />
   );
@@ -43,7 +43,7 @@ export function Field({
       <input
         id={id}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className="rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+        className="rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground transition-colors hover:border-foreground/25 focus:border-ring focus:outline-none"
         {...rest}
       />
       {hint ? (
@@ -82,7 +82,7 @@ export function Alert({
         <button
           type="button"
           onClick={onRetry}
-          className="shrink-0 rounded-md border border-current px-2 py-0.5 text-xs font-medium hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring"
+          className="shrink-0 rounded-md border border-current px-2 py-0.5 text-xs font-medium transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring"
         >
           {t("status.retry")}
         </button>

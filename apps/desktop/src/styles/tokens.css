@@ -8,6 +8,8 @@
   --radius: 0.75rem;
   --font-body: "Plus Jakarta Sans Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: var(--font-body);
+  --duration: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 
   --background: #141417;
   --foreground: #e8e8ec;
