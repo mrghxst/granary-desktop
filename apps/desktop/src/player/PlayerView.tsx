@@ -305,6 +305,13 @@ function SeekBar({
               data-testid="seek-preview"
               data-approx={local.approx ? "true" : undefined}
               className="aspect-video shrink-0 rounded-md border border-white/20 bg-black object-cover shadow-lg"
+              decoding="sync"
+              style={{ width: PREVIEW_WIDTH }}
+            />
+          ) : provider.kind === "local" ? (
+            // Same box while the first frame loads: the time label does not jump when the frame arrives.
+            <div
+              className="aspect-video shrink-0 rounded-md border border-white/20 bg-black/80 shadow-lg"
               style={{ width: PREVIEW_WIDTH }}
             />
           ) : null}

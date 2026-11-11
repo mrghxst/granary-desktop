@@ -27,6 +27,22 @@ interface Cache {
   keys: ReadonlyMap<number, number>;
 }
 
+/** Frames the page keeps (about 8 kB each); the oldest go first. The host keeps its own, larger cache. */
+export const PAGE_FRAMES = 300;
+
+/** `frames` with one more, dropping the oldest beyond {@link PAGE_FRAMES}. */
+function withFrame(frames: ReadonlyMap<number, string>, key: number, url: string): ReadonlyMap<number, string> {
+  if (frames.get(key) === url) return frames;
+  const next = new Map(frames);
+  next.delete(key);
+  next.set(key, url);
+  for (const old of next.keys()) {
+    if (next.size <= PAGE_FRAMES) break;
+    next.delete(old);
+  }
+  return next;
+}
+
 const EMPTY: Cache = { generation: null, frames: new Map(), keys: new Map() };
 const ms = (s: number) => Math.round(s * 1000);
 
@@ -43,7 +59,7 @@ function forGeneration(c: Cache, generation: number): Cache | null {
  *   keyframes in parallel and pushes each frame as soon as it is decoded;
  * - until the exact frame is there, the latest frame the host sent (or the nearest it had) stays up, so the tile
  *   follows a sweep without blanking;
- * - spots seen before are answered from the page's own cache, without asking.
+ * - spots seen before are drawn from the page's own bounded cache without waiting for the answer.
  */
 export function useLocalPreview(enabled: boolean, at: number | null, duration: number): LocalPreview | null {
   const [cache, setCache] = useState<Cache>(EMPTY);
@@ -70,7 +86,7 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
         setCache((c) => {
           const g = forGeneration(c, p.generation);
           if (!g) return c;
-          return { ...g, frames: new Map(g.frames).set(ms(p.at), p.url) };
+          return { ...g, frames: withFrame(g.frames, ms(p.at), p.url) };
         });
         setShown({ at: p.at, url: p.url });
       })
@@ -86,9 +102,8 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
 
   useEffect(() => {
     if (spot === null) return;
-    const c = latest.current;
-    const known = c.keys.get(spot);
-    if (known !== undefined && c.frames.has(known)) return;
+    // Spots seen before are drawn from the page cache at once; the host is still told, so it stops working on the
+    // spot the pointer left and fetches the neighbours of this one.
     let live = true;
     void player
       .previewWant(spot)
@@ -98,9 +113,10 @@ export function useLocalPreview(enabled: boolean, at: number | null, duration: n
         setCache((c) => {
           const g = forGeneration(c, r.generation);
           if (!g || r.key === null) return g ?? c;
-          const keys = new Map(g.keys).set(spot, ms(r.key));
-          const frames = r.url ? new Map(g.frames).set(ms(r.key), r.url) : g.frames;
-          return { ...g, keys, frames };
+          const key = ms(r.key);
+          const keys = g.keys.get(spot) === key ? g.keys : new Map(g.keys).set(spot, key);
+          const frames = r.url ? withFrame(g.frames, key, r.url) : g.frames;
+          return keys === g.keys && frames === g.frames ? g : { ...g, keys, frames };
         });
         if (!live) return;
         if (r.url && r.key !== null) setShown({ at: r.key, url: r.url });

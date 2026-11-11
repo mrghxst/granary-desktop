@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { player, type PreviewReply, type PushedPreview } from "../lib/player";
-import { previewInterval, useLocalPreview } from "./useLocalPreview";
+import { PAGE_FRAMES, previewInterval, useLocalPreview } from "./useLocalPreview";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -72,11 +72,26 @@ describe("useLocalPreview", () => {
     expect(result.current).toEqual({ url: "data:100", approx: true });
     await push({ generation: 1, at: 250, url: "data:250" });
     expect(result.current).toEqual({ url: "data:250", approx: false });
-    // A spot seen before is answered from the page's cache, without asking.
+    // A spot seen before is drawn from the page's cache at once; the host still learns where the pointer is.
     rerender({ at: 109 });
+    expect(result.current).toEqual({ url: "data:100", approx: false });
     await flush();
     expect(result.current).toEqual({ url: "data:100", approx: false });
-    expect(asked).toEqual([40, 100, 250]);
+    expect(asked).toEqual([40, 100, 250, 100]);
+  });
+
+  it("keeps a bounded number of frames", async () => {
+    const { push } = host((s) => pending(s));
+    const { result, rerender } = renderHook(({ at }) => useLocalPreview(true, at, 4000), {
+      initialProps: { at: 0 },
+    });
+    await flush();
+    for (let i = 0; i <= PAGE_FRAMES; i++) await push({ generation: 1, at: i * 10, url: `data:${String(i)}` });
+    // The oldest frame is gone (and the newest is too far away to stand in); later ones are there.
+    expect(result.current).toBeNull();
+    rerender({ at: 10 });
+    await flush();
+    expect(result.current).toEqual({ url: "data:1", approx: false });
   });
 
   it("shows the host's cached or nearest frame from the answer", async () => {

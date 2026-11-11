@@ -39,6 +39,11 @@ const WARM_DELAY: Duration = Duration::from_secs(4);
 const HOVER_QUIET: Duration = Duration::from_millis(1500);
 /// The background fill waits until the main player has this many seconds buffered.
 const WARM_CACHE: f64 = 20.0;
+/// Neighbours of the keyframe under the pointer fetched ahead, in steps of the page's preview spots (negative:
+/// behind the direction of travel).
+const NEAR: [f64; 3] = [1.0, -1.0, 2.0];
+/// Neighbours in flight at once; one fetch thread stays free for the pointer.
+const NEAR_AT_ONCE: usize = FETCHERS - 1;
 const OPEN_TIMEOUT: Duration = Duration::from_secs(20);
 const FRAME_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -109,6 +114,10 @@ struct Sched {
     warm_wanted: bool,
     warm_after: Instant,
     last_hover: Option<Instant>,
+    /// Seconds between the page's preview spots (index mode; 0 until the source is open).
+    step: f64,
+    /// Direction the pointer last moved in: 1 forward, -1 back.
+    dir: f64,
     closed: bool,
 }
 
@@ -127,6 +136,8 @@ impl Sched {
             warm_wanted: false,
             warm_after: Instant::now() + WARM_DELAY,
             last_hover: None,
+            step: 0.0,
+            dir: 1.0,
             closed: false,
         }
     }
@@ -154,6 +165,32 @@ impl Sched {
         let job = (w.at, key, w.asked);
         self.busy.insert(key);
         Some(job)
+    }
+
+    /// A keyframe next to the one under the pointer, once that one is made and while the pointer is still around:
+    /// the spots a small move lands on are then answered from the cache. Ahead in the direction of travel first.
+    /// Marks it busy.
+    fn take_near(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
+        let w = self.wanted.as_ref()?;
+        let (at, key) = (w.at, w.key?);
+        if self.step <= 0.0
+            || !self.frames.keys.contains_key(&key)
+            || self.busy.len() >= NEAR_AT_ONCE
+            || self.last_hover.is_none_or(|t| now.duration_since(t) >= HOVER_QUIET)
+        {
+            return None;
+        }
+        for n in NEAR {
+            let t = at + n * self.dir * self.step;
+            if let Some(k) = self.key_for(t)
+                && k != key
+                && self.open_for(k)
+            {
+                self.busy.insert(k);
+                return Some((t, k, 0));
+            }
+        }
+        None
     }
 
     /// The next background target, when nobody hovers and nothing else is in flight; marks it busy.
@@ -322,6 +359,14 @@ fn grid(duration: f64) -> Vec<f64> {
         .collect()
 }
 
+/// Seconds between the page's preview spots (`previewInterval` in `useLocalPreview.ts`).
+fn spot_step(duration: f64) -> f64 {
+    if !duration.is_finite() || duration <= 0.0 {
+        return 10.0;
+    }
+    (duration / 400.0).ceil().clamp(2.0, 10.0)
+}
+
 const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 fn base64(bytes: &[u8]) -> String {
@@ -444,6 +489,11 @@ pub async fn player_preview_want(
     s.asked += 1;
     let asked = s.asked;
     let key = s.key_for(seconds);
+    if let Some(w) = &s.wanted
+        && w.at != seconds
+    {
+        s.dir = if seconds > w.at { 1.0 } else { -1.0 };
+    }
     if s.wanted.as_ref().is_none_or(|w| w.key != key) {
         s.failed.clear();
     }
@@ -552,6 +602,9 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
             s.fill_warm();
         }
         if let Mode::Index(f) = &s.mode {
+            s.step = spot_step(f.last_keyframe().unwrap_or(0.0));
+        }
+        if let Mode::Index(f) = &s.mode {
             for n in 0..FETCHERS {
                 let (app, shared, f) = (app.clone(), Arc::clone(shared), f.clone());
                 let spawned = std::thread::Builder::new()
@@ -612,14 +665,18 @@ fn run(_app: &AppHandle, shared: &Arc<Shared>, _source: &str, _generation: u64) 
 #[cfg(windows)]
 fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs::KeyframeFetcher) {
     loop {
-        let (at, key, asked) = {
+        let ((at, key, asked), warm) = {
             let mut s = lock(&shared.state);
             loop {
                 if s.closed {
                     return;
                 }
-                if let Some(job) = s.take_wanted().or_else(|| s.take_warm(Instant::now())) {
-                    break job;
+                let now = Instant::now();
+                if let Some(job) = s.take_wanted().or_else(|| s.take_near(now)) {
+                    break (job, false);
+                }
+                if let Some(job) = s.take_warm(now) {
+                    break (job, true);
                 }
                 // Short when background work waits on a timer; otherwise a request wakes us.
                 let nap = if s.warm_wanted && !s.warm.is_empty() {
@@ -630,7 +687,7 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
                 s = wait(shared, s, nap);
             }
         };
-        if asked == 0 && !healthy(app) {
+        if warm && !healthy(app) {
             // The main player needs the bandwidth: put the target back and look again later.
             let mut s = lock(&shared.state);
             s.busy.remove(&key);
@@ -640,7 +697,7 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
         }
         let fetched = fetcher.fetch(at);
         let mut s = lock(&shared.state);
-        if asked == 0 {
+        if warm {
             s.warm_after = Instant::now() + PACE;
         }
         match fetched {
@@ -790,6 +847,34 @@ mod tests {
         // The frame for the first request lands while the second still loads: the page gets it as a stand-in.
         assert!(s.finish(10_000, 1, Some(Arc::new("a".into()))));
         assert_eq!(s.shown, 1);
+    }
+
+    #[test]
+    fn neighbours_are_fetched_once_the_spot_under_the_pointer_is_made() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        s.step = 10.0;
+        let now = Instant::now();
+        want(&mut s, 100.0);
+        s.last_hover = Some(now);
+        assert!(s.take_near(now).is_none(), "the exact frame comes first");
+        let _ = s.take_wanted();
+        s.finish(100_000, 1, Some(Arc::new("a".into())));
+        // Ahead first, then behind; never more than leave a fetch thread free for the pointer.
+        assert_eq!(s.take_near(now).map(|j| (j.1, j.2)), Some((110_000, 0)));
+        assert_eq!(s.take_near(now).map(|j| j.1), Some(90_000));
+        assert!(s.take_near(now).is_none());
+        s.finish(110_000, 0, Some(Arc::new("b".into())));
+        assert_eq!(s.take_near(now).map(|j| j.1), Some(120_000));
+        s.busy.clear();
+        assert!(s.take_near(now + HOVER_QUIET).is_none(), "the pointer is gone");
+        // Moving back turns the order around.
+        s.dir = -1.0;
+        s.frames.keys.clear();
+        s.frames.remember(100_000, Arc::new("a".into()));
+        assert_eq!(s.take_near(now).map(|j| j.1), Some(90_000));
+        assert_eq!(spot_step(7200.0), 10.0);
+        assert_eq!(spot_step(600.0), 2.0);
     }
 
     #[test]
