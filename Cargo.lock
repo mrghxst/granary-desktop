@@ -1605,7 +1605,7 @@ dependencies = [
 
 [[package]]
 name = "granary"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "bytes",
  "futures-util",
@@ -1634,7 +1634,7 @@ dependencies = [
 
 [[package]]
 name = "granary-display"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -1645,7 +1645,7 @@ dependencies = [
 
 [[package]]
 name = "granary-player"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "jpeg-encoder",
  "libmpv2-sys",
@@ -1657,7 +1657,7 @@ dependencies = [
 
 [[package]]
 name = "granary-silo-api"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "async-trait",
  "bytes",

@@ -5,7 +5,13 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-11-11
+Posters on the movie and series pages, the app opens where you left it, and seek previews that are quicker on a
+sweep and step back when playback needs the connection.
+
 ### Added
+- Movie and series pages show the poster beside the title on wide windows. Narrow windows and episode pages keep
+  the previous layout.
 - The app opens the server and profile used last. A profile with a PIN is preselected and only asks for the PIN.
   The server list is still reachable from inside a server.
 

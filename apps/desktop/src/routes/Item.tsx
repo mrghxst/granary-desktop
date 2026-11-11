@@ -466,6 +466,9 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
   const blurred = !backdrop && item.type !== "episode";
   const [artFailed, setArtFailed] = useState<string | null>(null);
   const background = backdrop ?? fallback;
+  // The portrait poster stands beside the text on wide windows (episodes have a still, not a poster).
+  const poster = item.type === "episode" ? undefined : artwork(serverId, item.poster_url);
+  const [posterFailed, setPosterFailed] = useState<string | null>(null);
   const logo = artwork(serverId, item.logo_url);
   const [logoFailed, setLogoFailed] = useState<string | null>(null);
   const showLogo = logo !== undefined && logoFailed !== logo;
@@ -530,75 +533,89 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
         <div className="absolute inset-0 bg-gradient-to-r from-card from-20% via-card/80 via-50% to-card/0" />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 via-45% to-transparent" />
       </div>
-      <div className="flex min-h-[28rem] flex-col justify-end gap-6 p-6 lg:min-h-[32rem] lg:p-10">
-        <div className="flex max-w-2xl flex-col gap-4">
-          {episode && item.series_id ? (
-            <Link
-              to={itemPath(serverId, item.series_id)}
-              className="flex w-fit flex-col gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              {showLogo ? (
-                logoImg(item.series_title ?? "", "max-h-14 max-w-60 object-contain object-left drop-shadow-xl")
-              ) : (
-                <span className="text-sm font-semibold tracking-wide text-foreground/90 uppercase hover:text-foreground">
-                  {item.series_title}
-                </span>
-              )}
-              {where ? <span className="text-xs font-medium text-muted-foreground">{where}</span> : null}
-            </Link>
-          ) : item.series_title && item.series_id ? (
-            <Link
-              to={itemPath(serverId, item.series_id)}
-              className="w-fit text-sm font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
-            >
-              {item.series_title}
-            </Link>
-          ) : null}
-          {!episode && showLogo ? (
-            <h1 className="flex h-24 items-end lg:h-28">
-              {logoImg(
-                item.title,
-                "max-h-full max-w-[min(26rem,100%)] object-contain object-left-bottom drop-shadow-2xl",
-              )}
-            </h1>
-          ) : (
-            <h1 className="text-3xl font-bold tracking-tight text-balance lg:text-5xl">{item.title}</h1>
-          )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-foreground/85">
-            {facts.length > 0 ? <span>{facts.join(" · ")}</span> : null}
-            {item.content_rating ? <Badge strong>{item.content_rating}</Badge> : null}
-            {tmdb ? (
-              <span className="inline-flex items-center gap-1 font-semibold" title={tmdb.name}>
-                <Star className="size-3.5 fill-current text-amber-300" />
-                {tmdb.display}
-              </span>
+      <div className="flex min-h-[28rem] items-end gap-8 p-6 lg:min-h-[32rem] lg:gap-10 lg:p-10">
+        {poster && posterFailed !== poster ? (
+          <img
+            src={poster}
+            alt=""
+            draggable={false}
+            data-testid="hero-poster"
+            className="hidden aspect-[2/3] w-44 shrink-0 animate-[fade-in_400ms_ease-out] rounded-xl bg-surface-raised object-cover shadow-2xl shadow-black/50 outline outline-1 -outline-offset-1 outline-white/10 lg:block xl:w-52"
+            onError={() => {
+              setPosterFailed(poster);
+            }}
+          />
+        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col justify-end gap-6">
+          <div className="flex max-w-2xl flex-col gap-4">
+            {episode && item.series_id ? (
+              <Link
+                to={itemPath(serverId, item.series_id)}
+                className="flex w-fit flex-col gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                {showLogo ? (
+                  logoImg(item.series_title ?? "", "max-h-14 max-w-60 object-contain object-left drop-shadow-xl")
+                ) : (
+                  <span className="text-sm font-semibold tracking-wide text-foreground/90 uppercase hover:text-foreground">
+                    {item.series_title}
+                  </span>
+                )}
+                {where ? <span className="text-xs font-medium text-muted-foreground">{where}</span> : null}
+              </Link>
+            ) : item.series_title && item.series_id ? (
+              <Link
+                to={itemPath(serverId, item.series_id)}
+                className="w-fit text-sm font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
+              >
+                {item.series_title}
+              </Link>
             ) : null}
-            {tags.length > 0 ? (
-              <span className="flex flex-wrap gap-1.5">
-                {tags.map((x) => (
-                  <Badge key={x}>{x}</Badge>
+            {!episode && showLogo ? (
+              <h1 className="flex h-24 items-end lg:h-28">
+                {logoImg(
+                  item.title,
+                  "max-h-full max-w-[min(26rem,100%)] object-contain object-left-bottom drop-shadow-2xl",
+                )}
+              </h1>
+            ) : (
+              <h1 className="text-3xl font-bold tracking-tight text-balance lg:text-5xl">{item.title}</h1>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-foreground/85">
+              {facts.length > 0 ? <span>{facts.join(" · ")}</span> : null}
+              {item.content_rating ? <Badge strong>{item.content_rating}</Badge> : null}
+              {tmdb ? (
+                <span className="inline-flex items-center gap-1 font-semibold" title={tmdb.name}>
+                  <Star className="size-3.5 fill-current text-amber-300" />
+                  {tmdb.display}
+                </span>
+              ) : null}
+              {tags.length > 0 ? (
+                <span className="flex flex-wrap gap-1.5">
+                  {tags.map((x) => (
+                    <Badge key={x}>{x}</Badge>
+                  ))}
+                </span>
+              ) : null}
+            </div>
+            {item.overview || item.tagline ? (
+              <p className="line-clamp-3 max-w-[62ch] text-sm leading-relaxed text-foreground/90 lg:text-[15px]">
+                {item.overview || item.tagline}
+              </p>
+            ) : null}
+            {credits.some(([, people]) => people.length > 0) ? (
+              <dl className="grid w-fit grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                {credits.map(([label, people]) => (
+                  <CreditLine key={label} serverId={serverId} label={label} people={people} />
                 ))}
-              </span>
+              </dl>
             ) : null}
           </div>
-          {item.overview || item.tagline ? (
-            <p className="line-clamp-3 max-w-[62ch] text-sm leading-relaxed text-foreground/90 lg:text-[15px]">
-              {item.overview || item.tagline}
-            </p>
-          ) : null}
-          {credits.some(([, people]) => people.length > 0) ? (
-            <dl className="grid w-fit grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-              {credits.map(([label, people]) => (
-                <CreditLine key={label} serverId={serverId} label={label} people={people} />
-              ))}
-            </dl>
-          ) : null}
+          {PLAYABLE.has(item.type) ? (
+            <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
+          ) : (
+            <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />
+          )}
         </div>
-        {PLAYABLE.has(item.type) ? (
-          <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
-        ) : (
-          <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />
-        )}
       </div>
     </section>
   );
