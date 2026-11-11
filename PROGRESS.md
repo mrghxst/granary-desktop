@@ -110,6 +110,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-11 0.4.6: release published (latest) at the owner's request. The 0.4.5 draft stays unpublished.
 - 2026-11-11 0.4.6: item page hero shows the poster beside the title from `lg` up (Item.tsx Hero; checked in the mock-mode dev build), version bump and tag.
 - 2026-11-11 Previews (unreleased): second decoder on demand (`second_decoder`, `Thumbnailer::for_index`), bandwidth yields to playback (`Room` Tight/Normal/Plenty from the player buffer; Tight = one keyframe at a time, no neighbours), background fill from 10 s or a full buffer (`demuxer-cache-idle`), reopen 15 s after a failed open. Startup resumes the last server and profile (`startup.opened`, `goResume`, Profiles auto-select; PIN profiles preselected). verify.ps1 OK. Not tried in the running app or on a slow link.
 - 2026-11-11 0.4.5: version bump and tag for the speed/health pass (draft release built by release.yml).
