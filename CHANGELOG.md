@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-11-11
+Seek previews of large 4K files: keyframes with several slices are decoded side by side.
+
 ### Changed
 - Seek previews of 4K HEVC files whose keyframes have several slices (disc remuxes): the slices are decoded side by
   side instead of one after the other. On a disc-like 2160p test clip a keyframe takes 65 to 140 ms instead of 155

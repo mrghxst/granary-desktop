@@ -110,6 +110,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-11 0.4.7: version bump and tag for the 4K preview decode (draft release built by release.yml).
 - 2026-11-11 Previews, 4K (unreleased, ADR-0009 rev. 7): cause found with a disc-like clip (4 slices, no wavefronts, 1-4 MB keyframes): FFmpeg decodes the slices serially, 155-520 ms per keyframe. New `hevc.rs` (own implementation from H.265 syntax) splits a keyframe into one picture per slice; `StripPool` decodes them on up to 4 handles; 65-140 ms. First split keyframe verified against the whole decode; fixture `crates/player/tests/fixtures/hevc_slices.mkv`. First read sized from byte rate. Stats overlay rows `preview*`. verify.ps1 OK. Not measured: real server (download time), real disc remux.
 - 2026-11-11 0.4.6: release published (latest) at the owner's request. The 0.4.5 draft stays unpublished.
 - 2026-11-11 0.4.6: item page hero shows the poster beside the title from `lg` up (Item.tsx Hero; checked in the mock-mode dev build), version bump and tag.
