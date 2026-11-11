@@ -5,6 +5,22 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Seek previews decoded from the file: once the frame under the pointer is up, the frames next to it are fetched
+  ahead (in the direction of travel first), so small pointer moves are answered from memory. 4K HEVC frames decode
+  about a fifth faster (105 → 85 ms median on the test file; slice threads). The preview box keeps its size while the
+  first frame loads, so the time label no longer jumps.
+- Home draws the rows it loaded before at once when you come back to it and reloads them behind. They are kept in
+  memory only and forgotten on sign-in, sign-out and profile change.
+- Interface: one pace (160 ms) for hover and focus transitions, the same focus ring everywhere, 1 px borders on
+  buttons, a hairline instead of the heavy shadow on posters, a smaller hover lift.
+
+### Fixed
+- The page kept every preview frame it ever received; it now keeps the newest 300.
+- The host kept working on a preview spot the pointer had left when the new spot was already known to the page.
+- The preview decoder, its threads and its frames stayed in memory after playback stopped until the next hover; they
+  are released at stop.
+
 ## [0.4.4] - 2026-11-09
 Fixes for 0.4.3: fast, reliable starts again, quicker seek previews on large files, no desktop showing through the
 player, and skip prompts that appear by themselves.

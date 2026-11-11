@@ -110,6 +110,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-11 Speed/health pass (unreleased): previews — neighbour prefetch (take_near: ±1/+2 spots once the wanted frame is made, ≤2 in flight), slice-threaded decode (4K HEVC 105 → 85 ms median, preview_bench), page cache bounded to 300 frames, host always told the pointer spot, session closed at stop, fixed-size tile; Home — in-memory rows cache per server (stale-while-revalidate, forgotten on session/profile change); UI tokens `--duration`/`--ease`, global focus ring, button borders. Measured locally only (fetch 2 ms from disk; network share not measured); not checked against the real server.
 - 2026-11-09 0.4.4: release published (latest) at the owner's request.
 - 2026-11-09 0.4.3: release published (latest) at the owner's request.
 - 2026-11-09 0.4.3: preview scheduler rework (newest request wins, 3 fetchers + 1 renderer, frames pushed via player://preview, one adaptive range read per keyframe, undimmed stand-ins; ADR-0009 rev 5); external subtitles prefetched and added from memory (sub-add hex://); demuxer cache from installed RAM; rendering quality, RTX/Intel VSR, RTX HDR, Dolby Vision switch (ADR-0012); stale preview command permissions fixed. Unit, libmpv integration and GPU filter tests green on Intel Arc 140V; previews not checked against the real server; RTX paths not run (no NVIDIA GPU here).
