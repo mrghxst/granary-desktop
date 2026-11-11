@@ -5,6 +5,10 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-11-11
+A speed and health pass: seek previews that answer small pointer moves from memory, a Home page that is there at
+once when you come back to it, and a tidier interface.
+
 ### Changed
 - Seek previews decoded from the file: once the frame under the pointer is up, the frames next to it are fetched
   ahead (in the direction of travel first), so small pointer moves are answered from memory. 4K HEVC frames decode
