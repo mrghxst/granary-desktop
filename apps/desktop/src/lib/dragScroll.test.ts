@@ -4,11 +4,6 @@ import { dragScroll } from "./dragScroll";
 
 describe("dragScroll", () => {
   let frames: FrameRequestCallback[] = [];
-  const runFrame = () => {
-    const due = frames;
-    frames = [];
-    for (const f of due) f(performance.now());
-  };
   const row = () => {
     const el = document.createElement("div");
     document.body.append(el);
@@ -40,16 +35,16 @@ describe("dragScroll", () => {
     document.body.replaceChildren();
   });
 
-  it("moves the row once per frame, however often the mouse reports", () => {
+  it("moves the row with the mouse, in the move itself", () => {
     const el = row();
     el.scrollLeft = 100;
     press(el, 500);
-    for (let x = 499; x >= 440; x--) move(x);
-    expect(frames).toHaveLength(1);
+    move(497);
     expect(el.scrollLeft).toBe(100);
-    expect(el.classList.contains("dragging")).toBe(true);
-    runFrame();
+    move(440);
     expect(el.scrollLeft).toBe(160);
+    expect(frames).toHaveLength(0);
+    expect(el.classList.contains("dragging")).toBe(true);
     release();
     expect(el.classList.contains("dragging")).toBe(false);
   });

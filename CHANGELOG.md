@@ -5,6 +5,14 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Dragging a row with the mouse trailed one frame behind the hand: the row now moves in the same frame as the
+  mouse.
+
+### Removed
+- The line at the bottom of the seek preview tile. It showed that a frame was loading, not how far, and read as a
+  progress bar stuck in one place.
+
 ## [0.4.8] - 2026-11-16
 Seek previews that keep up with the pointer on slow links, smoother rows, and one hover look.
 

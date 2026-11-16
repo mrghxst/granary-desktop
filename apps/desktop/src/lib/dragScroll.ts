@@ -50,9 +50,10 @@ function glide(el: HTMLElement, speed: number): void {
  * `onPointerDown` handler for click-and-drag horizontal scrolling with the mouse, gliding on after the release.
  * A drag swallows the click that ends it, so letting go over a card does not open it.
  *
- * The row is moved once per frame however often the mouse reports (gaming mice report 1000 times a second, and a
- * scroll write per report makes the page lay out that often), and the cards ignore the pointer while it drags, so
- * their hover effects do not repaint as they pass under it.
+ * The row is moved in the move handler itself: the WebView hands over the mouse reports of a frame as one event,
+ * right before it draws, so the row is under the hand in that same frame (waiting for the next animation frame
+ * put it one frame behind). The cards ignore the pointer while it drags, so their hover effects do not repaint
+ * as they pass under it.
  */
 export function dragScroll(e: ReactPointerEvent<HTMLElement>): void {
   const el = e.currentTarget;
@@ -61,34 +62,23 @@ export function dragScroll(e: ReactPointerEvent<HTMLElement>): void {
   const startX = e.clientX;
   const startLeft = el.scrollLeft;
   let dragging = false;
-  let latestX = startX;
-  let frame: number | undefined;
   const samples: { x: number; t: number }[] = [{ x: startX, t: performance.now() }];
-  const apply = () => {
-    frame = undefined;
-    el.scrollLeft = startLeft - (latestX - startX);
-  };
   const onMove = (m: PointerEvent) => {
     if (!dragging && Math.abs(m.clientX - startX) < DRAG_SLOP) return;
     if (!dragging) {
       dragging = true;
       el.classList.add("dragging");
     }
-    latestX = m.clientX;
+    el.scrollLeft = startLeft - (m.clientX - startX);
     const now = performance.now();
-    samples.push({ x: latestX, t: now });
+    samples.push({ x: m.clientX, t: now });
     while (samples.length > 2 && now - (samples[0]?.t ?? now) > SPEED_WINDOW_MS * 2) samples.shift();
-    frame ??= requestAnimationFrame(apply);
   };
   const onUp = () => {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onUp);
     if (!dragging) return;
-    if (frame !== undefined) {
-      cancelAnimationFrame(frame);
-      apply();
-    }
     el.classList.remove("dragging");
     const swallow = (c: MouseEvent) => {
       c.stopPropagation();

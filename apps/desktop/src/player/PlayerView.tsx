@@ -323,17 +323,13 @@ function SeekBar({
                 className="size-full object-cover"
                 decoding="sync"
               />
-              {/* A frame from near the spot is up while the exact one is made: say so, quietly. */}
-              {local.approx ? <span className="preview-loading" /> : null}
             </div>
           ) : provider.kind === "local" ? (
             // Same box while the first frame loads: the time label does not jump when the frame arrives.
             <div
               className="relative aspect-video shrink-0 overflow-hidden rounded-md border border-white/20 bg-black/80 shadow-lg"
               style={{ width: PREVIEW_WIDTH }}
-            >
-              <span className="preview-loading" />
-            </div>
+            />
           ) : null}
           <span className="rounded bg-black/80 px-2 py-0.5 text-xs text-white tabular-nums">
             {chapter ? `${chapter.title} · ` : ""}
