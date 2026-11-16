@@ -1,20 +1,24 @@
-//! Seek-bar previews for direct-played files without server trickplay (ADR-0009, revisions 5 to 7). One session per source,
-//! opened in the background on the first request, so asking never blocks:
-//! - the page says which time the pointer is over ([`player_preview_want`]); the newest request wins;
-//! - Matroska files are read through their keyframe index: [`FETCHERS`] threads fetch the wanted keyframe (one range
-//!   request each, sized from the keyframes before it), so a link slow to answer keeps up with the pointer;
+//! Seek-bar previews for direct-played files without server trickplay (ADR-0009, revisions 5 to 8). One session per
+//! source, opened in the background on the first request, so asking never blocks:
+//! - the page says which time the pointer is over ([`player_preview_want`]) and numbers its requests; the newest
+//!   wins, also when an older one arrives after it;
+//! - Matroska files are read through their keyframe index, one range request per keyframe that ends as soon as the
+//!   keyframe is complete. The server is asked for little ([`Sched::take_job`]): at most [`SLOTS`] downloads in the
+//!   air, the keyframe under the pointer first and at once, nothing for spots the pointer only passes, a second
+//!   request when the first is not answered, and downloads the pointer has left are given up when their slot is
+//!   needed;
 //! - one thread decodes, the wanted keyframe first, else the newest fetched, and pushes each frame newer than the one
 //!   on screen to the page ([`EVENT_PREVIEW`]); the page shows the latest it got until the exact one arrives; a second
 //!   decoder joins only while the pointer is on the bar and the first is busy; HEVC keyframes of several slices are
 //!   decoded slice by slice on the source's strip decoders (`granary_player::hevc`);
-//! - while nobody hovers and the main player is healthy, a paced background fill decodes a coarse grid, so a far jump
-//!   has a stand-in at once;
+//! - while nobody hovers and the main player is healthy, a paced background fill decodes a grid, coarse to fine, so
+//!   the bar has a frame close to any spot at once;
 //! - playback comes first ([`Room`]): while the main player is short of buffered video, hovering fetches one keyframe
 //!   at a time and nothing ahead, and the background fill waits.
 //!
 //! Other files seek in a stream opened in the preview handle, newest request first. Frames are kept in memory only.
-//! The scheduling follows AIOStreams' thumbnailer (`thumbs/src/session.rs@87dee2c` of AIOStreams/media); decoding stays
-//! in a second libmpv handle because our FFmpeg is linked into libmpv (ADR-0009).
+//! Newest-request-wins and the parallel fetch follow AIOStreams' thumbnailer (`thumbs/src/session.rs@87dee2c` of
+//! AIOStreams/media); decoding stays in a second libmpv handle because our FFmpeg is linked into libmpv (ADR-0009).
 use super::host::{Cmd, PlayerHost};
 use crate::settings::SettingsStore;
 use crate::silo::CmdResult;
@@ -30,11 +34,41 @@ use tauri::{AppHandle, Emitter, Manager, State};
 pub const EVENT_PREVIEW: &str = "player://preview";
 /// Keyframe frames kept per source (about 10 KB each).
 const CACHE: usize = 600;
-/// Keyframes fetched at once.
+/// Fetch threads. One more than [`SLOTS`]: the thread of a download given up needs a moment to come back.
 const FETCHERS: usize = 3;
+/// Downloads in the air at once. A remote link answers one request for a far-off part of the file in well under a
+/// second when it is left alone and takes several seconds when a handful arrive together (measured through a
+/// server that reads from remote storage: 0.02 to 0.7 s alone, 2 to 5 s with three others, and after a burst of
+/// ten in a second nothing for 20 s). Two is the pointer's download and its second request, or one the pointer
+/// just left.
+const SLOTS: usize = 2;
+/// With a download in the air, the pointer has to stay on a keyframe this long before its download starts: a
+/// sweep along the bar shows the frames already made and asks the server for nothing it will not use.
+const SETTLE: Duration = Duration::from_millis(120);
+/// At most this many downloads for the pointer are started within [`BURST_WINDOW`], however the pointer moves: a
+/// download given up still keeps the server busy until it would have answered.
+const BURST: usize = 4;
+const BURST_WINDOW: Duration = Duration::from_secs(2);
+/// A download the server has not started to answer after this long is given up and asked for again.
+const PATIENCE: Duration = Duration::from_secs(8);
 /// Background grid: frames per level, coarse to fine. The total bounds the extra traffic per file (one keyframe each,
-/// typically 0.1–1.5 MB on 4K remuxes).
-const LEVELS: [usize; 2] = [12, 48];
+/// typically 0.1–1.5 MB on 4K remuxes). The last level puts a frame within about half a percent of the file of any
+/// spot, so on a link that takes seconds per request a hover still has something close to show at once.
+const LEVELS: [usize; 3] = [12, 48, 144];
+/// A download for the pointer that the server has not started to answer after this long gets a second request
+/// beside it; the first to arrive is used. Answer times on a remote link vary from a tenth of a second to several
+/// seconds for the same kind of request.
+const HEDGE: Duration = Duration::from_millis(1200);
+/// A download of a spot the pointer has left may be given up for the pointer's while the server has not answered
+/// it, or when it has been receiving for longer than this.
+const STALLED: Duration = Duration::from_secs(3);
+/// A keyframe under the pointer that failed is tried again after this long, this many times in all.
+const RETRY_FRAME: Duration = Duration::from_millis(600);
+const TRIES: u32 = 3;
+/// With the pointer resting on a spot whose frame is not made yet, the hover counts as going on for this long.
+const HOVER_WAIT: Duration = Duration::from_secs(30);
+/// Fetched keyframes of spots the pointer has left that wait for the decoder; older ones are dropped.
+const LEFT_KEPT: usize = 6;
 /// Pause between two background frames, so the playing stream keeps the connection.
 const PACE: Duration = Duration::from_millis(300);
 /// Wait before the background fill starts, so the first seconds of playback get the bandwidth.
@@ -53,8 +87,8 @@ const RETRY: Duration = Duration::from_secs(15);
 /// Neighbours of the keyframe under the pointer fetched ahead, in steps of the page's preview spots (negative:
 /// behind the direction of travel).
 const NEAR: [f64; 3] = [1.0, -1.0, 2.0];
-/// Neighbours in flight at once; one fetch thread stays free for the pointer.
-const NEAR_AT_ONCE: usize = FETCHERS - 1;
+/// Neighbours in flight at once.
+const NEAR_AT_ONCE: usize = 1;
 const OPEN_TIMEOUT: Duration = Duration::from_secs(20);
 const FRAME_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -107,6 +141,8 @@ struct Want {
     /// The cache key (keyframe time in ms in index mode); unknown while the source opens.
     key: Option<u64>,
     asked: u64,
+    /// Since when the pointer has been on this keyframe.
+    since: Instant,
 }
 
 struct Fetched {
@@ -115,6 +151,56 @@ struct Fetched {
     key: u64,
     /// The keyframe block as fetched.
     block: Vec<u8>,
+}
+
+/// What a download is for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Kind {
+    /// The keyframe under the pointer (possibly a second request for it).
+    Hover,
+    /// A neighbour of it.
+    Near,
+    /// The background grid.
+    Warm,
+}
+
+/// A keyframe download in progress.
+struct Flight {
+    id: u64,
+    at: f64,
+    key: u64,
+    asked: u64,
+    kind: Kind,
+    started: Instant,
+    cancel: Arc<Cancel>,
+}
+
+/// The read handle of a download. Without libmpv (other platforms) there are no downloads.
+#[cfg(windows)]
+type Cancel = granary_player::thumbs::Cancel;
+#[cfg(not(windows))]
+#[derive(Default)]
+struct Cancel;
+#[cfg(not(windows))]
+impl Cancel {
+    fn cancel(&self) {}
+    fn answered(&self) -> bool {
+        false
+    }
+}
+
+/// A download handed to a fetch thread.
+struct Job {
+    id: u64,
+    at: f64,
+    key: u64,
+    kind: Kind,
+    cancel: Arc<Cancel>,
+}
+
+struct Failure {
+    tries: u32,
+    at: Instant,
 }
 
 /// Scheduling state of one session.
@@ -126,7 +212,15 @@ struct Sched {
     /// Keys being fetched or decoded.
     busy: HashSet<u64>,
     /// Keys that failed since the pointer last moved to another.
-    failed: HashSet<u64>,
+    failed: std::collections::HashMap<u64, Failure>,
+    /// Downloads in progress. One given up is removed at once; its thread returns within moments.
+    flights: Vec<Flight>,
+    flight_ids: u64,
+    /// When the last downloads for the pointer were started ([`BURST`]).
+    starts: VecDeque<Instant>,
+    /// The newest request number the page sent. Requests are answered on several threads and can arrive out of
+    /// order; an older one must not move the pointer back.
+    seq: u64,
     /// Fetched and not yet decoded.
     fetched: Vec<Fetched>,
     /// The request the last frame pushed to the page answered.
@@ -144,8 +238,6 @@ struct Sched {
     /// The last reading of the main player's buffer, and when it was taken.
     room: Room,
     room_at: Option<Instant>,
-    /// Keyframe downloads in flight.
-    fetching: usize,
     /// The first decoder is in a decode.
     decoding: bool,
     /// When the source failed to open.
@@ -163,7 +255,11 @@ impl Sched {
             asked: 0,
             wanted: None,
             busy: HashSet::new(),
-            failed: HashSet::new(),
+            failed: std::collections::HashMap::new(),
+            flights: Vec::new(),
+            flight_ids: 0,
+            starts: VecDeque::new(),
+            seq: 0,
             fetched: Vec::new(),
             shown: 0,
             frames: Frames::default(),
@@ -175,7 +271,6 @@ impl Sched {
             dir: 1.0,
             room: Room::Normal,
             room_at: None,
-            fetching: 0,
             decoding: false,
             failed_at: None,
             fetch_cost: None,
@@ -189,22 +284,237 @@ impl Sched {
         self.failed_at = Some(Instant::now());
     }
 
+    /// The pointer is on the bar: it asked lately, or it rests on a spot whose frame is still being made.
     fn hovering(&self, now: Instant) -> bool {
-        self.last_hover.is_some_and(|t| now.duration_since(t) < HOVER_QUIET)
+        let Some(t) = self.last_hover else { return false };
+        let since = now.duration_since(t);
+        since < HOVER_QUIET || (since < HOVER_WAIT && self.wanted_open())
     }
 
-    /// A download for the pointer: the keyframe under it, else one next to it. While the main player is short of
-    /// buffer, one at a time and nothing ahead. Counts the download as in flight.
-    fn take_hover(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
-        let tight = self.room == Room::Tight;
-        if self.fetching >= if tight { 1 } else { FETCHERS } {
+    /// The frame under the pointer is not made yet.
+    fn wanted_open(&self) -> bool {
+        self.wanted
+            .as_ref()
+            .and_then(|w| w.key)
+            .is_some_and(|k| !self.frames.keys.contains_key(&k))
+    }
+
+    /// The pointer is over `seconds`. Returns the keyframe it shows and whether this is the newest request (an
+    /// older one that arrives late changes nothing).
+    fn want(&mut self, seconds: f64, seq: Option<u64>, now: Instant) -> (Option<u64>, bool) {
+        let key = self.key_for(seconds);
+        if seq.is_some_and(|q| q < self.seq) {
+            return (key, false);
+        }
+        self.seq = seq.unwrap_or(self.seq);
+        self.asked += 1;
+        let mut since = now;
+        if let Some(w) = &self.wanted {
+            if w.at != seconds {
+                self.dir = if seconds > w.at { 1.0 } else { -1.0 };
+            }
+            if w.key == key {
+                since = w.since;
+            } else {
+                self.failed.clear();
+            }
+        }
+        self.wanted = Some(Want {
+            at: seconds,
+            key,
+            asked: self.asked,
+            since,
+        });
+        self.last_hover = Some(now);
+        self.clear_warm_flights();
+        if key.is_some_and(|k| self.frames.keys.contains_key(&k)) {
+            self.shown = self.asked;
+        }
+        (key, true)
+    }
+
+    /// Another download for the pointer may start now ([`BURST`]).
+    fn may_start(&mut self, now: Instant) -> bool {
+        while self
+            .starts
+            .front()
+            .is_some_and(|t| now.duration_since(*t) >= BURST_WINDOW)
+        {
+            self.starts.pop_front();
+        }
+        self.starts.len() < BURST
+    }
+
+    /// Start a download for the pointer or next to it.
+    fn start(&mut self, job: (f64, u64, u64), kind: Kind, now: Instant) -> Job {
+        self.starts.push_back(now);
+        self.fly(job, kind, now)
+    }
+
+    fn fly(&mut self, (at, key, asked): (f64, u64, u64), kind: Kind, now: Instant) -> Job {
+        self.flight_ids += 1;
+        let cancel = Arc::new(Cancel::default());
+        self.flights.push(Flight {
+            id: self.flight_ids,
+            at,
+            key,
+            asked,
+            kind,
+            started: now,
+            cancel: Arc::clone(&cancel),
+        });
+        Job {
+            id: self.flight_ids,
+            at,
+            key,
+            kind,
+            cancel,
+        }
+    }
+
+    /// Give up the download at `i`: its key is open again and a background target goes back to its queue.
+    fn give_up(&mut self, i: usize) {
+        let f = self.flights.swap_remove(i);
+        f.cancel.cancel();
+        if !self.flights.iter().any(|o| o.key == f.key) {
+            self.busy.remove(&f.key);
+        }
+        if f.kind == Kind::Warm {
+            self.warm.push_front((f.at, f.key));
+        }
+    }
+
+    /// Give up the download with this id, when it is still going.
+    fn give_up_id(&mut self, id: u64) {
+        if let Some(i) = self.flights.iter().position(|f| f.id == id) {
+            self.give_up(i);
+        }
+    }
+
+    /// The pointer asked: background downloads the server has not answered yet make way.
+    fn clear_warm_flights(&mut self) {
+        while let Some(i) = self
+            .flights
+            .iter()
+            .position(|f| f.kind == Kind::Warm && !f.cancel.answered())
+        {
+            self.give_up(i);
+        }
+    }
+
+    /// The download to give up for the keyframe under the pointer: one for another keyframe that the server has
+    /// not answered or that has been receiving for long; background first, then neighbours, the oldest first.
+    fn victim(&self, key: u64, now: Instant) -> Option<usize> {
+        self.flights
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.key != key && (!f.cancel.answered() || now.duration_since(f.started) >= STALLED))
+            .min_by_key(|(_, f)| {
+                let rank = match f.kind {
+                    Kind::Warm => 0,
+                    Kind::Near => 1,
+                    Kind::Hover => 2,
+                };
+                (rank, f.started)
+            })
+            .map(|(i, _)| i)
+    }
+
+    /// The next download for a fetch thread, at most [`SLOTS`] in the air:
+    /// 1. the keyframe under the pointer: at once when nothing is in the air, else once the pointer has stayed on
+    ///    it for [`SETTLE`]; when the slots are taken, a download the pointer has left is given up for it;
+    /// 2. a second request for it when the server has not answered the first after [`HEDGE`];
+    /// 3. a keyframe next to it;
+    /// 4. the background grid.
+    ///
+    /// While the main player is short of buffer and the pointer is on the bar: one download at a time, only the
+    /// first kind.
+    fn take_job(&mut self, now: Instant) -> Option<Job> {
+        while let Some(i) = self
+            .flights
+            .iter()
+            .position(|f| !f.cancel.answered() && now.duration_since(f.started) >= PATIENCE)
+        {
+            self.give_up(i);
+        }
+        let tight = self.room == Room::Tight && self.hovering(now);
+        let slots = if tight { 1 } else { SLOTS };
+        let wanted = self
+            .wanted
+            .as_ref()
+            .and_then(|w| w.key.map(|k| ((w.at, k, w.asked), w.since)));
+        if let Some((w, since)) = wanted
+            && self.open_for(w.1, now, true)
+        {
+            let settled = self.flights.is_empty() || now.duration_since(since) >= SETTLE;
+            if !settled || !self.may_start(now) {
+                return None;
+            }
+            if self.flights.len() >= slots {
+                let victim = self.victim(w.1, now)?;
+                self.give_up(victim);
+            }
+            self.busy.insert(w.1);
+            return Some(self.start(w, Kind::Hover, now));
+        }
+        if tight || self.flights.len() >= slots {
             return None;
         }
-        let job = self
-            .take_wanted()
-            .or_else(|| if tight { None } else { self.take_near(now) })?;
-        self.fetching += 1;
-        Some(job)
+        if let Some((w, _)) = wanted {
+            let mut mine = self.flights.iter().filter(|f| f.key == w.1);
+            if let (Some(f), None) = (mine.next(), mine.next())
+                && !f.cancel.answered()
+                && now.duration_since(f.started) >= HEDGE
+                && self.may_start(now)
+            {
+                return Some(self.start(w, Kind::Hover, now));
+            }
+        }
+        if self.may_start(now)
+            && let Some((at, key)) = self.take_near(now)
+        {
+            return Some(self.start((at, key, 0), Kind::Near, now));
+        }
+        if let Some((at, key)) = self.take_warm(now) {
+            return Some(self.fly((at, key, 0), Kind::Warm, now));
+        }
+        None
+    }
+
+    /// A download ended, with the keyframe block or without. The block is queued for the decoders and a second
+    /// request for the same keyframe is given up; a failure counts only when no second request is still going.
+    fn land(&mut self, id: u64, block: Option<Vec<u8>>, now: Instant) {
+        // Given up meanwhile: whatever it brought is not wanted.
+        let Some(i) = self.flights.iter().position(|f| f.id == id) else {
+            return;
+        };
+        let f = self.flights.swap_remove(i);
+        match block {
+            Some(block) => {
+                self.flights.retain(|o| {
+                    if o.key == f.key {
+                        o.cancel.cancel();
+                    }
+                    o.key != f.key
+                });
+                self.fetched.push(Fetched {
+                    asked: f.asked,
+                    key: f.key,
+                    block,
+                });
+            }
+            None if self.flights.iter().any(|o| o.key == f.key) => {}
+            None => {
+                self.busy.remove(&f.key);
+                self.fail_key(f.key, now);
+            }
+        }
+    }
+
+    fn fail_key(&mut self, key: u64, now: Instant) {
+        let e = self.failed.entry(key).or_insert(Failure { tries: 0, at: now });
+        e.tries += 1;
+        e.at = now;
     }
 
     /// Work for the second decoder: only while the pointer is on the bar and the first decoder is busy, so an idle
@@ -225,15 +535,22 @@ impl Sched {
         }
     }
 
-    fn open_for(&self, key: u64) -> bool {
-        !self.frames.keys.contains_key(&key) && !self.busy.contains(&key) && !self.failed.contains(&key)
+    /// `key` may be worked on: not made, not in work, and not failed. With `retry` (the keyframe under the
+    /// pointer) a failed one is open again after [`RETRY_FRAME`], [`TRIES`] times in all.
+    fn open_for(&self, key: u64, now: Instant, retry: bool) -> bool {
+        !self.frames.keys.contains_key(&key)
+            && !self.busy.contains(&key)
+            && self
+                .failed
+                .get(&key)
+                .is_none_or(|f| retry && f.tries < TRIES && now.duration_since(f.at) >= RETRY_FRAME)
     }
 
-    /// The wanted key when it still needs fetching (index mode) or decoding (seek mode); marks it busy.
-    fn take_wanted(&mut self) -> Option<(f64, u64, u64)> {
+    /// The wanted key when it still needs decoding (seek mode); marks it busy.
+    fn take_wanted(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
         let w = self.wanted.as_ref()?;
         let key = w.key?;
-        if !self.open_for(key) {
+        if !self.open_for(key, now, true) {
             return None;
         }
         let job = (w.at, key, w.asked);
@@ -244,12 +561,12 @@ impl Sched {
     /// A keyframe next to the one under the pointer, once that one is made and while the pointer is still around:
     /// the spots a small move lands on are then answered from the cache. Ahead in the direction of travel first.
     /// Marks it busy.
-    fn take_near(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
+    fn take_near(&mut self, now: Instant) -> Option<(f64, u64)> {
         let w = self.wanted.as_ref()?;
         let (at, key) = (w.at, w.key?);
         if self.step <= 0.0
             || !self.frames.keys.contains_key(&key)
-            || self.busy.len() >= NEAR_AT_ONCE
+            || self.flights.iter().filter(|f| f.kind == Kind::Near).count() >= NEAR_AT_ONCE
             || !self.hovering(now)
         {
             return None;
@@ -258,17 +575,17 @@ impl Sched {
             let t = at + n * self.dir * self.step;
             if let Some(k) = self.key_for(t)
                 && k != key
-                && self.open_for(k)
+                && self.open_for(k, now, false)
             {
                 self.busy.insert(k);
-                return Some((t, k, 0));
+                return Some((t, k));
             }
         }
         None
     }
 
     /// The next background target, when nobody hovers and nothing else is in flight; marks it busy.
-    fn take_warm(&mut self, now: Instant) -> Option<(f64, u64, u64)> {
+    fn take_warm(&mut self, now: Instant) -> Option<(f64, u64)> {
         if !self.warm_wanted
             || now < self.warm_after
             || self.hovering(now)
@@ -278,29 +595,37 @@ impl Sched {
             return None;
         }
         while let Some((at, key)) = self.warm.pop_front() {
-            if self.open_for(key) {
+            if self.open_for(key, now, false) {
                 self.busy.insert(key);
-                return Some((at, key, 0));
+                return Some((at, key));
             }
         }
         None
     }
 
-    /// The fetched keyframe to decode next: the wanted one, else the newest request.
+    /// The fetched keyframe to decode next: the wanted one, else the newest request. Keyframes of spots the pointer
+    /// has left are decoded too when the decoders get to them (their download was the expensive part, and the
+    /// pointer often comes back), the newest [`LEFT_KEPT`] of them.
     fn take_fetched(&mut self) -> Option<Fetched> {
         let wanted = self.wanted.as_ref().and_then(|w| w.key);
         let pick = (0..self.fetched.len())
             .find(|&i| Some(self.fetched[i].key) == wanted)
             .or_else(|| (0..self.fetched.len()).max_by_key(|&i| self.fetched[i].asked))?;
         let next = self.fetched.swap_remove(pick);
-        // Hover keyframes the pointer has left are not decoded: that would only delay the one it is on (AIOStreams does
-        // the same). Background ones are kept; filling the cache is their purpose.
-        let (keep, stale): (Vec<_>, Vec<_>) = std::mem::take(&mut self.fetched)
-            .into_iter()
-            .partition(|f| f.asked == 0 || Some(f.key) == wanted);
-        self.fetched = keep;
-        for f in stale {
-            self.busy.remove(&f.key);
+        self.fetched.sort_by_key(|f| std::cmp::Reverse(f.asked));
+        let (mut left, mut dropped) = (0, Vec::new());
+        self.fetched.retain(|f| {
+            if f.asked == 0 || Some(f.key) == wanted {
+                return true;
+            }
+            left += 1;
+            if left > LEFT_KEPT {
+                dropped.push(f.key);
+            }
+            left <= LEFT_KEPT
+        });
+        for key in dropped {
+            self.busy.remove(&key);
         }
         Some(next)
     }
@@ -309,7 +634,7 @@ impl Sched {
     fn finish(&mut self, key: u64, asked: u64, url: Option<Arc<String>>) -> bool {
         self.busy.remove(&key);
         let Some(url) = url else {
-            self.failed.insert(key);
+            self.fail_key(key, Instant::now());
             return false;
         };
         self.frames.remember(key, url);
@@ -576,13 +901,15 @@ struct PushedFrame {
 
 /// Ask for the preview at `seconds` in the playing file. Answers at once: with the frame when it was made before,
 /// otherwise with the nearest one made so far; the exact frame follows as an [`EVENT_PREVIEW`] event. `None` when
-/// previews are off or nothing previewable is playing (transcode, stopped).
+/// previews are off or nothing previewable is playing (transcode, stopped). `seq` rises with every request of the
+/// page: requests are served on several threads, and one that arrives after a newer one only reads the cache.
 #[tauri::command]
 pub async fn player_preview_want(
     app: AppHandle,
     host: State<'_, PlayerHost>,
     settings: State<'_, SettingsStore>,
     seconds: f64,
+    seq: Option<u64>,
 ) -> CmdResult<Option<WantReply>> {
     if bucket(seconds).is_none() {
         return Ok(None);
@@ -595,27 +922,8 @@ pub async fn player_preview_want(
     if matches!(s.mode, Mode::Failed) {
         return Ok(None);
     }
-    s.asked += 1;
-    let asked = s.asked;
-    let key = s.key_for(seconds);
-    if let Some(w) = &s.wanted
-        && w.at != seconds
-    {
-        s.dir = if seconds > w.at { 1.0 } else { -1.0 };
-    }
-    if s.wanted.as_ref().is_none_or(|w| w.key != key) {
-        s.failed.clear();
-    }
-    s.wanted = Some(Want {
-        at: seconds,
-        key,
-        asked,
-    });
-    s.last_hover = Some(Instant::now());
+    let (key, _newest) = s.want(seconds, seq, Instant::now());
     let hit = key.and_then(|k| s.frames.keys.get(&k).cloned());
-    if hit.is_some() {
-        s.shown = asked;
-    }
     let near = if hit.is_none() {
         key.or_else(|| bucket(seconds))
             .and_then(|k| s.frames.nearest(k))
@@ -782,7 +1090,8 @@ fn run(app: &AppHandle, shared: &Arc<Shared>, source: &str, generation: u64) {
                 let next = if indexed {
                     s.take_fetched().map(|f| (f.key, f.asked, Ok(f.block)))
                 } else {
-                    s.take_wanted().map(|(at, key, asked)| (key, asked, Err(at)))
+                    s.take_wanted(Instant::now())
+                        .map(|(at, key, asked)| (key, asked, Err(at)))
                 };
                 if let Some(job) = next {
                     s.decoding = true;
@@ -854,11 +1163,11 @@ fn run(_app: &AppHandle, shared: &Arc<Shared>, _source: &str, _generation: u64) 
     lock(&shared.state).fail();
 }
 
-/// A fetch thread (index mode): the wanted keyframe, else one next to it, else (when idle) the next background one.
+/// A fetch thread (index mode): takes downloads from [`Sched::take_job`] until the session closes.
 #[cfg(windows)]
 fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs::KeyframeFetcher) {
     loop {
-        let ((at, key, asked), warm) = {
+        let job = {
             let mut s = lock(&shared.state);
             loop {
                 if s.closed {
@@ -874,16 +1183,14 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
                     s.room = r;
                     continue;
                 }
-                if let Some(job) = s.take_hover(now) {
-                    break (job, false);
+                if let Some(job) = s.take_job(now) {
+                    break job;
                 }
-                if let Some(job) = s.take_warm(now) {
-                    s.fetching += 1;
-                    break (job, true);
-                }
-                // Short when background work waits on a timer or the pointer waits for room; otherwise a request
-                // wakes us.
-                let nap = if (s.warm_wanted && !s.warm.is_empty()) || s.hovering(now) {
+                // Short while the pointer waits (a second request may be due) or background work waits on a timer;
+                // otherwise a request wakes us.
+                let nap = if s.hovering(now) {
+                    Duration::from_millis(150)
+                } else if s.warm_wanted && !s.warm.is_empty() {
                     Duration::from_millis(250)
                 } else {
                     Duration::from_secs(10)
@@ -891,40 +1198,48 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
                 s = wait(shared, s, nap);
             }
         };
+        let warm = job.kind == Kind::Warm;
         if warm && room(app) != Room::Plenty {
             // The main player needs the bandwidth: put the target back and look again later.
             let mut s = lock(&shared.state);
-            s.fetching -= 1;
-            s.busy.remove(&key);
-            s.warm.push_front((at, key));
+            s.give_up_id(job.id);
             s.warm_after = Instant::now() + Duration::from_millis(500);
             continue;
         }
         let started = Instant::now();
-        let fetched = fetcher.fetch(at);
+        let fetched = fetcher.fetch_with(job.at, Some(&job.cancel));
         let took = started.elapsed();
         let mut s = lock(&shared.state);
-        s.fetching -= 1;
-        if let Ok((_, block)) = &fetched {
-            tracing::debug!(
-                key,
-                ms = took.as_millis() as u64,
-                bytes = block.len(),
-                warm,
-                "seek preview keyframe fetched"
-            );
-            s.fetch_cost = Some((took, block.len()));
+        let now = Instant::now();
+        match fetched {
+            Ok((_, block)) => {
+                tracing::debug!(
+                    key = job.key,
+                    kind = ?job.kind,
+                    ms = took.as_millis() as u64,
+                    answer_ms = job.cancel.answer_time().map_or(0, |t| t.as_millis() as u64),
+                    bytes = block.len(),
+                    others = s.flights.len().saturating_sub(1),
+                    given_up = job.cancel.is_cancelled(),
+                    "seek preview keyframe fetched"
+                );
+                s.fetch_cost = Some((took, block.len()));
+                s.land(job.id, Some(block), now);
+            }
+            Err(e) => {
+                tracing::debug!(
+                    error = %e,
+                    key = job.key,
+                    kind = ?job.kind,
+                    ms = took.as_millis() as u64,
+                    given_up = job.cancel.is_cancelled(),
+                    "seek preview keyframe not fetched"
+                );
+                s.land(job.id, None, now);
+            }
         }
         if warm {
-            s.warm_after = Instant::now() + PACE;
-        }
-        match fetched {
-            Ok((_, block)) => s.fetched.push(Fetched { asked, key, block }),
-            Err(e) => {
-                tracing::debug!(error = %e, at, "seek preview keyframe not fetched");
-                s.busy.remove(&key);
-                s.failed.insert(key);
-            }
+            s.warm_after = now + PACE;
         }
         drop(s);
         shared.wake.notify_all();
@@ -932,6 +1247,7 @@ fn fetch_loop(app: &AppHandle, shared: &Shared, fetcher: &granary_player::thumbs
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)] // test code
 mod tests {
     use super::*;
 
@@ -1007,27 +1323,43 @@ mod tests {
         assert!(grid(0.0).is_empty() && grid(f64::NAN).is_empty());
     }
 
+    /// The pointer has been on `at` for a while (see [`SETTLE`]).
     fn want(s: &mut Sched, at: f64) {
+        let now = Instant::now();
         s.asked += 1;
         s.wanted = Some(Want {
             at,
             key: bucket(at),
             asked: s.asked,
+            since: now.checked_sub(SETTLE * 2).unwrap_or(now),
         });
+    }
+
+    fn url(s: &str) -> Option<Arc<String>> {
+        Some(Arc::new(s.into()))
+    }
+
+    /// The download `job` arrived and its frame was decoded.
+    fn made(s: &mut Sched, job: &Job, now: Instant) {
+        s.land(job.id, Some(Vec::new()), now);
+        let f = s.take_fetched().expect("fetched");
+        assert_eq!(f.key, job.key);
+        s.finish(f.key, f.asked, url("x"));
     }
 
     #[test]
     fn the_newest_request_wins() {
         let mut s = Sched::new();
         s.mode = Mode::Seek;
+        let now = Instant::now();
         want(&mut s, 10.0);
-        assert_eq!(s.take_wanted().map(|j| j.1), Some(10_000));
-        assert!(s.take_wanted().is_none(), "busy: not fetched twice");
+        assert_eq!(s.take_wanted(now).map(|j| j.1), Some(10_000));
+        assert!(s.take_wanted(now).is_none(), "busy: not fetched twice");
         // The pointer moves on twice while 10 s loads; only the spot under it is fetched next.
         want(&mut s, 20.0);
         want(&mut s, 30.0);
-        assert_eq!(s.take_wanted().map(|j| (j.1, j.2)), Some((30_000, 3)));
-        // Both arrive; the wanted one decodes first, and the one the pointer left is dropped (not decoded, not busy).
+        assert_eq!(s.take_wanted(now).map(|j| (j.1, j.2)), Some((30_000, 3)));
+        // Both arrive; the wanted one decodes first, the one the pointer left after it.
         s.fetched.push(Fetched {
             asked: 1,
             key: 10_000,
@@ -1038,22 +1370,40 @@ mod tests {
             key: 30_000,
             block: Vec::new(),
         });
-        let first = s.take_fetched().map(|f| f.key);
-        assert_eq!(first, Some(30_000));
-        assert!(
-            s.finish(30_000, 3, Some(Arc::new("c".into()))),
-            "the wanted frame is pushed"
-        );
-        assert!(s.take_fetched().is_none());
-        assert!(!s.busy.contains(&10_000));
+        assert_eq!(s.take_fetched().map(|f| f.key), Some(30_000));
+        assert!(s.finish(30_000, 3, url("c")), "the wanted frame is pushed");
+        assert_eq!(s.take_fetched().map(|f| f.key), Some(10_000));
         // An older frame finishing after a newer one was shown is cached but not pushed.
-        assert!(!s.finish(10_000, 1, Some(Arc::new("a".into()))));
+        assert!(!s.finish(10_000, 1, url("a")));
         assert!(s.frames.keys.contains_key(&10_000));
-        // A failed key is not retried until the pointer moves to another key.
+        // A failed keyframe under the pointer is tried again after a pause, a few times in all.
         want(&mut s, 40.0);
-        let _ = s.take_wanted();
+        let _ = s.take_wanted(Instant::now());
         assert!(!s.finish(40_000, 4, None));
-        assert!(s.take_wanted().is_none());
+        assert!(s.take_wanted(Instant::now()).is_none(), "not at once");
+        for _ in 1..TRIES {
+            assert!(s.take_wanted(Instant::now() + RETRY_FRAME).is_some());
+            s.finish(40_000, 4, None);
+        }
+        assert!(s.take_wanted(Instant::now() + RETRY_FRAME).is_none(), "given up");
+    }
+
+    #[test]
+    fn only_so_many_left_keyframes_wait_for_the_decoder() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        for i in 1..=(LEFT_KEPT as u64 + 3) {
+            s.busy.insert(i);
+            s.fetched.push(Fetched {
+                asked: i,
+                key: i,
+                block: Vec::new(),
+            });
+        }
+        // The newest is decoded; of the rest the newest few are kept, the oldest two are open again.
+        assert_eq!(s.take_fetched().map(|f| f.key), Some(LEFT_KEPT as u64 + 3));
+        assert_eq!(s.fetched.len(), LEFT_KEPT);
+        assert!(!s.busy.contains(&1) && !s.busy.contains(&2) && s.busy.contains(&3));
     }
 
     #[test]
@@ -1063,7 +1413,7 @@ mod tests {
         want(&mut s, 10.0);
         want(&mut s, 20.0);
         // The frame for the first request lands while the second still loads: the page gets it as a stand-in.
-        assert!(s.finish(10_000, 1, Some(Arc::new("a".into()))));
+        assert!(s.finish(10_000, 1, url("a")));
         assert_eq!(s.shown, 1);
     }
 
@@ -1075,24 +1425,148 @@ mod tests {
         let now = Instant::now();
         want(&mut s, 100.0);
         s.last_hover = Some(now);
-        assert!(s.take_near(now).is_none(), "the exact frame comes first");
-        let _ = s.take_wanted();
-        s.finish(100_000, 1, Some(Arc::new("a".into())));
-        // Ahead first, then behind; never more than leave a fetch thread free for the pointer.
-        assert_eq!(s.take_near(now).map(|j| (j.1, j.2)), Some((110_000, 0)));
-        assert_eq!(s.take_near(now).map(|j| j.1), Some(90_000));
-        assert!(s.take_near(now).is_none());
-        s.finish(110_000, 0, Some(Arc::new("b".into())));
-        assert_eq!(s.take_near(now).map(|j| j.1), Some(120_000));
-        s.busy.clear();
-        assert!(s.take_near(now + HOVER_QUIET).is_none(), "the pointer is gone");
+        let exact = s.take_job(now).expect("the exact frame comes first");
+        assert_eq!((exact.key, exact.kind), (100_000, Kind::Hover));
+        assert!(s.take_job(now).is_none(), "nothing beside it yet");
+        made(&mut s, &exact, now);
+        // Ahead first, then behind, one at a time.
+        let ahead = s.take_job(now).expect("ahead");
+        assert_eq!((ahead.key, ahead.kind), (110_000, Kind::Near));
+        assert!(s.take_job(now).is_none());
+        made(&mut s, &ahead, now);
+        let behind = s.take_job(now).expect("behind");
+        assert_eq!(behind.key, 90_000);
+        made(&mut s, &behind, now);
+        assert_eq!(s.take_job(now).map(|j| j.key), Some(120_000));
+        assert!(s.take_job(now + HOVER_QUIET).is_none(), "the pointer is gone");
         // Moving back turns the order around.
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        s.step = 10.0;
         s.dir = -1.0;
-        s.frames.keys.clear();
+        want(&mut s, 100.0);
+        s.last_hover = Some(now);
         s.frames.remember(100_000, Arc::new("a".into()));
-        assert_eq!(s.take_near(now).map(|j| j.1), Some(90_000));
+        assert_eq!(s.take_job(now).map(|j| j.key), Some(90_000));
         assert_eq!(spot_step(7200.0), 10.0);
         assert_eq!(spot_step(600.0), 2.0);
+    }
+
+    #[test]
+    fn the_pointer_never_waits_for_downloads_it_has_left() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let now = Instant::now();
+        s.last_hover = Some(now);
+        // The pointer paused here and there: every slot has a download.
+        let mut jobs = Vec::new();
+        for i in 1..=SLOTS {
+            want(&mut s, i as f64 * 10.0);
+            jobs.push(s.take_job(now).expect("a free thread"));
+        }
+        // The pointer stops somewhere else: the oldest of them is given up for it.
+        want(&mut s, 500.0);
+        let job = s.take_job(now).expect("the pointer's download starts at once");
+        assert_eq!(job.key, 500_000);
+        assert_eq!(s.flights.len(), SLOTS);
+        assert!(!s.flights.iter().any(|f| f.key == 10_000) && !s.busy.contains(&10_000));
+        // What the given-up download still brings is not used, and it is no failure.
+        s.land(jobs[0].id, Some(Vec::new()), now);
+        s.land(jobs[0].id, None, now);
+        assert!(s.fetched.is_empty() && s.failed.is_empty());
+    }
+
+    #[test]
+    fn a_late_request_does_not_move_the_pointer_back() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let now = Instant::now();
+        // The page asked for 10 s, 20 s, 30 s; the request for 20 s arrives last.
+        assert_eq!(s.want(10.0, Some(1), now), (Some(10_000), true));
+        assert_eq!(s.want(30.0, Some(3), now), (Some(30_000), true));
+        assert_eq!(s.want(20.0, Some(2), now), (Some(20_000), false));
+        assert_eq!(s.wanted.as_ref().and_then(|w| w.key), Some(30_000));
+        assert_eq!(s.take_job(now).map(|j| j.key), Some(30_000));
+        // Without a number (older pages) every request counts.
+        assert!(s.want(40.0, None, now).1);
+    }
+
+    #[test]
+    fn a_sweep_asks_the_server_for_little() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let t0 = Instant::now();
+        // The first spot starts at once; the spots the pointer only passes do not.
+        s.want(10.0, Some(1), t0);
+        assert_eq!(s.take_job(t0).map(|j| j.key), Some(10_000));
+        for i in 2..10u64 {
+            let t = t0 + Duration::from_millis(30 * i);
+            s.want(i as f64 * 10.0, Some(i), t);
+            assert!(s.take_job(t).is_none(), "passing by");
+        }
+        // It stops: after a moment on the spot its download starts.
+        let stop = t0 + Duration::from_millis(300);
+        s.want(500.0, Some(10), stop);
+        assert!(s.take_job(stop + SETTLE / 2).is_none());
+        // Moving within the same keyframe does not start the wait again.
+        s.want(500.0, Some(11), stop + SETTLE / 2);
+        assert_eq!(s.take_job(stop + SETTLE).map(|j| j.key), Some(500_000));
+        assert_eq!(s.flights.len(), 2);
+        // However it moves, only so many downloads start in a short time.
+        for i in 0..10u64 {
+            let t = stop + SETTLE * (2 + i as u32);
+            s.want(1000.0 + i as f64 * 10.0, Some(20 + i), t);
+            let _ = s.take_job(t + SETTLE);
+        }
+        assert_eq!(s.starts.len(), BURST);
+        // Later it may again.
+        let later = stop + BURST_WINDOW * 2;
+        s.want(2000.0, Some(40), later);
+        assert_eq!(s.take_job(later + SETTLE).map(|j| j.key), Some(2_000_000));
+    }
+
+    #[test]
+    fn a_download_the_server_never_answers_is_asked_for_again() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let now = Instant::now();
+        s.last_hover = Some(now);
+        want(&mut s, 100.0);
+        let first = s.take_job(now).expect("first");
+        let second = s.take_job(now + HEDGE).expect("second request");
+        // Neither is answered: both are given up and the keyframe is asked for anew.
+        let third = s.take_job(now + HEDGE + PATIENCE).expect("asked again");
+        assert_eq!(third.key, 100_000);
+        assert!(third.id != first.id && third.id != second.id);
+        assert_eq!(s.flights.len(), 1);
+    }
+
+    #[test]
+    fn a_slow_answer_gets_a_second_request() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let now = Instant::now();
+        s.last_hover = Some(now);
+        want(&mut s, 100.0);
+        let first = s.take_job(now).expect("first");
+        assert!(s.take_job(now + HEDGE / 2).is_none(), "not yet");
+        let second = s.take_job(now + HEDGE).expect("second request");
+        assert_eq!((second.key, second.kind), (100_000, Kind::Hover));
+        assert!(s.take_job(now + HEDGE * 3).is_none(), "two at most");
+        // One of them failing is no failure while the other is going.
+        s.land(first.id, None, now);
+        assert!(s.failed.is_empty() && s.busy.contains(&100_000));
+        s.land(second.id, Some(Vec::new()), now);
+        assert_eq!(s.fetched.len(), 1);
+        assert!(s.flights.is_empty());
+        // The first to arrive ends the other.
+        want(&mut s, 200.0);
+        let first = s.take_job(now).expect("first");
+        let second = s.take_job(now + HEDGE).expect("second");
+        s.land(second.id, Some(Vec::new()), now);
+        assert!(s.flights.is_empty());
+        s.land(first.id, Some(Vec::new()), now);
+        assert_eq!(s.fetched.len(), 2, "the late twin is dropped");
     }
 
     #[test]
@@ -1104,19 +1578,19 @@ mod tests {
         s.last_hover = Some(now);
         s.room = Room::Tight;
         want(&mut s, 100.0);
-        assert_eq!(s.take_hover(now).map(|j| j.1), Some(100_000));
-        // The pointer moves on while that download runs: the next one waits for it.
+        let first = s.take_job(now).expect("one download");
+        assert!(s.take_job(now + HEDGE).is_none(), "no second request");
+        // The pointer moves on while the server has not answered: that download makes way, one stays in flight.
         want(&mut s, 200.0);
-        assert!(s.take_hover(now).is_none());
-        s.fetching -= 1;
-        assert_eq!(s.take_hover(now).map(|j| j.1), Some(200_000));
-        s.fetching -= 1;
-        s.finish(200_000, 2, Some(Arc::new("a".into())));
-        assert!(s.take_hover(now).is_none(), "nothing is fetched ahead");
+        let second = s.take_job(now).expect("the pointer's download");
+        assert_eq!(second.key, 200_000);
+        assert_eq!(s.flights.len(), 1);
+        s.land(first.id, Some(Vec::new()), now);
+        made(&mut s, &second, now);
+        assert!(s.take_job(now).is_none(), "nothing is fetched ahead");
         // With buffer to spare the neighbours follow.
         s.room = Room::Normal;
-        assert_eq!(s.take_hover(now).map(|j| j.1), Some(210_000));
-        assert_eq!(s.fetching, 1);
+        assert_eq!(s.take_job(now).map(|j| (j.key, j.kind)), Some((210_000, Kind::Near)));
     }
 
     #[test]
@@ -1137,21 +1611,42 @@ mod tests {
     }
 
     #[test]
-    fn the_background_fill_waits_for_quiet() {
+    fn a_pointer_resting_on_an_unmade_spot_still_hovers() {
+        let mut s = Sched::new();
+        s.mode = Mode::Seek;
+        let now = Instant::now();
+        s.last_hover = Some(now);
+        want(&mut s, 100.0);
+        assert!(s.hovering(now + HOVER_QUIET * 2), "its frame is still being made");
+        assert!(!s.hovering(now + HOVER_WAIT));
+        s.frames.remember(100_000, Arc::new("a".into()));
+        assert!(!s.hovering(now + HOVER_QUIET * 2));
+    }
+
+    #[test]
+    fn the_background_fill_waits_for_quiet_and_makes_way() {
         let mut s = Sched::new();
         s.mode = Mode::Seek;
         let now = Instant::now();
         s.warm.push_back((5.0, 5_000));
-        assert!(s.take_warm(now).is_none(), "not asked for");
+        assert!(s.take_job(now).is_none(), "not asked for");
         s.warm_wanted = true;
-        assert!(s.take_warm(now).is_none(), "start delay");
+        assert!(s.take_job(now).is_none(), "start delay");
         s.warm_after = now;
         s.last_hover = Some(now);
-        assert!(s.take_warm(now).is_none(), "someone hovers");
+        assert!(s.take_job(now).is_none(), "someone hovers");
         let later = now + HOVER_QUIET;
-        assert_eq!(s.take_warm(later).map(|j| (j.1, j.2)), Some((5_000, 0)));
+        let job = s.take_job(later).expect("background download");
+        assert_eq!((job.key, job.kind), (5_000, Kind::Warm));
+        // The pointer comes to the bar before the server answered: the download is given up and queued again.
+        s.clear_warm_flights();
+        assert!(s.flights.is_empty() && s.busy.is_empty());
+        assert_eq!(s.warm.front(), Some(&(5.0, 5_000)));
         // Background frames fill the cache but are never pushed.
-        assert!(!s.finish(5_000, 0, Some(Arc::new("w".into()))));
+        let job = s.take_job(later).expect("again");
+        s.land(job.id, Some(Vec::new()), later);
+        assert_eq!(s.take_fetched().map(|f| f.key), Some(5_000));
+        assert!(!s.finish(5_000, 0, url("w")));
         assert!(s.frames.keys.contains_key(&5_000));
     }
 }

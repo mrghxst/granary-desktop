@@ -164,6 +164,32 @@
   - The stats overlay shows how previews are made for the playing file and what the last download and the last
     decode cost (`preview`, `preview-fetch`, `preview-decode`), to tell a slow link from a slow decode on a real
     server. The download time on a real remote link is still not measured here.
+- **Revision 8 (2026-11-16, after 0.4.7): ask the server for little.** On the owner's server (4K remux, 18 544
+  keyframes, files on remote storage) previews still often did not appear under a resting pointer. Measured through
+  the relay with a scripted pointer (`player_preview_want` over the WebView's debug port): decoding took 130 to
+  330 ms and was never the limit. The time until the server answered a range request was: 0.02 to 0.7 s for one
+  request alone, 2 to 5 s with three others in the air, and after ten requests within a second nothing for 20 s.
+  Some requests failed outright. Two more causes were in the client: the controls hid after 2.5 s with the pointer
+  resting on the bar, and requests handled out of order could move the wanted spot back.
+  - `Sched::take_job` now paces the downloads: at most `SLOTS` (2) in the air, the keyframe under the pointer first;
+    while another download is in the air a new spot waits `SETTLE` (120 ms), so a sweep asks only for where it
+    stops; at most `BURST` (4) starts per 2 s; a request unanswered after `HEDGE` (1.2 s) gets a second one, after
+    `PATIENCE` (8 s) it is given up and asked again; a failed hover keyframe is retried three times.
+  - Downloads the pointer has left are given up when their slot is needed (`Cancel`, `HttpRange::with_cancel`). On
+    Windows, shutting the socket down from another thread does not wake a blocked read, so the reader reads in
+    100 ms turns and checks the flag between them.
+  - A keyframe read ends as soon as the keyframe's block is complete (`RangeSource::read_at_until`), instead of
+    reading the whole window sized from the byte rate.
+  - The page numbers its requests (`seq`); an older request arriving late is ignored.
+  - The background fill decodes a grid in three levels (12, 48, 144 spots), so a stand-in close to any spot is
+    there once the file has played for a while.
+  - The controls stay for 20 s while the pointer rests on the seek bar; the tile shows a thin line while the exact
+    frame is loading.
+  - Same benchmark after the change (ms until the exact frame, eight spots each): resting on far spots 0 to 3800,
+    one 8800; steps of a few seconds 0 to 6500, one 14 900 and one not delivered; a sweep's end 530 to 6300. Before,
+    sweeps often delivered nothing. What remains is the server's answer time for a cold part of the file; the
+    client cannot shorten it, only avoid making it worse. Not yet tried: one kept-open connection to the relay
+    instead of one per request.
 
 ## Consequences
 - Measured on the dev machine (test media, mock server through the relay): open 0.24 s, a new frame 35–90 ms (SDR

@@ -1,5 +1,5 @@
 import { Check, Clapperboard, Heart, MoreHorizontal, Play, RotateCcw, Star } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
@@ -458,6 +458,10 @@ function MenuItem({ onClick, children }: { onClick: () => void; children: ReactN
 
 /* ---------------------------------------------------------------- hero */
 
+/** The hero poster follows the height of the text beside it between these (CSS px). */
+const POSTER_MIN_PX = 256;
+const POSTER_MAX_PX = 448;
+
 function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail }) {
   const { t } = useTranslation();
   const backdrop = artwork(serverId, item.backdrop_url);
@@ -472,7 +476,26 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
   const logo = artwork(serverId, item.logo_url);
   const [logoFailed, setLogoFailed] = useState<string | null>(null);
   const showLogo = logo !== undefined && logoFailed !== logo;
+  const [logoLoaded, setLogoLoaded] = useState<string | null>(null);
   const episode = item.type === "episode";
+  // The poster is as tall as the text beside it (within limits), so the two start and end on the same lines
+  // whatever the height of the title art. It comes in once the title art has its size, so it does not grow on screen.
+  const column = useRef<HTMLDivElement>(null);
+  const [columnHeight, setColumnHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = column.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      setColumnHeight(Math.round(el.getBoundingClientRect().height));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  const posterHeight = columnHeight === null ? null : Math.min(POSTER_MAX_PX, Math.max(POSTER_MIN_PX, columnHeight));
+  const titleSettled = !showLogo || logoLoaded === logo;
   const tmdb = item.ratings.find((r) => r.source === "tmdb") ?? item.ratings[0];
   const tags = qualityTags(item.overlay_summary);
   const directors = item.crew.filter((c) => c.job === "Director");
@@ -507,6 +530,9 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
       alt={alt}
       draggable={false}
       className={className}
+      onLoad={() => {
+        setLogoLoaded(logo ?? null);
+      }}
       onError={() => {
         setLogoFailed(logo ?? null);
       }}
@@ -540,13 +566,16 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
             alt=""
             draggable={false}
             data-testid="hero-poster"
-            className="hidden aspect-[2/3] w-44 shrink-0 animate-[fade-in_400ms_ease-out] rounded-xl bg-surface-raised object-cover shadow-2xl shadow-black/50 outline outline-1 -outline-offset-1 outline-white/10 lg:block xl:w-52"
+            className={`hidden aspect-[2/3] w-44 shrink-0 rounded-xl bg-surface-raised object-cover shadow-2xl shadow-black/50 outline outline-1 -outline-offset-1 outline-white/10 transition-opacity duration-300 lg:block xl:w-52 ${
+              titleSettled ? "opacity-100" : "opacity-0"
+            }`}
+            style={posterHeight === null ? undefined : { height: posterHeight, width: "auto" }}
             onError={() => {
               setPosterFailed(poster);
             }}
           />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col justify-end gap-6">
+        <div ref={column} className="flex min-w-0 flex-1 flex-col justify-end gap-6">
           <div className="flex max-w-2xl flex-col gap-4">
             {episode && item.series_id ? (
               <Link
@@ -571,10 +600,10 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
               </Link>
             ) : null}
             {!episode && showLogo ? (
-              <h1 className="flex h-24 items-end lg:h-28">
+              <h1 className="flex">
                 {logoImg(
                   item.title,
-                  "max-h-full max-w-[min(26rem,100%)] object-contain object-left-bottom drop-shadow-2xl",
+                  "max-h-24 w-auto max-w-[min(26rem,100%)] object-contain object-left drop-shadow-2xl lg:max-h-28",
                 )}
               </h1>
             ) : (
@@ -778,6 +807,17 @@ function TrailersAndMore({ serverId, item }: { serverId: string; item: CatalogIt
   );
 }
 
+/** The play mark that comes up on a hovered thumbnail (styles: `.play-badge`). */
+function PlayBadge() {
+  return (
+    <span aria-hidden className="play-badge">
+      <span>
+        <Play className="size-5 translate-x-px fill-current" />
+      </span>
+    </span>
+  );
+}
+
 function Thumb({ src, children }: { src: string | undefined; children?: ReactNode }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -798,11 +838,7 @@ function Thumb({ src, children }: { src: string | undefined; children?: ReactNod
           <Clapperboard className="size-8" />
         </span>
       )}
-      <span className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition group-hover/t:opacity-100">
-        <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-black">
-          <Play className="size-5 fill-current" />
-        </span>
-      </span>
+      <PlayBadge />
       {children}
     </span>
   );
@@ -941,19 +977,17 @@ function EpisodeList({
           return (
             <li
               key={e.content_id}
-              className="group flex gap-4 rounded-xl border border-border bg-card p-3 hover:bg-surface-hover"
+              className="media-row flex gap-4 rounded-xl border border-border bg-card p-3 hover:bg-surface-hover"
             >
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void play(e.content_id)}
                 aria-label={t("item.playEpisode", { title: e.title })}
-                className="relative aspect-video w-48 shrink-0 overflow-hidden rounded-lg bg-surface-raised focus-visible:outline-2 focus-visible:outline-ring"
+                className="media-card-image relative aspect-video w-48 shrink-0 overflow-hidden rounded-lg bg-surface-raised focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {still ? <img src={still} alt="" loading="lazy" className="size-full object-cover" /> : null}
-                <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
-                  <Play className="size-8 text-white" />
-                </span>
+                <PlayBadge />
                 {progress > 0 ? (
                   <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-white/25">
                     <span className="block h-full bg-primary" style={{ width: `${String(progress * 100)}%` }} />

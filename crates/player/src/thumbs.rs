@@ -12,6 +12,7 @@ use crate::backend::PlayerBackend;
 use crate::events::MpvEvent;
 use crate::mkv::{MkvIndex, RangeSource};
 use crate::mpv::{MemoryFiles, Mpv, RawImage};
+pub use crate::range::Cancel;
 use crate::range::{FileRange, HttpRange};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -105,8 +106,22 @@ pub fn encode_jpeg(raw: &RawImage) -> Result<Vec<u8>, PlayerError> {
 
 /// Byte access to `source` for the index: the loopback relay over HTTP, or a local path.
 fn range_source(source: &str, timeout: Duration) -> Option<Box<dyn RangeSource + Send>> {
+    cancellable_source(source, timeout, None)
+}
+
+fn cancellable_source(
+    source: &str,
+    timeout: Duration,
+    cancel: Option<&Arc<Cancel>>,
+) -> Option<Box<dyn RangeSource + Send>> {
     if source.starts_with("http://") {
-        return HttpRange::new(source, timeout).map(|h| Box::new(h) as Box<dyn RangeSource + Send>);
+        return HttpRange::new(source, timeout).map(|h| {
+            let h = match cancel {
+                Some(c) => h.with_cancel(Arc::clone(c)),
+                None => h,
+            };
+            Box::new(h) as Box<dyn RangeSource + Send>
+        });
     }
     if source.contains("://") {
         return None;
@@ -219,9 +234,15 @@ impl KeyframeFetcher {
 
     /// The keyframe at or before `seconds`: its time and its block, for [`Thumbnailer::decode`].
     pub fn fetch(&self, seconds: f64) -> Result<(f64, Vec<u8>), PlayerError> {
+        self.fetch_with(seconds, None)
+    }
+
+    /// [`Self::fetch`] that another thread can give up through `cancel` (the read then fails at once).
+    pub fn fetch_with(&self, seconds: f64, cancel: Option<&Arc<Cancel>>) -> Result<(f64, Vec<u8>), PlayerError> {
         let bad = |m: String| PlayerError::InvalidArgument(format!("preview keyframe: {m}"));
         let cue = self.index.cue_for(seconds).ok_or_else(|| bad("no keyframe".into()))?;
-        let mut src = range_source(&self.source, self.timeout).ok_or_else(|| bad("source not readable".into()))?;
+        let mut src =
+            cancellable_source(&self.source, self.timeout, cancel).ok_or_else(|| bad("source not readable".into()))?;
         let first = self.sizes.lock().map_or(SizeGuess::FLOOR, |s| s.next());
         let f = self
             .index

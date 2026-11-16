@@ -4,6 +4,27 @@ All notable changes to Granary. The format follows [Keep a Changelog](https://ke
 follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+Seek previews that keep up with the pointer on slow links, smoother rows, and one hover look.
+
+### Fixed
+- Seek previews stopped appearing under a resting pointer: the player controls (and with them the preview) hid after
+  2.5 s although the pointer was on the seek bar. They now stay while the pointer rests on the bar.
+- Seek previews on links that are slow to answer: downloads for spots the pointer had already left kept every
+  download slot busy, so the spot under the pointer waited behind them. The keyframe under the pointer is now
+  fetched first and at once, downloads the pointer has left are given up when their slot is needed, a request that
+  is not answered within 1.2 s gets a second one, a failed download is tried again, and a late answer no longer
+  moves the preview back to an older spot.
+- Dragging a row of cards with the mouse stuttered. The row now moves once per frame, and the cards do not react to
+  the pointer while the row is dragged.
+
+### Changed
+- Seek previews ask the server for less: at most two downloads at a time, nothing for spots the pointer only
+  passes, and a keyframe download ends as soon as the keyframe is complete.
+- A thin line on the preview tile shows that the exact frame for the spot is still loading.
+- Movie and series pages: the poster is as tall as the title and text beside it, so both start and end on the same
+  lines whatever the shape of the title art.
+- Cards, episodes, collections and trailers share one hover look and one play badge.
+
 
 ## [0.4.7] - 2026-11-11
 Seek previews of large 4K files: keyframes with several slices are decoded side by side.

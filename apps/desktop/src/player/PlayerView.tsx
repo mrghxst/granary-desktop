@@ -56,6 +56,8 @@ import { LaunchScreen } from "./LaunchScreen";
 import { useLocalPreview } from "./useLocalPreview";
 
 const HIDE_PLAYING_MS = 2500;
+/** With the pointer resting on the seek bar (waiting for a preview, reading the time) the controls stay this long. */
+const HIDE_ON_BAR_MS = 20000;
 const SPINNER_DELAY_MS = 350;
 /** How long a new skip or next-episode prompt shows by itself while the controls are hidden. */
 const PROMPT_POP_MS = 8000;
@@ -215,6 +217,7 @@ function SeekBar({
   serverId,
   provider,
   onTileError,
+  onHoverChange,
 }: {
   position: number;
   duration: number;
@@ -224,6 +227,8 @@ function SeekBar({
   provider: PreviewProvider;
   /** A sprite sheet failed to load (an expired signed URL): look the previews up again. */
   onTileError: () => void;
+  /** The pointer came onto the bar or left it. */
+  onHoverChange: (on: boolean) => void;
 }) {
   const { t } = useTranslation();
   const { ctx } = usePlayer();
@@ -269,6 +274,13 @@ function SeekBar({
         PREVIEW_WIDTH / 2
       : null;
   const chapter = preview !== null ? chapterAt(chapters, preview) : undefined;
+  const onBar = preview !== null;
+  useEffect(() => {
+    onHoverChange(onBar);
+    return () => {
+      onHoverChange(false);
+    };
+  }, [onBar, onHoverChange]);
 
   return (
     <div className="group relative py-2">
@@ -299,21 +311,29 @@ function SeekBar({
               />
             </div>
           ) : local ? (
-            <img
-              src={local.url}
-              alt=""
-              data-testid="seek-preview"
-              data-approx={local.approx ? "true" : undefined}
-              className="aspect-video shrink-0 rounded-md border border-white/20 bg-black object-cover shadow-lg"
-              decoding="sync"
+            <div
+              className="relative aspect-video shrink-0 overflow-hidden rounded-md border border-white/20 bg-black shadow-lg"
               style={{ width: PREVIEW_WIDTH }}
-            />
+            >
+              <img
+                src={local.url}
+                alt=""
+                data-testid="seek-preview"
+                data-approx={local.approx ? "true" : undefined}
+                className="size-full object-cover"
+                decoding="sync"
+              />
+              {/* A frame from near the spot is up while the exact one is made: say so, quietly. */}
+              {local.approx ? <span className="preview-loading" /> : null}
+            </div>
           ) : provider.kind === "local" ? (
             // Same box while the first frame loads: the time label does not jump when the frame arrives.
             <div
-              className="aspect-video shrink-0 rounded-md border border-white/20 bg-black/80 shadow-lg"
+              className="relative aspect-video shrink-0 overflow-hidden rounded-md border border-white/20 bg-black/80 shadow-lg"
               style={{ width: PREVIEW_WIDTH }}
-            />
+            >
+              <span className="preview-loading" />
+            </div>
           ) : null}
           <span className="rounded bg-black/80 px-2 py-0.5 text-xs text-white tabular-nums">
             {chapter ? `${chapter.title} · ` : ""}
@@ -547,6 +567,7 @@ function PlayerControls() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-resolve per file, settings change or expired sheet
   }, [fileKey, order, durationS > 0, previewEpoch]);
 
+  const [barHover, setBarHover] = useState(false);
   const keepVisible = menu !== null || help || contextMenu !== null || p.launch !== null;
 
   const schedule = useCallback(() => {
@@ -564,9 +585,9 @@ function PlayerControls() {
       () => {
         setVisible(false);
       },
-      paused ? HIDE_PAUSED_MS : HIDE_PLAYING_MS,
+      paused ? HIDE_PAUSED_MS : barHover ? HIDE_ON_BAR_MS : HIDE_PLAYING_MS,
     );
-  }, [keepVisible, paused]);
+  }, [keepVisible, paused, barHover]);
 
   const poke = useCallback(() => {
     if (!visibleRef.current) {
@@ -1062,6 +1083,7 @@ function PlayerControls() {
               serverId={ctx?.serverId ?? ""}
               provider={previewProvider}
               onTileError={onTileError}
+              onHoverChange={setBarHover}
               onSeek={(s) => void player.seek(s).catch(fail)}
             />
           ) : null}

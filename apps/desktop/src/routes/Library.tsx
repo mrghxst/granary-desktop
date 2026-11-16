@@ -302,12 +302,12 @@ function CollectionTile({ serverId, card, onOpen }: { serverId: string; card: Co
   const [failed, setFailed] = useState(false);
   const src = failed ? undefined : artwork(serverId, card.poster_url);
   return (
-    <button type="button" onClick={onOpen} className="group/c w-full text-left focus-visible:outline-none">
+    <button type="button" onClick={onOpen} className="media-card group/c w-full text-left focus-visible:outline-none">
       <span className="relative block aspect-[2/3] overflow-visible">
         {/* Two offset sheets read as a stack: a collection, not a single title. */}
         <span className="absolute inset-x-3 -top-1.5 h-full rounded-xl bg-surface-raised/50" />
         <span className="absolute inset-x-1.5 -top-0.5 h-full rounded-xl bg-surface-raised/80" />
-        <span className="relative block size-full overflow-hidden rounded-xl bg-surface-raised ring-ring transition duration-200 group-hover/c:-translate-y-0.5 group-focus-visible/c:ring-2">
+        <span className="media-card-image relative block size-full overflow-hidden rounded-xl bg-surface-raised ring-ring group-focus-visible/c:ring-2">
           {src ? (
             <img
               src={src}

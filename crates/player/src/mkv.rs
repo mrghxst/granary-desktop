@@ -58,7 +58,16 @@ const NEAR_BLOCK: u64 = 256 * 1024;
 /// Random access to the bytes of a file: HTTP range requests in the app, a local file in tests.
 pub trait RangeSource {
     fn read_at(&mut self, offset: u64, len: u64) -> io::Result<Vec<u8>>;
+
+    /// Like [`Self::read_at`], but the read may end early: `enough` is shown the bytes read so far and says, once
+    /// it can tell, how many are needed in all. A source that reads in one piece ignores it.
+    fn read_at_until(&mut self, offset: u64, len: u64, _enough: &dyn Fn(&[u8]) -> Option<u64>) -> io::Result<Vec<u8>> {
+        self.read_at(offset, len)
+    }
 }
+
+/// Says how many bytes of a read are needed, from the bytes read so far ([`RangeSource::read_at_until`]).
+type Enough<'a> = Box<dyn Fn(&[u8]) -> Option<u64> + 'a>;
 
 fn bad(what: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, format!("matroska: {what}"))
@@ -138,6 +147,8 @@ struct Window<'a, S: RangeSource + ?Sized> {
     reads: u32,
     /// The last read came back short: the source ends at the window.
     eof: bool,
+    /// For the next read that starts the window anew: where it may stop.
+    enough: Option<Enough<'a>>,
 }
 
 impl<'a, S: RangeSource + ?Sized> Window<'a, S> {
@@ -154,6 +165,7 @@ impl<'a, S: RangeSource + ?Sized> Window<'a, S> {
             reach: 0,
             reads: 0,
             eof: false,
+            enough: None,
         }
     }
 
@@ -173,9 +185,19 @@ impl<'a, S: RangeSource + ?Sized> Window<'a, S> {
             }
         } else if off < self.start || end > have {
             let want = len.max(self.chunk);
-            self.buf = self.src.read_at(off, want)?;
+            // A read that stopped where it was told to has not reached the end of the source.
+            let mut told = None;
+            self.buf = match self.enough.take() {
+                Some(enough) => {
+                    let buf = self.src.read_at_until(off, want, &*enough)?;
+                    told = enough(&buf);
+                    buf
+                }
+                None => self.src.read_at(off, want)?,
+            };
             self.reads += 1;
-            self.eof = (self.buf.len() as u64) < want;
+            let got = self.buf.len() as u64;
+            self.eof = got < want && told.is_none_or(|t| got < t);
             self.start = off;
         }
         let from = usize::try_from(off - self.start).map_err(|_| bad("offset"))?;
@@ -419,6 +441,18 @@ impl MkvIndex {
         guess: u64,
     ) -> io::Result<(Vec<u8>, u64)> {
         let cluster_off = self.segment_start + cue.cluster;
+        if let Some(rel) = cue.relative
+            && rel < NEAR_BLOCK
+        {
+            // The read below is sized by a guess of the keyframe's size; it can stop at the keyframe's real end,
+            // which the block's header tells after the first few bytes.
+            w.enough = Some(Box::new(move |buf: &[u8]| {
+                let cluster = header(buf)?;
+                let at = (cluster.len as u64).checked_add(rel)?;
+                let block = header(buf.get(usize::try_from(at).ok()?..)?)?;
+                at.checked_add(block.len as u64)?.checked_add(block.size?)
+            }));
+        }
         w.chunk = match cue.relative {
             Some(rel) if rel < NEAR_BLOCK => 12 + rel + guess,
             Some(_) => 12,
@@ -813,6 +847,47 @@ mod tests {
         assert!(f.block.ends_with(b"KEY-ONE"));
         assert!(idx.file(&f.block).ends_with(b"KEY-ONE"));
         assert!(idx.strip_files(&f.block).is_none(), "not HEVC: decoded whole");
+    }
+
+    /// Ends a read where it is told to, like the HTTP source, and counts the bytes returned.
+    struct Stopping(Mem, u64);
+
+    impl RangeSource for Stopping {
+        fn read_at(&mut self, offset: u64, len: u64) -> io::Result<Vec<u8>> {
+            let b = self.0.read_at(offset, len)?;
+            self.1 += b.len() as u64;
+            Ok(b)
+        }
+
+        fn read_at_until(
+            &mut self,
+            offset: u64,
+            len: u64,
+            enough: &dyn Fn(&[u8]) -> Option<u64>,
+        ) -> io::Result<Vec<u8>> {
+            let mut b = self.0.read_at(offset, len)?;
+            if let Some(n) = enough(&b) {
+                b.truncate(usize::try_from(n).unwrap());
+            }
+            self.1 += b.len() as u64;
+            Ok(b)
+        }
+    }
+
+    #[test]
+    fn a_keyframe_read_stops_at_the_end_of_the_keyframe() {
+        // The first read is sized by a guess far larger than the keyframe: only the keyframe is transferred.
+        let data = sample_with(true, b"aa");
+        let idx = MkvIndex::load(&mut Mem(data.clone(), 0)).unwrap();
+        let cue = idx.cue_for(0.0).unwrap();
+        let mut whole = Counted(Mem(data.clone(), 0), 0);
+        let all = idx.frame_file_sized(&mut whole, &cue, 1 << 20).unwrap();
+        let mut src = Stopping(Mem(data, 0), 0);
+        let f = idx.frame_file_sized(&mut src, &cue, 1 << 20).unwrap();
+        assert_eq!(f.block, all.block);
+        assert_eq!(f.reads, 1);
+        assert!(src.1 < whole.1, "read {} of {} bytes", src.1, whole.1);
+        assert!(f.block.ends_with(b"KEY-ONE"));
     }
 
     #[test]

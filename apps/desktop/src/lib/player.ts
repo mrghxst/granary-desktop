@@ -131,6 +131,8 @@ async function on<T>(event: string, f: (payload: T) => void): Promise<UnlistenFn
   });
 }
 
+let previewSeq = 0;
+
 export const player = {
   stop: () => call<null>("player_stop"),
   pause: (paused?: boolean) => call<null>("player_pause", { paused: paused ?? null }),
@@ -152,7 +154,12 @@ export const player = {
    * Ask for the local preview at `seconds` (no server trickplay). Answers at once with the frame when the host has it,
    * else with the nearest one; the exact frame follows through {@link player.onPreview}. Null when previews are off.
    */
-  previewWant: (seconds: number) => call<PreviewReply | null>("player_preview_want", { seconds }),
+  previewWant: (seconds: number) => {
+    // Numbered: the host serves requests on several threads, and one that arrives after a newer one must not move
+    // the pointer back. Clock-based so the numbers keep rising across a reload of the page.
+    previewSeq = Math.max(previewSeq + 1, Date.now());
+    return call<PreviewReply | null>("player_preview_want", { seconds, seq: previewSeq });
+  },
   /** Open the playing file's previews ahead of the first hover and start the paced background fill. */
   previewWarm: () => call<null>("player_preview_warm"),
   onPreview: (f: (p: PushedPreview) => void) => on("player://preview", f),
