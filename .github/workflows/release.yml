@@ -81,7 +81,8 @@ jobs:
           retention-days: 7
 
   draft:
-    # Attaches the installer to a DRAFT release (never published automatically). No checkout, no build.
+    # Attaches the installer to the release of the tag, published as a public pre-release (owner's decision,
+    # 2026-11-16). Manual runs make a draft `v<version>-dev`. No checkout, no build.
     needs: installer
     runs-on: windows-latest
     timeout-minutes: 10
@@ -107,17 +108,23 @@ jobs:
             if ($name -notmatch '_(\d+\.\d+\.\d+)_') { Write-Error "cannot read version from $name"; exit 1 }
             "v$($Matches[1])-dev"
           }
-          $notes = "Draft build from $env:GITHUB_SHA (run $env:GITHUB_RUN_ID). Review before publishing (private repo)."
+          $tagged = $env:GITHUB_REF_TYPE -eq 'tag'
+          $notes = if ($tagged) {
+            "Pre-release. Changes: https://github.com/$env:GH_REPO/blob/$tag/CHANGELOG.md`n`nVerify the download with the ``.sha256`` file next to the installer."
+          } else {
+            "Development build from $env:GITHUB_SHA (run $env:GITHUB_RUN_ID)."
+          }
+          $kind = if ($tagged) { '--prerelease' } else { '--draft' }
           $isDraft = gh release view $tag --json isDraft -q .isDraft 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --draft --target $env:GITHUB_SHA --title "Granary $tag" --notes $notes @files
+            gh release create $tag $kind --target $env:GITHUB_SHA --title "Granary $tag" --notes $notes @files
           } elseif ($isDraft -eq 'true') {
             gh release upload $tag --clobber @files
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             # Keep target and notes in step with the uploaded build (final review L1).
             gh release edit $tag --draft --target $env:GITHUB_SHA --notes $notes
           } else {
-            # Never replace assets of a release the owner already published (rule 4: drafts only).
+            # Never replace the assets of a published release.
             Write-Error "release $tag is already published; refusing to modify it"
             exit 1
           }

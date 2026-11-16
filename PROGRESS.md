@@ -18,6 +18,24 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags, seek previews done; next for files without trickplay, README + Pages site.
 All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 adds web-app parity features, local seek previews and the website. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
+### Feature roadmap (owner's choice, 2026-11-16)
+Ported from the Silo web app, in this order; each step starts with its endpoints in `docs/research/silo-api.md`.
+- [ ] R1 Favorites, Watchlist and History pages
+- [ ] R2 Collections pages, box-set pages (collection editor after the read side)
+- [ ] R3 Calendar (upcoming episodes)
+- [ ] R4 Recommendations pages
+- [ ] R5 Requests (discover, browse, request a title)
+- [ ] R6 Notifications
+- [ ] R7 Theme music on title pages; customise home screen
+- [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
+  letterbox, marker editing, Watch Together
+- [ ] R9 Audiobook player
+- [ ] R10 Ebook and manga reader
+
+Not wanted: the web app's extra settings and account pages, taste-seed onboarding. Seek previews stay an app
+feature: the owner does not want server trickplay generated for the libraries.
+Releases: tags are published by the workflow as public pre-releases; no drafts (2026-11-16).
+
 ## Decisions (link ADRs)
 - [ADR-0001](docs/adr/0001-ui-strategy.md) UI: own React UI with Silo design tokens (option C).
 - [ADR-0002](docs/adr/0002-player-integration.md) Player: in-process libmpv (libmpv2-sys 4.0.1) via `wid`.
@@ -110,6 +128,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-16 0.4.8 published as a pre-release at the owner's request; release.yml publishes tags as public pre-releases from now on (manual runs stay drafts); CLAUDE.md rule 4 updated; feature roadmap R1 to R10 recorded.
 - 2026-11-16 Seek previews benchmarked on the owner's server in five variants (kept connections, no aborts, no background fill, all, current): no difference beyond noise; a 700 KB keyframe costs about 1 s of server time (ADR-0009 revision 8). Code unchanged. Server trickplay is off for the owner's libraries (off by default upstream).
 - 2026-11-16 After 0.4.8: preview tile loading line removed; row drag moves in the pointer move (no frame of delay). Upstream re-read: AIOStreams thumbnailer unchanged since 87dee2c; its reader keeps connections open (ureq agent), reads exact ranges and never aborts, and has no background fill. Not yet ported, needs a benchmark against the owner's server.
 - 2026-11-16 0.4.8: version bump and tag for the paced seek previews and the row, poster and hover changes (draft release built by release.yml).
