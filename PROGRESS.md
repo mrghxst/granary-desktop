@@ -110,6 +110,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-16 0.4.8: version bump and tag for the paced seek previews and the row, poster and hover changes (draft release built by release.yml).
 - 2026-11-16 Seek previews paced for slow links (ADR-0009 revision 8: 2 downloads, hover first, give up left ones, hedge, numbered requests, early-stop reads, controls stay on the bar); row drag once per frame; hero poster follows the text height; one hover look and play badge. verify.ps1 green. Checked in the dev build: home, movie page, series page. Not measured: release build audio underruns during preview traffic.
 - 2026-11-11 0.4.7: version bump and tag for the 4K preview decode (draft release built by release.yml).
 - 2026-11-11 Previews, 4K (unreleased, ADR-0009 rev. 7): cause found with a disc-like clip (4 slices, no wavefronts, 1-4 MB keyframes): FFmpeg decodes the slices serially, 155-520 ms per keyframe. New `hevc.rs` (own implementation from H.265 syntax) splits a keyframe into one picture per slice; `StripPool` decodes them on up to 4 handles; 65-140 ms. First split keyframe verified against the whole decode; fixture `crates/player/tests/fixtures/hevc_slices.mkv`. First read sized from byte rate. Stats overlay rows `preview*`. verify.ps1 OK. Not measured: real server (download time), real disc remux.

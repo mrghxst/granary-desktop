@@ -164,7 +164,7 @@
   - The stats overlay shows how previews are made for the playing file and what the last download and the last
     decode cost (`preview`, `preview-fetch`, `preview-decode`), to tell a slow link from a slow decode on a real
     server. The download time on a real remote link is still not measured here.
-- **Revision 8 (2026-11-16, after 0.4.7): ask the server for little.** On the owner's server (4K remux, 18 544
+- **Revision 8 (2026-11-16, 0.4.8): ask the server for little.** On the owner's server (4K remux, 18 544
   keyframes, files on remote storage) previews still often did not appear under a resting pointer. Measured through
   the relay with a scripted pointer (`player_preview_want` over the WebView's debug port): decoding took 130 to
   330 ms and was never the limit. The time until the server answered a range request was: 0.02 to 0.7 s for one

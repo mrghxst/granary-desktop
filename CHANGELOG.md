@@ -4,6 +4,8 @@ All notable changes to Granary. The format follows [Keep a Changelog](https://ke
 follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [0.4.8] - 2026-11-16
 Seek previews that keep up with the pointer on slow links, smoother rows, and one hover look.
 
 ### Fixed
