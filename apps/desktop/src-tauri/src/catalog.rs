@@ -79,7 +79,7 @@ fn rule_groups(rules: Vec<FilterRule>) -> Option<String> {
 }
 
 /// The sources the UI may browse; anything else is refused before a request is sent.
-const SOURCES: &[&str] = &["query", "person"];
+const SOURCES: &[&str] = &["query", "person", "favorites", "watchlist", "history"];
 
 impl From<CatalogQueryArgs> for CatalogQuery {
     fn from(a: CatalogQueryArgs) -> Self {

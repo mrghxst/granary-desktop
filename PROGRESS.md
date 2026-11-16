@@ -20,7 +20,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
 
 ### Feature roadmap (owner's choice, 2026-11-16)
 Ported from the Silo web app, in this order; each step starts with its endpoints in `docs/research/silo-api.md`.
-- [ ] R1 Favorites, Watchlist and History pages
+- [x] R1 Favorites, Watchlist and History pages (`list/:source`, catalog read with `source`; checked on the owner's server 2026-11-16)
 - [ ] R2 Collections pages, box-set pages (collection editor after the read side)
 - [ ] R3 Calendar (upcoming episodes)
 - [ ] R4 Recommendations pages
@@ -128,6 +128,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-16 R1: Watchlist, Favorites and History pages (sidebar "Your lists"), `listCatalogItems` with `source`, mock honours the sources; verify.ps1 green; seen on the owner's server in the dev build (favorites 3, history 21, watchlist empty). History entries cannot be removed yet (`POST /api/v2/history/remove` not ported).
 - 2026-11-16 0.4.8 published as a pre-release at the owner's request; release.yml publishes tags as public pre-releases from now on (manual runs stay drafts); CLAUDE.md rule 4 updated; feature roadmap R1 to R10 recorded.
 - 2026-11-16 Seek previews benchmarked on the owner's server in five variants (kept connections, no aborts, no background fill, all, current): no difference beyond noise; a 700 KB keyframe costs about 1 s of server time (ADR-0009 revision 8). Code unchanged. Server trickplay is off for the owner's libraries (off by default upstream).
 - 2026-11-16 After 0.4.8: preview tile loading line removed; row drag moves in the pointer move (no frame of delay). Upstream re-read: AIOStreams thumbnailer unchanged since 87dee2c; its reader keeps connections open (ureq agent), reads exact ranges and never aborts, and has no background fill. Not yet ported, needs a benchmark against the owner's server.

@@ -320,7 +320,7 @@ export interface CatalogQuery {
   sort?: string;
   cursor?: string;
   limit?: number;
-  source?: "query" | "person";
+  source?: "query" | "person" | "favorites" | "watchlist" | "history";
   personId?: string;
   namePrefix?: string;
   genre?: string;

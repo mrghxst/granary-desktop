@@ -147,6 +147,8 @@ Error codes for `login`: 400, 401, 403, 406, 408, 409, 413, 415, 422, 429, 500, 
 
 ### 4.2 Catalog browse and search
 
+Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).
+
 **`GET /api/v2/catalog`** (`listCatalogItems`, OAS:L150065). It is `profile_scoped` and requires `X-Profile-Id`. Query parameters:
 
 | Param | Type / values |

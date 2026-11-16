@@ -74,6 +74,7 @@
     "retry": "Retry"
   },
   "shell": {
+    "yours": "Your lists",
     "skip": "Skip to content",
     "nav": "Main navigation",
     "home": "Home",
@@ -460,5 +461,23 @@
       "movies": "Movies",
       "series": "Series"
     }
+  },
+  "lists": {
+    "watchlist": {
+      "title": "Watchlist",
+      "subtitle": "Titles you saved to watch later.",
+      "empty": "Your watchlist is empty. Add titles from their page."
+    },
+    "favorites": {
+      "title": "Favorites",
+      "subtitle": "Titles you marked as favorites.",
+      "empty": "No favorites yet. Mark titles with the heart on their page."
+    },
+    "history": {
+      "title": "History",
+      "subtitle": "What you watched, most recent first.",
+      "empty": "Nothing watched yet."
+    },
+    "tabs": { "all": "All", "movies": "Movies", "series": "Series" }
   }
 }

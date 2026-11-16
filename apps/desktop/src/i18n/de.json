@@ -74,6 +74,7 @@
     "retry": "Erneut versuchen"
   },
   "shell": {
+    "yours": "Deine Listen",
     "skip": "Zum Inhalt springen",
     "nav": "Hauptnavigation",
     "home": "Start",
@@ -460,5 +461,23 @@
       "movies": "Filme",
       "series": "Serien"
     }
+  },
+  "lists": {
+    "watchlist": {
+      "title": "Merkliste",
+      "subtitle": "Titel, die du dir für später gemerkt hast.",
+      "empty": "Deine Merkliste ist leer. Füge Titel auf ihrer Seite hinzu."
+    },
+    "favorites": {
+      "title": "Favoriten",
+      "subtitle": "Titel, die du als Favoriten markiert hast.",
+      "empty": "Noch keine Favoriten. Markiere Titel mit dem Herz auf ihrer Seite."
+    },
+    "history": {
+      "title": "Verlauf",
+      "subtitle": "Was du gesehen hast, das Neueste zuerst.",
+      "empty": "Noch nichts gesehen."
+    },
+    "tabs": { "all": "Alle", "movies": "Filme", "series": "Serien" }
   }
 }

@@ -10,6 +10,7 @@ import { Shell } from "./components/Shell";
 import { applySettings, loadSettings } from "./lib/settings";
 import { Item } from "./routes/Item";
 import { Person } from "./routes/Person";
+import { PersonalList } from "./routes/PersonalList";
 import { Library } from "./routes/Library";
 import { Search } from "./routes/Search";
 import { ServerHome } from "./routes/ServerHome";
@@ -63,6 +64,7 @@ export function AppRoutes() {
             <Route path="search" element={<Search />} />
             <Route path="item/:itemId" element={<Item />} />
             <Route path="person/:personId" element={<Person />} />
+            <Route path="list/:source" element={<PersonalList />} />
             <Route path="settings" element={<Settings />} />
             <Route path="about" element={<About />} />
             <Route index element={<Navigate to="home" replace />} />

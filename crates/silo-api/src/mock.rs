@@ -919,8 +919,20 @@ impl SiloApi for MockSiloApi {
             .into_iter()
             .filter(|(lib, _)| query.library_id.as_deref().is_none_or(|l| l == *lib))
             .filter(|(_, c)| needle.as_deref().is_none_or(|n| c.title.to_lowercase().contains(n)))
+            .filter(|(_, c)| query.kind.as_deref().is_none_or(|k| c.kind == k))
             .map(|(_, c)| c)
             .collect();
+        // Personal lists (`source=favorites|watchlist|history`): the profile's flags pick the items.
+        if let Some(source @ ("favorites" | "watchlist" | "history")) = query.source.as_deref() {
+            let st = self.state.lock().map_err(|_| ApiError::Internal("mock state".into()))?;
+            items.retain(|c| {
+                st.flags.get(&c.content_id).is_some_and(|f| match source {
+                    "favorites" => f.is_favorite,
+                    "watchlist" => f.in_watchlist,
+                    _ => f.played,
+                })
+            });
+        }
         match query.sort.as_deref() {
             Some("-release_date") => items.sort_by_key(|c| std::cmp::Reverse(c.year)),
             _ => items.sort_by(|a, b| a.title.cmp(&b.title)),

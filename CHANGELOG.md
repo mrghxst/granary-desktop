@@ -5,6 +5,10 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Watchlist, Favorites and History pages, in the sidebar under "Your lists": the profile's lists from the server,
+  newest entry first, with tabs for movies and series.
+
 ### Fixed
 - Dragging a row with the mouse trailed one frame behind the hand: the row now moves in the same frame as the
   mouse.

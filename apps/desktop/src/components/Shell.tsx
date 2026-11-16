@@ -1,4 +1,17 @@
-import { Clapperboard, Folder, Home, Info, Search, Server, Settings, Tv, UserRound } from "lucide-react";
+import {
+  Bookmark,
+  Clapperboard,
+  Folder,
+  Heart,
+  History,
+  Home,
+  Info,
+  Search,
+  Server,
+  Settings,
+  Tv,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { NavigationType, NavLink, Outlet, useLocation, useNavigate, useNavigationType, useParams } from "react-router";
@@ -163,6 +176,28 @@ export function Shell() {
           <Item to={`${base}/home`} icon={<Home className="size-[18px] shrink-0" />} label={t("shell.home")} end />
           <Item to={`${base}/search`} icon={<Search className="size-[18px] shrink-0" />} label={t("shell.search")} />
         </ul>
+        <div className="flex flex-col gap-1">
+          <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
+            {t("shell.yours")}
+          </p>
+          <ul className="flex flex-col gap-0.5">
+            <Item
+              to={`${base}/list/watchlist`}
+              icon={<Bookmark className="size-[18px] shrink-0" />}
+              label={t("lists.watchlist.title")}
+            />
+            <Item
+              to={`${base}/list/favorites`}
+              icon={<Heart className="size-[18px] shrink-0" />}
+              label={t("lists.favorites.title")}
+            />
+            <Item
+              to={`${base}/list/history`}
+              icon={<History className="size-[18px] shrink-0" />}
+              label={t("lists.history.title")}
+            />
+          </ul>
+        </div>
         {libraries.length > 0 ? (
           <div className="flex flex-col gap-1">
             <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
