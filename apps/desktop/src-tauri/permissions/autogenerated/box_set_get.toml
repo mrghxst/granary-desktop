@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-box-set-get"
+description = "Enables the box_set_get command without any pre-configured scope."
+commands.allow = ["box_set_get"]
+
+[[permission]]
+identifier = "deny-box-set-get"
+description = "Denies the box_set_get command without any pre-configured scope."
+commands.deny = ["box_set_get"]

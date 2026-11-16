@@ -14,6 +14,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 
+/// The mock's one personal collection.
+const MOCK_COLLECTION: &str = "uc-1";
+
 /// Problem type URI for a problem id, as the server builds it (`apiv2/problem.go@6791aac` L22).
 pub fn problem(status: u16, id: &str) -> ApiError {
     ApiError::Http {
@@ -922,6 +925,11 @@ impl SiloApi for MockSiloApi {
             .filter(|(_, c)| query.kind.as_deref().is_none_or(|k| c.kind == k))
             .map(|(_, c)| c)
             .collect();
+        // The mock's one personal collection holds every title; any other collection does not exist.
+        if query.source.as_deref() == Some("user_collection") && query.collection_id.as_deref() != Some(MOCK_COLLECTION)
+        {
+            return Err(problem(404, "not_found"));
+        }
         // Personal lists (`source=favorites|watchlist|history`): the profile's flags pick the items.
         if let Some(source @ ("favorites" | "watchlist" | "history")) = query.source.as_deref() {
             let st = self.state.lock().map_err(|_| ApiError::Internal("mock state".into()))?;
@@ -1510,6 +1518,46 @@ impl SiloApi for MockSiloApi {
             .filter(|c| c.content_id != id && c.kind == "movie")
             .collect();
         Ok(CatalogItemCollection { items, page: None })
+    }
+
+    async fn collections(&self, _origin: &str, auth: &Auth) -> Result<PersonalCollectionCollection> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let count = self.visible_cards(auth)?.len();
+        Ok(PersonalCollectionCollection {
+            items: vec![PersonalCollection {
+                id: MOCK_COLLECTION.into(),
+                name: "Weekend list".into(),
+                description: "Everything on the demo server.".into(),
+                item_count: i64::try_from(count).unwrap_or_default(),
+                poster_url: demo::art("poster", "collection").unwrap_or_default(),
+                creator_profile_id: auth.profile.as_ref().map(|p| p.id.clone()).unwrap_or_default(),
+            }],
+        })
+    }
+
+    async fn server_collections(&self, _origin: &str, auth: &Auth) -> Result<ServerCollections> {
+        self.check(auth)?;
+        Ok(ServerCollections::default())
+    }
+
+    async fn collection(&self, origin: &str, auth: &Auth, id: &str) -> Result<PersonalCollection> {
+        self.collections(origin, auth)
+            .await?
+            .items
+            .into_iter()
+            .find(|c| c.id == id)
+            .ok_or_else(|| problem(404, "not_found"))
+    }
+
+    async fn box_set(&self, _origin: &str, auth: &Auth, _id: &str, _library_id: &str) -> Result<BoxSet> {
+        self.check(auth)?;
+        Err(problem(404, "not_found"))
+    }
+
+    async fn item_box_set(&self, _origin: &str, auth: &Auth, _item_id: &str) -> Result<CatalogItemBoxSet> {
+        self.check(auth)?;
+        Ok(CatalogItemBoxSet::default())
     }
 
     async fn catalog_filters(&self, _origin: &str, auth: &Auth, _library_id: &str) -> Result<CatalogFilters> {

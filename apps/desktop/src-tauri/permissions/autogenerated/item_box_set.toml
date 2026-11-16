@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-item-box-set"
+description = "Enables the item_box_set command without any pre-configured scope."
+commands.allow = ["item_box_set"]
+
+[[permission]]
+identifier = "deny-item-box-set"
+description = "Denies the item_box_set command without any pre-configured scope."
+commands.deny = ["item_box_set"]

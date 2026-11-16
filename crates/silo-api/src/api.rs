@@ -162,6 +162,16 @@ pub trait SiloApi: Send + Sync {
     async fn similar(&self, origin: &str, auth: &Auth, id: &str) -> Result<CatalogItemCollection>;
     /// `getCatalogFilters` for one library.
     async fn catalog_filters(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<CatalogFilters>;
+    /// `listCollections`: the profile's own collections, then those shared with it.
+    async fn collections(&self, origin: &str, auth: &Auth) -> Result<PersonalCollectionCollection>;
+    /// `listServerCollections`.
+    async fn server_collections(&self, origin: &str, auth: &Auth) -> Result<ServerCollections>;
+    /// `getCollection`.
+    async fn collection(&self, origin: &str, auth: &Auth, id: &str) -> Result<PersonalCollection>;
+    /// `getCatalogBoxSet`.
+    async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet>;
+    /// `getCatalogItemBoxSet`.
+    async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet>;
 }
 
 /// A per-profile flag on a catalog item, each a pair of idempotent `204` operations (docs/research/silo-api.md §8.2).
@@ -575,6 +585,33 @@ impl SiloApi for HttpSiloApi {
     async fn similar(&self, origin: &str, auth: &Auth, id: &str) -> Result<CatalogItemCollection> {
         let path = format!("/api/v2/recommendations/similar/{}", url_segment(id));
         send_json(self.authed(Method::GET, origin, &path, auth).query(&[("limit", "20")])).await
+    }
+
+    async fn collections(&self, origin: &str, auth: &Auth) -> Result<PersonalCollectionCollection> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/collections", auth)).await
+    }
+
+    async fn server_collections(&self, origin: &str, auth: &Auth) -> Result<ServerCollections> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/collections/server", auth)).await
+    }
+
+    async fn collection(&self, origin: &str, auth: &Auth, id: &str) -> Result<PersonalCollection> {
+        let path = format!("/api/v2/collections/{}", url_segment(id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet> {
+        let path = format!("/api/v2/catalog/box-sets/{}", url_segment(id));
+        send_json(
+            self.authed(Method::GET, origin, &path, auth)
+                .query(&[("library_id", library_id)]),
+        )
+        .await
+    }
+
+    async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet> {
+        let path = format!("/api/v2/catalog/items/{}/box-set", url_segment(item_id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
     }
 
     async fn catalog_filters(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<CatalogFilters> {

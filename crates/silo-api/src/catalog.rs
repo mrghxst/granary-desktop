@@ -218,6 +218,76 @@ impl LibraryCollectionTab {
     }
 }
 
+/// `PersonalCollection` (`listCollections`, `getCollection`): what a card and a page header show.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PersonalCollection {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub item_count: i64,
+    /// Empty when the collection has neither a poster nor titles for a collage.
+    pub poster_url: String,
+    /// The profile that made it; another profile's collection is shared with the acting one.
+    pub creator_profile_id: String,
+}
+
+/// `PersonalCollectionCollection`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PersonalCollectionCollection {
+    pub items: Vec<PersonalCollection>,
+}
+
+/// `ServerCollectionLibrary`: a library's server collections.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ServerCollectionLibrary {
+    pub library_id: String,
+    pub library_name: String,
+    pub collections: Vec<CollectionCard>,
+}
+
+/// `ServerCollectionsOutputBody` (`listServerCollections`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ServerCollections {
+    pub libraries: Vec<ServerCollectionLibrary>,
+}
+
+/// The Collections page: the acting profile's own collections, those other profiles of the login share with it,
+/// and the server's, by library.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct CollectionsOverview {
+    pub mine: Vec<PersonalCollection>,
+    pub shared: Vec<PersonalCollection>,
+    pub server: Vec<ServerCollectionLibrary>,
+}
+
+/// `CatalogBoxSetDetail`: a box set of a library with its movies, in collection order.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BoxSet {
+    pub id: String,
+    pub library_id: String,
+    pub title: String,
+    pub overview: Option<String>,
+    pub poster_url: Option<String>,
+    pub backdrop_url: Option<String>,
+    pub first_year: Option<i64>,
+    pub last_year: Option<i64>,
+    pub movie_count: i64,
+    pub played_count: i64,
+    pub items: Vec<CatalogItem>,
+}
+
+/// `CatalogItemBoxSet` (`getCatalogItemBoxSet`): the box set a movie belongs to, if any.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CatalogItemBoxSet {
+    pub box_set: Option<BoxSet>,
+}
+
 /// `CatalogItemCollection` (similar titles, collection items).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -459,6 +529,9 @@ pub struct CatalogQuery {
     pub source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub person_id: Option<String>,
+    /// With `source=user_collection` or `library_collection`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name_prefix: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

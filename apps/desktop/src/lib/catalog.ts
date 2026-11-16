@@ -202,6 +202,43 @@ export interface CollectionCard {
   poster_url?: string | null;
 }
 
+/** A personal collection (`PersonalCollection`): the profile's own or one shared with it. */
+export interface PersonalCollection {
+  id: string;
+  name: string;
+  description: string;
+  item_count: number;
+  poster_url: string;
+  creator_profile_id: string;
+}
+
+export interface ServerCollectionLibrary {
+  library_id: string;
+  library_name: string;
+  collections: CollectionCard[];
+}
+
+export interface CollectionsOverview {
+  mine: PersonalCollection[];
+  shared: PersonalCollection[];
+  server: ServerCollectionLibrary[];
+}
+
+/** A box set of a library with its movies, in collection order (`CatalogBoxSetDetail`). */
+export interface BoxSet {
+  id: string;
+  library_id: string;
+  title: string;
+  overview?: string | null;
+  poster_url?: string | null;
+  backdrop_url?: string | null;
+  first_year?: number | null;
+  last_year?: number | null;
+  movie_count: number;
+  played_count: number;
+  items: CatalogItem[];
+}
+
 export interface CatalogItemCollection {
   items: CatalogItem[];
   page?: PageInfo | null;
@@ -320,8 +357,9 @@ export interface CatalogQuery {
   sort?: string;
   cursor?: string;
   limit?: number;
-  source?: "query" | "person" | "favorites" | "watchlist" | "history";
+  source?: "query" | "person" | "favorites" | "watchlist" | "history" | "user_collection" | "library_collection";
   personId?: string;
+  collectionId?: string;
   namePrefix?: string;
   genre?: string;
   yearMin?: number;
@@ -398,6 +436,12 @@ export const catalog = {
     call<CollectionCard[]>("library_collections", { serverId, libraryId }),
   collectionItems: (serverId: string, libraryId: string, collectionId: string, cursor: string | null) =>
     call<CatalogItemCollection>("collection_items", { serverId, libraryId, collectionId, cursor }),
+  collections: (serverId: string) => call<CollectionsOverview>("collections_overview", { serverId }),
+  collection: (serverId: string, collectionId: string) =>
+    call<PersonalCollection>("collection_get", { serverId, collectionId }),
+  boxSet: (serverId: string, libraryId: string, boxSetId: string) =>
+    call<BoxSet>("box_set_get", { serverId, libraryId, boxSetId }),
+  itemBoxSet: (serverId: string, itemId: string) => call<BoxSet | null>("item_box_set", { serverId, itemId }),
   similar: (serverId: string, itemId: string) => call<CatalogItem[]>("catalog_similar", { serverId, itemId }),
   filters: (serverId: string, libraryId: string) => call<CatalogFilters>("catalog_filters", { serverId, libraryId }),
 };

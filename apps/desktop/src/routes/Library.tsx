@@ -297,7 +297,15 @@ function Collections({ serverId, libraryId }: { serverId: string; libraryId: str
   );
 }
 
-function CollectionTile({ serverId, card, onOpen }: { serverId: string; card: CollectionCard; onOpen: () => void }) {
+export function CollectionTile({
+  serverId,
+  card,
+  onOpen,
+}: {
+  serverId: string;
+  card: CollectionCard;
+  onOpen: () => void;
+}) {
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
   const src = failed ? undefined : artwork(serverId, card.poster_url);

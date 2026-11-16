@@ -6,6 +6,9 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Collections page (sidebar): your collections, those shared with you and the server's by library; each opens
+  with its titles. Collections are still made and edited in the web app.
+- Box sets: a film that belongs to one shows the other films of the set on its page, with a page for the set.
 - Watchlist, Favorites and History pages, in the sidebar under "Your lists": the profile's lists from the server,
   newest entry first, with tabs for movies and series.
 

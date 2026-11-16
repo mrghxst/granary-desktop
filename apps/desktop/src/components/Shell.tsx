@@ -6,6 +6,7 @@ import {
   History,
   Home,
   Info,
+  Layers,
   Search,
   Server,
   Settings,
@@ -73,7 +74,7 @@ export function Shell() {
   const scrolls = useRef(new Map<string, number>());
   // Detail pages are reached from many places and have no sidebar entry: they get Back, in one fixed spot that is
   // there before the page has loaded. Top-level destinations (sidebar) have none.
-  const detail = /\/(item|person)\//.test(location.pathname);
+  const detail = /\/(item|person|collection|box-set)\//.test(location.pathname);
 
   // Each history entry keeps its scroll position: Back returns to the same spot, a new page starts at the top.
   // Content loads after the first paint, so the saved position is re-applied while the page grows, until it is
@@ -195,6 +196,11 @@ export function Shell() {
               to={`${base}/list/history`}
               icon={<History className="size-[18px] shrink-0" />}
               label={t("lists.history.title")}
+            />
+            <Item
+              to={`${base}/collections`}
+              icon={<Layers className="size-[18px] shrink-0" />}
+              label={t("collections.title")}
             />
           </ul>
         </div>

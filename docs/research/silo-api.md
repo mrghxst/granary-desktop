@@ -145,6 +145,23 @@ Error codes for `login`: 400, 401, 403, 406, 408, 409, 413, 415, 422, 429, 500, 
   - Android uses these (`silo-android/shared/src/commonMain/kotlin/org/siloserver/silo/network/apiv2/LibrarySectionItemsV2Api.kt@ee178d8` L17, L32; `CatalogV2Api.kt@ee178d8` L145).
   - Response shapes were not dumped. They are assumed to be `Section`-like (**UNVERIFIED**).
 
+### 4.1b Collections and box sets
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` and `silo-server/docs/collections-api.md@749db96a`. All
+are `profile_scoped`. Granary reads them; it does not create or change collections.
+
+| Operation | Response |
+| --- | --- |
+| `GET /api/v2/collections` (`listCollections`) | `PersonalCollectionCollection {items*: [PersonalCollection], groups*, page?}`: the acting profile's own collections in its order, then those other profiles of the login share with it. Own and shared are told apart by `creator_profile_id`. |
+| `GET /api/v2/collections/{id}` (`getCollection`) | `PersonalCollection` (`id*`, `name*`, `description*`, `item_count*`, `poster_url*` (may be empty), `creator_profile_id*`, …). `404` when the profile cannot see it. |
+| `GET /api/v2/collections/server` (`listServerCollections`) | `{libraries*: [ServerCollectionLibrary {library_id*, library_name*, total_count*, collections*: [LibraryCollectionCard]}]}` |
+| `GET /api/v2/catalog/box-sets/{id}?library_id=` (`getCatalogBoxSet`) | `CatalogBoxSetDetail {id*, library_id*, title*, movie_count*, played_count*, items*: [CatalogItem], overview?, poster_url?, backdrop_url?, first_year?, last_year?}`; `library_id` is required. |
+| `GET /api/v2/catalog/items/{id}/box-set` (`getCatalogItemBoxSet`) | `CatalogItemBoxSet {box_set?: CatalogBoxSetDetail}`: the box set a movie's page shows. |
+
+A collection's titles are paged with `listCatalogItems`: `source=user_collection&collection_id=` for a personal one,
+`source=library_collection&library_id=&collection_id=` for a library's. Not covered by the contract fixtures in
+`crates/silo-api/tests` yet (the OAS subset is still the one of `@6791aac`).
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

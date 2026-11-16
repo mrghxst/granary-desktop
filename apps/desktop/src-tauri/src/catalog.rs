@@ -5,8 +5,9 @@ use crate::silo::{CommandError, SiloState};
 use granary_silo_api::api::{ImageData, raster_image_type};
 use granary_silo_api::api::{PageQuery, UserFlag};
 use granary_silo_api::catalog::{
-    CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection, CatalogItemDetail, CatalogQuery,
-    CollectionCard, Episode, Person, Season, Section, WatchDetail,
+    BoxSet, CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection, CatalogItemDetail,
+    CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection, Season, Section,
+    WatchDetail,
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
@@ -28,9 +29,10 @@ pub struct CatalogQueryArgs {
     pub sort: Option<String>,
     pub cursor: Option<String>,
     pub limit: Option<i64>,
-    /// `query` (default) or `person` (filmography).
+    /// `query` (default), `person` (filmography), a personal list or a collection.
     pub source: Option<String>,
     pub person_id: Option<String>,
+    pub collection_id: Option<String>,
     /// Alphabet jump (`#` or a letter).
     pub name_prefix: Option<String>,
     pub genre: Option<String>,
@@ -79,7 +81,15 @@ fn rule_groups(rules: Vec<FilterRule>) -> Option<String> {
 }
 
 /// The sources the UI may browse; anything else is refused before a request is sent.
-const SOURCES: &[&str] = &["query", "person", "favorites", "watchlist", "history"];
+const SOURCES: &[&str] = &[
+    "query",
+    "person",
+    "favorites",
+    "watchlist",
+    "history",
+    "user_collection",
+    "library_collection",
+];
 
 impl From<CatalogQueryArgs> for CatalogQuery {
     fn from(a: CatalogQueryArgs) -> Self {
@@ -93,6 +103,7 @@ impl From<CatalogQueryArgs> for CatalogQuery {
             limit: a.limit.map(|l| l.clamp(1, 200)),
             source: clean(a.source).filter(|s| SOURCES.contains(&s.as_str())),
             person_id: clean(a.person_id),
+            collection_id: clean(a.collection_id),
             name_prefix: clean(a.name_prefix).filter(|p| p.chars().count() == 1),
             genre: clean(a.genre),
             year_min: a.year_min.filter(|y| (1800..=3000).contains(y)),
@@ -310,6 +321,51 @@ pub async fn collection_items(
         .with_session(&server_id, |s| async move {
             s.library_collection_items(&library_id, &collection_id, &page).await
         })
+        .await
+}
+
+/// The Collections page: own, shared and server collections.
+#[tauri::command]
+pub async fn collections_overview(state: State<'_, SiloState>, server_id: String) -> CmdResult<CollectionsOverview> {
+    state
+        .with_session(&server_id, |s| async move { s.collections_overview().await })
+        .await
+}
+
+/// One personal collection (name, description, count) for its page header.
+#[tauri::command]
+pub async fn collection_get(
+    state: State<'_, SiloState>,
+    server_id: String,
+    collection_id: String,
+) -> CmdResult<PersonalCollection> {
+    state
+        .with_session(&server_id, |s| async move { s.collection(&collection_id).await })
+        .await
+}
+
+/// A box set of a library with its movies.
+#[tauri::command]
+pub async fn box_set_get(
+    state: State<'_, SiloState>,
+    server_id: String,
+    library_id: String,
+    box_set_id: String,
+) -> CmdResult<BoxSet> {
+    state
+        .with_session(&server_id, |s| async move { s.box_set(&box_set_id, &library_id).await })
+        .await
+}
+
+/// The box set a movie belongs to, if any.
+#[tauri::command]
+pub async fn item_box_set(
+    state: State<'_, SiloState>,
+    server_id: String,
+    item_id: String,
+) -> CmdResult<Option<BoxSet>> {
+    state
+        .with_session(&server_id, |s| async move { s.item_box_set(&item_id).await })
         .await
 }
 

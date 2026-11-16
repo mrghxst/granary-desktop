@@ -896,6 +896,29 @@ function ExtraCard({
   );
 }
 
+/** The other films of the box set a movie belongs to (`getCatalogItemBoxSet`), with a way to the set's page. */
+function BoxSetRow({ serverId, itemId }: { serverId: string; itemId: string }) {
+  const { t } = useTranslation();
+  const { data } = useLoad(`${serverId}/${itemId}/box-set`, () => catalog.itemBoxSet(serverId, itemId));
+  const { play } = usePlay(serverId);
+  if (!data || data.items.length < 2) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <Row title={t("boxSet.partOf", { title: data.title })}>
+        {data.items.map((x) => (
+          <PosterCard key={x.content_id} serverId={serverId} item={x} onPlay={(i, o) => void play(i.content_id, o)} />
+        ))}
+      </Row>
+      <Link
+        to={`/servers/${encodeURIComponent(serverId)}/box-set/${encodeURIComponent(data.library_id)}/${encodeURIComponent(data.id)}`}
+        className="self-start text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
+        {t("boxSet.open")}
+      </Link>
+    </div>
+  );
+}
+
 function MoreLikeThis({ serverId, itemId }: { serverId: string; itemId: string }) {
   const { t } = useTranslation();
   const { data } = useLoad(`${serverId}/${itemId}/similar`, () => catalog.similar(serverId, itemId));
@@ -1045,6 +1068,7 @@ export function Item() {
         ) : null}
         <CastAndCrew serverId={serverId} item={item} />
         <TrailersAndMore serverId={serverId} item={item} />
+        {item.type === "movie" ? <BoxSetRow serverId={serverId} itemId={item.content_id} /> : null}
         {item.type === "movie" || item.type === "series" ? (
           <MoreLikeThis serverId={serverId} itemId={item.content_id} />
         ) : null}

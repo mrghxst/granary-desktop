@@ -442,6 +442,44 @@ impl Session {
             .map(|c| c.items)
     }
 
+    /// The Collections page. The server's collections are an extra: a server without them still lists the rest.
+    pub async fn collections_overview(&self) -> Result<CollectionsOverview> {
+        let all = self
+            .call_profile(|auth| async move { self.api.collections(&self.origin, &auth).await })
+            .await?
+            .items;
+        let me = self.profile().map(|p| p.id).unwrap_or_default();
+        let (mine, shared) = all.into_iter().partition(|c| c.creator_profile_id == me);
+        let server = self
+            .call_profile(|auth| async move { self.api.server_collections(&self.origin, &auth).await })
+            .await
+            .map(|s| s.libraries)
+            .unwrap_or_default();
+        Ok(CollectionsOverview { mine, shared, server })
+    }
+
+    pub async fn collection(&self, id: &str) -> Result<PersonalCollection> {
+        self.call_profile(|auth| async move { self.api.collection(&self.origin, &auth, id).await })
+            .await
+    }
+
+    pub async fn box_set(&self, id: &str, library_id: &str) -> Result<BoxSet> {
+        self.call_profile(|auth| async move { self.api.box_set(&self.origin, &auth, id, library_id).await })
+            .await
+    }
+
+    /// The box set a movie belongs to; `None` also when the server has no answer for the item.
+    pub async fn item_box_set(&self, item_id: &str) -> Result<Option<BoxSet>> {
+        match self
+            .call_profile(|auth| async move { self.api.item_box_set(&self.origin, &auth, item_id).await })
+            .await
+        {
+            Ok(b) => Ok(b.box_set),
+            Err(ApiError::Http { status: 404, .. }) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     pub async fn catalog_filters(&self, library_id: &str) -> Result<CatalogFilters> {
         self.call_profile(|auth| async move { self.api.catalog_filters(&self.origin, &auth, library_id).await })
             .await

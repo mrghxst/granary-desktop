@@ -479,5 +479,19 @@
       "empty": "Noch nichts gesehen."
     },
     "tabs": { "all": "Alle", "movies": "Filme", "series": "Serien" }
+  },
+  "collections": {
+    "title": "Sammlungen",
+    "subtitle": "Deine Sammlungen, geteilte und die des Servers. Sammlungen werden in der Web-App angelegt.",
+    "empty": "Noch keine Sammlungen.",
+    "mine": "Deine Sammlungen",
+    "shared": "Mit dir geteilt"
+  },
+  "boxSet": {
+    "partOf": "Teil von {{title}}",
+    "open": "Filmreihe öffnen",
+    "movies_one": "{{count}} Film",
+    "movies_other": "{{count}} Filme",
+    "watched": "{{played}} von {{count}} gesehen"
   }
 }

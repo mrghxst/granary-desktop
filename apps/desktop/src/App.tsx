@@ -10,6 +10,7 @@ import { Shell } from "./components/Shell";
 import { applySettings, loadSettings } from "./lib/settings";
 import { Item } from "./routes/Item";
 import { Person } from "./routes/Person";
+import { BoxSetPage, CollectionPage, Collections } from "./routes/Collections";
 import { PersonalList } from "./routes/PersonalList";
 import { Library } from "./routes/Library";
 import { Search } from "./routes/Search";
@@ -65,6 +66,10 @@ export function AppRoutes() {
             <Route path="item/:itemId" element={<Item />} />
             <Route path="person/:personId" element={<Person />} />
             <Route path="list/:source" element={<PersonalList />} />
+            <Route path="collections" element={<Collections />} />
+            <Route path="collection/user/:collectionId" element={<CollectionPage />} />
+            <Route path="collection/library/:libraryId/:collectionId" element={<CollectionPage />} />
+            <Route path="box-set/:libraryId/:boxSetId" element={<BoxSetPage />} />
             <Route path="settings" element={<Settings />} />
             <Route path="about" element={<About />} />
             <Route index element={<Navigate to="home" replace />} />
