@@ -188,8 +188,18 @@
   - Same benchmark after the change (ms until the exact frame, eight spots each): resting on far spots 0 to 3800,
     one 8800; steps of a few seconds 0 to 6500, one 14 900 and one not delivered; a sweep's end 530 to 6300. Before,
     sweeps often delivered nothing. What remains is the server's answer time for a cold part of the file; the
-    client cannot shorten it, only avoid making it worse. Not yet tried: one kept-open connection to the relay
-    instead of one per request.
+    client cannot shorten it, only avoid making it worse.
+  - Tried on 2026-11-16 and not kept (same file and server, two benchmark runs each, about 150 keyframe requests
+    per variant): connections kept open between requests with exact ranges read to the end (as AIOStreams' reader
+    does), no giving up of downloads, no background fill, and all three together. A keyframe of this file is about
+    700 KB. Alone in the air, the server started to answer after 0.3 to 0.7 s (median) and the body took another
+    0.2 to 0.6 s, so about 1 s per keyframe, 2.4 to 5 s at the 90th percentile; with a second request in the air
+    2 to 2.8 s. No variant moved these numbers beyond the spread between runs. The time is the server reading a
+    far part of the file from its storage.
+  - What does make previews immediate on such a server is the server's own trickplay (section "Trickplay" of
+    `docs/research/silo-api.md`): it is generated per library when `trickplay_enabled` is on, which is off by
+    default (`silo-server/docs/architecture/trickplay.md@749db96a`). Granary uses it whenever
+    `trickplay_available` is true.
 
 ## Consequences
 - Measured on the dev machine (test media, mock server through the relay): open 0.24 s, a new frame 35–90 ms (SDR

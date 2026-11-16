@@ -110,6 +110,7 @@ All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 a
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-16 Seek previews benchmarked on the owner's server in five variants (kept connections, no aborts, no background fill, all, current): no difference beyond noise; a 700 KB keyframe costs about 1 s of server time (ADR-0009 revision 8). Code unchanged. Server trickplay is off for the owner's libraries (off by default upstream).
 - 2026-11-16 After 0.4.8: preview tile loading line removed; row drag moves in the pointer move (no frame of delay). Upstream re-read: AIOStreams thumbnailer unchanged since 87dee2c; its reader keeps connections open (ureq agent), reads exact ranges and never aborts, and has no background fill. Not yet ported, needs a benchmark against the owner's server.
 - 2026-11-16 0.4.8: version bump and tag for the paced seek previews and the row, poster and hover changes (draft release built by release.yml).
 - 2026-11-16 Seek previews paced for slow links (ADR-0009 revision 8: 2 downloads, hover first, give up left ones, hedge, numbered requests, early-stop reads, controls stay on the bar); row drag once per frame; hero poster follows the text height; one hover look and play badge. verify.ps1 green. Checked in the dev build: home, movie page, series page. Not measured: release build audio underruns during preview traffic.
