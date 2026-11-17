@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Notifications page (sidebar, with the number of unread ones): new episodes of what you follow and answers to
+  your requests. Opening one marks it read; "Mark all read" clears the rest.
 - Requests page (sidebar): ask the server for films and series it does not have, from its suggestion rows or by
   search, and follow or withdraw your own requests. Shown only as a notice when the server has requests off.
 - "For You" page (sidebar): the server's recommendation rows for your profile, with your top genres and directors

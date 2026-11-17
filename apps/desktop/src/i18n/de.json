@@ -576,5 +576,19 @@
       "cancelled": "Zurückgezogen",
       "failed": "Fehlgeschlagen"
     }
+  },
+  "notifications": {
+    "title": "Mitteilungen",
+    "subtitle": "Neue Folgen von dem, was du verfolgst, und Antworten auf deine Anfragen.",
+    "empty": "Keine Mitteilungen.",
+    "markAll": "Alle als gelesen markieren",
+    "unreadLabel": "Ungelesen: {{title}}",
+    "newEpisode": "Neue Folge",
+    "request": "Anfrage",
+    "generic": "Mitteilung",
+    "fulfilled": "Deine Anfrage ist jetzt verfügbar.",
+    "approved": "Deine Anfrage wurde genehmigt.",
+    "declined": "Deine Anfrage wurde abgelehnt.",
+    "declinedReason": "Deine Anfrage wurde abgelehnt: {{reason}}"
   }
 }

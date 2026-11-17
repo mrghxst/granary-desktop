@@ -25,7 +25,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [x] R3 Calendar (`calendar`, `getCalendar` by week with Following, Trending, Everything; checked on the owner's server 2026-11-17). Open: per-library filter
 - [x] R4 Recommendations pages ("For You": `getDiscover` rows, taste summary, a page per row; checked on the owner's server 2026-11-17). Open: row titles are the server's English labels
 - [x] R5 Requests (discover rows, search, request a title, own requests with withdraw; read side checked on the owner's server 2026-11-17, creating and withdrawing only against the mock). Open: title detail, season choice, follow, browse by genre/network/studio, see-all pages, more than 50 own requests
-- [ ] R6 Notifications
+- [x] R6 Notifications (inbox page, unread badge in the sidebar, mark read; reading checked on the owner's server 2026-11-17, marking read only against the mock). Open: day groups and grouping a series' episodes, muting a series, more than 100 entries, desktop toasts
 - [ ] R7 Theme music on title pages; customise home screen
 - [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
   letterbox, marker editing, Watch Together

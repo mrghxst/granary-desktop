@@ -66,6 +66,7 @@ pub struct MockSiloApi {
     playback: Mutex<MockPlayback>,
     /// The requests made so far, newest first.
     requests: Mutex<Vec<TitleRequest>>,
+    inbox: Mutex<Vec<NotificationItem>>,
 }
 
 /// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
@@ -164,6 +165,7 @@ impl MockSiloApi {
             media_dir: None,
             playback: Mutex::new(MockPlayback::default()),
             requests: Mutex::new(Vec::new()),
+            inbox: Mutex::new(demo::inbox()),
         }
     }
 
@@ -493,6 +495,33 @@ mod demo {
             }),
             ..CatalogItem::default()
         }
+    }
+
+    /// One unread "new episode" of the mock series and one read request answer.
+    pub fn inbox() -> Vec<NotificationItem> {
+        let series = series_card();
+        vec![
+            NotificationItem {
+                id: "n-2".into(),
+                kind: "episode.available".into(),
+                created_at: "2026-01-02T03:04:05.000Z".into(),
+                series_id: Some(series.content_id),
+                series_title: Some(series.title),
+                episode_id: Some("s1-1-3".into()),
+                episode_title: Some("The Third One".into()),
+                season_number: Some(1),
+                episode_number: Some(3),
+                ..NotificationItem::default()
+            },
+            NotificationItem {
+                id: "n-1".into(),
+                kind: "request.approved".into(),
+                created_at: "2026-01-01T03:04:05.000Z".into(),
+                read_at: Some("2026-01-01T04:00:00.000Z".into()),
+                reason_flags: serde_json::json!({ "title": "Night Train", "media_type": "movie" }),
+                ..NotificationItem::default()
+            },
+        ]
     }
 
     /// A film the mock server does not have; `requested` once the mock holds a request.
@@ -1580,6 +1609,49 @@ impl SiloApi for MockSiloApi {
     async fn item_box_set(&self, _origin: &str, auth: &Auth, _item_id: &str) -> Result<CatalogItemBoxSet> {
         self.check(auth)?;
         Ok(CatalogItemBoxSet::default())
+    }
+
+    async fn notifications(&self, _origin: &str, auth: &Auth) -> Result<NotificationList> {
+        self.check(auth)?;
+        Ok(NotificationList {
+            items: self.inbox.lock().map(|i| i.clone()).unwrap_or_default(),
+            read_cutoff: "cutoff-1".into(),
+        })
+    }
+
+    async fn notification_unread_count(&self, _origin: &str, auth: &Auth) -> Result<NotificationCount> {
+        self.check(auth)?;
+        let count = self
+            .inbox
+            .lock()
+            .map(|i| i.iter().filter(|n| n.read_at.is_none()).count())
+            .unwrap_or(0);
+        Ok(NotificationCount {
+            count: i64::try_from(count).unwrap_or(i64::MAX),
+        })
+    }
+
+    async fn notification_read(&self, _origin: &str, auth: &Auth, id: &str) -> Result<()> {
+        self.check(auth)?;
+        let mut inbox = self.inbox.lock().map_err(|_| problem(500, "internal"))?;
+        let item = inbox
+            .iter_mut()
+            .find(|n| n.id == id)
+            .ok_or_else(|| problem(404, "not_found"))?;
+        item.read_at = Some("2026-01-03T00:00:00.000Z".into());
+        Ok(())
+    }
+
+    async fn notifications_read_all(&self, _origin: &str, auth: &Auth, through: &str) -> Result<()> {
+        self.check(auth)?;
+        if through != "cutoff-1" {
+            return Err(problem(422, "validation_failed"));
+        }
+        let mut inbox = self.inbox.lock().map_err(|_| problem(500, "internal"))?;
+        for item in inbox.iter_mut() {
+            item.read_at.get_or_insert_with(|| "2026-01-03T00:00:00.000Z".into());
+        }
+        Ok(())
     }
 
     async fn request_status(&self, _origin: &str, auth: &Auth) -> Result<RequestFeatureStatus> {

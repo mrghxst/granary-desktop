@@ -4,6 +4,7 @@ use crate::artcache::ArtCache;
 use crate::silo::{CommandError, SiloState};
 use granary_silo_api::api::{ImageData, raster_image_type};
 use granary_silo_api::api::{PageQuery, UserFlag};
+use granary_silo_api::catalog::NotificationList;
 use granary_silo_api::catalog::{
     BoxSet, CalendarDay, CalendarQuery, CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection,
     CatalogItemDetail, CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection,
@@ -367,6 +368,45 @@ pub async fn item_box_set(
 ) -> CmdResult<Option<BoxSet>> {
     state
         .with_session(&server_id, |s| async move { s.item_box_set(&item_id).await })
+        .await
+}
+
+/// The profile's notification inbox, newest first (`listNotifications`).
+#[tauri::command]
+pub async fn notifications_list(state: State<'_, SiloState>, server_id: String) -> CmdResult<NotificationList> {
+    state
+        .with_session(&server_id, |s| async move { s.notifications().await })
+        .await
+}
+
+/// How many notifications are unread (`getNotificationUnreadCount`).
+#[tauri::command]
+pub async fn notifications_unread(state: State<'_, SiloState>, server_id: String) -> CmdResult<i64> {
+    state
+        .with_session(&server_id, |s| async move { s.notification_unread_count().await })
+        .await
+}
+
+/// Mark one notification read (`markNotificationRead`).
+#[tauri::command]
+pub async fn notification_read(
+    state: State<'_, SiloState>,
+    server_id: String,
+    notification_id: String,
+) -> CmdResult<()> {
+    state
+        .with_session(
+            &server_id,
+            |s| async move { s.notification_read(&notification_id).await },
+        )
+        .await
+}
+
+/// Mark everything up to a list read's `read_cutoff` read (`markNotificationsRead`).
+#[tauri::command]
+pub async fn notifications_read_all(state: State<'_, SiloState>, server_id: String, through: String) -> CmdResult<()> {
+    state
+        .with_session(&server_id, |s| async move { s.notifications_read_all(&through).await })
         .await
 }
 

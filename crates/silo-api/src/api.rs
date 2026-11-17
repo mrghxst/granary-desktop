@@ -172,6 +172,14 @@ pub trait SiloApi: Send + Sync {
     async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet>;
     /// `getCatalogItemBoxSet`.
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet>;
+    /// `listNotifications`: the newest 100 of the profile's inbox.
+    async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList>;
+    /// `getNotificationUnreadCount`.
+    async fn notification_unread_count(&self, origin: &str, auth: &Auth) -> Result<NotificationCount>;
+    /// `markNotificationRead` (`204`).
+    async fn notification_read(&self, origin: &str, auth: &Auth, id: &str) -> Result<()>;
+    /// `markNotificationsRead` (`204`): everything up to `through`, the `read_cutoff` of a list read.
+    async fn notifications_read_all(&self, origin: &str, auth: &Auth, through: &str) -> Result<()>;
     /// `getRequestStatus`.
     async fn request_status(&self, origin: &str, auth: &Auth) -> Result<RequestFeatureStatus>;
     /// `listDiscoverSections`: the rows of titles to request, each with its first page.
@@ -645,6 +653,33 @@ impl SiloApi for HttpSiloApi {
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet> {
         let path = format!("/api/v2/catalog/items/{}/box-set", url_segment(item_id));
         send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList> {
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/notifications", auth)
+                .query(&[("limit", "100")]),
+        )
+        .await
+    }
+
+    async fn notification_unread_count(&self, origin: &str, auth: &Auth) -> Result<NotificationCount> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/notifications/unread-count", auth)).await
+    }
+
+    async fn notification_read(&self, origin: &str, auth: &Auth, id: &str) -> Result<()> {
+        let path = format!("/api/v2/notifications/{}/read", url_segment(id));
+        send_raw(self.authed(Method::POST, origin, &path, auth)).await.map(drop)
+    }
+
+    async fn notifications_read_all(&self, origin: &str, auth: &Auth, through: &str) -> Result<()> {
+        let body = serde_json::json!({ "through": through });
+        send_raw(
+            self.authed(Method::POST, origin, "/api/v2/notifications/read-all", auth)
+                .json(&body),
+        )
+        .await
+        .map(drop)
     }
 
     async fn request_status(&self, origin: &str, auth: &Auth) -> Result<RequestFeatureStatus> {

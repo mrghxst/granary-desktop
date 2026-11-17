@@ -1,4 +1,5 @@
 import {
+  Bell,
   Bookmark,
   CalendarDays,
   Clapperboard,
@@ -21,7 +22,9 @@ import { useTranslation } from "react-i18next";
 import { NavigationType, NavLink, Outlet, useLocation, useNavigate, useNavigationType, useParams } from "react-router";
 import { goReauth, needsReauth } from "../lib/nav";
 import { BackButton } from "./ui";
-import { bumpRefresh, serverEvents } from "../lib/events";
+import { catalog } from "../lib/catalog";
+import { bumpRefresh, serverEvents, useRefreshTick } from "../lib/events";
+import { useLoad } from "../lib/useLoad";
 import { silo, type LibraryView } from "../lib/silo";
 
 function libraryIcon(kind: string) {
@@ -31,7 +34,20 @@ function libraryIcon(kind: string) {
   return <Folder className="size-[18px] shrink-0" />;
 }
 
-function Item({ to, icon, label, end = false }: { to: string; icon: ReactNode; label: string; end?: boolean }) {
+function Item({
+  to,
+  icon,
+  label,
+  end = false,
+  badge = 0,
+}: {
+  to: string;
+  icon: ReactNode;
+  label: string;
+  end?: boolean;
+  /** A count shown at the item (unread notifications); nothing when zero. */
+  badge?: number;
+}) {
   return (
     <li>
       <NavLink
@@ -53,6 +69,11 @@ function Item({ to, icon, label, end = false }: { to: string; icon: ReactNode; l
             ) : null}
             {icon}
             <span className="hidden truncate lg:inline">{label}</span>
+            {badge > 0 ? (
+              <span className="absolute top-1.5 left-6 min-w-4 rounded-full bg-primary px-1 text-center text-[0.625rem] leading-4 font-bold text-primary-foreground lg:static lg:ml-auto">
+                {badge > 99 ? "99+" : badge}
+              </span>
+            ) : null}
           </>
         )}
       </NavLink>
@@ -70,6 +91,9 @@ export function Shell() {
   const { serverId = "" } = useParams();
   const base = `/servers/${encodeURIComponent(serverId)}`;
   const [libraries, setLibraries] = useState<LibraryView[]>([]);
+  // Unread notifications, read again when the server reports a change or one is marked read here.
+  const refreshTick = useRefreshTick();
+  const { data: unread } = useLoad(`${serverId}/unread`, () => catalog.notificationsUnread(serverId), refreshTick);
   const mainRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -219,6 +243,12 @@ export function Shell() {
               to={`${base}/requests`}
               icon={<Inbox className="size-[18px] shrink-0" />}
               label={t("requests.title")}
+            />
+            <Item
+              to={`${base}/notifications`}
+              icon={<Bell className="size-[18px] shrink-0" />}
+              label={t("notifications.title")}
+              badge={unread ?? 0}
             />
           </ul>
         </div>

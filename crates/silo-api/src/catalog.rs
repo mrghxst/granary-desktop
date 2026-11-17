@@ -288,6 +288,44 @@ pub struct CatalogItemBoxSet {
     pub box_set: Option<BoxSet>,
 }
 
+/// `NotificationItem`: one entry of the profile's notification inbox.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NotificationItem {
+    pub id: String,
+    /// `episode.available`, `request.approved`, `request.declined`, `request.fulfilled`; the set is open.
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub created_at: String,
+    /// `None` while unread.
+    pub read_at: Option<String>,
+    pub series_id: Option<String>,
+    pub series_title: Option<String>,
+    pub episode_id: Option<String>,
+    pub episode_title: Option<String>,
+    pub season_number: Option<i64>,
+    pub episode_number: Option<i64>,
+    pub poster_url: Option<String>,
+    /// Event-specific data; its keys depend on the type (`title`, `media_type`, `reason`, …).
+    pub reason_flags: serde_json::Value,
+}
+
+/// `NotificationListOutputBody` (`listNotifications`): newest first.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NotificationList {
+    pub items: Vec<NotificationItem>,
+    /// What `markNotificationsRead` takes as `through`: everything up to the newest entry of this read.
+    pub read_cutoff: String,
+}
+
+/// `NotificationCountOutputBody` (`getNotificationUnreadCount`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NotificationCount {
+    pub count: i64,
+}
+
 /// `FeatureStatus` (`getRequestStatus`): whether the viewer can request titles.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

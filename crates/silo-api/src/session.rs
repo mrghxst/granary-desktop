@@ -480,6 +480,27 @@ impl Session {
         }
     }
 
+    pub async fn notifications(&self) -> Result<NotificationList> {
+        self.call_profile(|auth| async move { self.api.notifications(&self.origin, &auth).await })
+            .await
+    }
+
+    pub async fn notification_unread_count(&self) -> Result<i64> {
+        self.call_profile(|auth| async move { self.api.notification_unread_count(&self.origin, &auth).await })
+            .await
+            .map(|c| c.count.max(0))
+    }
+
+    pub async fn notification_read(&self, id: &str) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.notification_read(&self.origin, &auth, id).await })
+            .await
+    }
+
+    pub async fn notifications_read_all(&self, through: &str) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.notifications_read_all(&self.origin, &auth, through).await })
+            .await
+    }
+
     pub async fn request_status(&self) -> Result<RequestFeatureStatus> {
         self.call_profile(|auth| async move { self.api.request_status(&self.origin, &auth).await })
             .await

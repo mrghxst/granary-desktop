@@ -1157,6 +1157,55 @@ async fn http_client_reads_the_calendar() {
     assert!(!event.content_id.is_empty() && !event.title.is_empty() && !event.kind.is_empty());
 }
 
+/// The inbox operations are not in the OAS subset yet: this serves the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/notification_{list_notifications,get_notification_unread_count}.json@749db96a`)
+/// and checks the two writes Granary sends.
+#[tokio::test]
+async fn http_client_speaks_the_notifications_contract() {
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    for (at, fixture) in [
+        ("/api/v2/notifications", "notifications.json"),
+        ("/api/v2/notifications/unread-count", "notifications_unread_count.json"),
+    ] {
+        Mock::given(method("GET"))
+            .and(path(at))
+            .and(header("X-Profile-Id", "7"))
+            .respond_with(json(fixture, 200))
+            .mount(&server)
+            .await;
+    }
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let list = api.notifications(&server.uri(), &auth).await.unwrap();
+    let first = list.items.first().expect("the fixture has a notification");
+    assert_eq!(first.kind, "request.approved");
+    assert!(first.read_at.is_none() && !list.read_cutoff.is_empty());
+    assert_eq!(first.reason_flags["request_id"], "request-1");
+    let count = api.notification_unread_count(&server.uri(), &auth).await.unwrap();
+    assert_eq!(count.count, 1);
+
+    Mock::given(method("POST"))
+        .and(path(format!("/api/v2/notifications/{}/read", first.id)))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/notifications/read-all"))
+        .and(body_json(serde_json::json!({ "through": list.read_cutoff })))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    api.notification_read(&server.uri(), &auth, &first.id).await.unwrap();
+    api.notifications_read_all(&server.uri(), &auth, &list.read_cutoff)
+        .await
+        .unwrap();
+}
+
 /// The request operations are not in the OAS subset yet: this serves the upstream fixtures
 /// (`silo-server/contracts/api/v2/fixtures/{request_status,list_my_requests,create_request,cancel_request}_ok.json@749db96a`)
 /// and checks the body Granary sends for a new request.

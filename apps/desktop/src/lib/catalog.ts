@@ -239,6 +239,31 @@ export interface BoxSet {
   items: CatalogItem[];
 }
 
+/** One entry of the profile's notification inbox (`NotificationItem`). */
+export interface NotificationItem {
+  id: string;
+  /** `episode.available`, `request.approved`, `request.declined`, `request.fulfilled`; the set is open. */
+  type: string;
+  created_at: string;
+  /** `null` while unread. */
+  read_at?: string | null;
+  series_id?: string | null;
+  series_title?: string | null;
+  episode_id?: string | null;
+  episode_title?: string | null;
+  season_number?: number | null;
+  episode_number?: number | null;
+  poster_url?: string | null;
+  /** Event-specific data; its keys depend on the type (`title`, `media_type`, `reason`, …). */
+  reason_flags?: Record<string, unknown> | null;
+}
+
+export interface NotificationList {
+  items: NotificationItem[];
+  /** What "mark all read" takes: everything up to the newest entry of this read. */
+  read_cutoff: string;
+}
+
 /** Whether the viewer can request titles (`FeatureStatus`). */
 export interface RequestFeatureStatus {
   /** `available`, `disabled`, `not_configured` or `unsupported`. */
@@ -569,6 +594,12 @@ export const catalog = {
   boxSet: (serverId: string, libraryId: string, boxSetId: string) =>
     call<BoxSet>("box_set_get", { serverId, libraryId, boxSetId }),
   itemBoxSet: (serverId: string, itemId: string) => call<BoxSet | null>("item_box_set", { serverId, itemId }),
+  notifications: (serverId: string) => call<NotificationList>("notifications_list", { serverId }),
+  notificationsUnread: (serverId: string) => call<number>("notifications_unread", { serverId }),
+  notificationRead: (serverId: string, notificationId: string) =>
+    call<null>("notification_read", { serverId, notificationId }),
+  notificationsReadAll: (serverId: string, through: string) =>
+    call<null>("notifications_read_all", { serverId, through }),
   requestStatus: (serverId: string) => call<RequestFeatureStatus>("request_status", { serverId }),
   requestDiscover: (serverId: string) => call<RequestDiscoverSection[]>("request_discover", { serverId }),
   requestSearch: (serverId: string, q: string) => call<RequestMediaPage>("request_search", { serverId, q }),

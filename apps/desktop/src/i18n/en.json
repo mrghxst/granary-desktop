@@ -576,5 +576,19 @@
       "cancelled": "Cancelled",
       "failed": "Failed"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "New episodes of what you follow and answers to your requests.",
+    "empty": "No notifications.",
+    "markAll": "Mark all read",
+    "unreadLabel": "Unread: {{title}}",
+    "newEpisode": "New episode",
+    "request": "Request",
+    "generic": "Notification",
+    "fulfilled": "Your request is now available.",
+    "approved": "Your request was approved.",
+    "declined": "Your request was declined.",
+    "declinedReason": "Your request was declined: {{reason}}"
   }
 }

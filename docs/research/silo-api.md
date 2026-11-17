@@ -211,6 +211,27 @@ Posters are TMDB paths; the web app loads them from `https://image.tmdb.org/t/p/
 and so does Granary, through the host's image handler without credentials. Not used: title detail, follow, season
 choice, discover browse by genre, network or studio, see-all pages.
 
+### 4.1f Notification inbox
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` and the fixtures
+`contracts/api/v2/fixtures/notification_{list_notifications,get_notification_unread_count}.json@749db96a`. All are
+`profile_scoped`.
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/notifications?limit=&cursor=&status=` (`listNotifications`) | `{items*: [NotificationItem], page?, read_cutoff*}`, newest first; `limit` 1 to 200 (default 50), `status` `all` or `unread`. Granary reads the newest 100. |
+| `GET /api/v2/notifications/unread-count` (`getNotificationUnreadCount`) | `{count*}` |
+| `POST /api/v2/notifications/{id}/read` (`markNotificationRead`) | `204`, no body. |
+| `POST /api/v2/notifications/read-all` (`markNotificationsRead`) | Body `{through*}`: the `read_cutoff` of a list read; `204`. |
+
+`NotificationItem`: `id*`, `type*`, `profile_id*`, `reason_flags*` (object, keys depend on the type), `created_at*`,
+`read_at*` (null while unread), `series_id?`, `series_title?`, `episode_id?`, `episode_title?`, `season_number?`,
+`episode_number?`, `library_id?`, `poster_url?`, `poster_path?`, `poster_thumbhash?`. Types the web app words
+(`web/src/components/notifications/NotificationInbox.tsx@749db96a`): `episode.available`, `request.approved`,
+`request.declined` (`reason_flags.reason`), `request.fulfilled`; `reason_flags.title` names a requested title. The set
+is open: an unknown type is shown with a general title. Not used: preferences, channels (email, Discord, push,
+webhooks), muting series, `syncNotifications`.
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).
