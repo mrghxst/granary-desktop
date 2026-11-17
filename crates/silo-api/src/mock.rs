@@ -71,6 +71,7 @@ pub struct MockSiloApi {
     home_overrides: Mutex<Vec<HomeRowOverrideWrite>>,
     /// This device's subtitle appearance override, if any.
     subtitle_device: Mutex<Option<String>>,
+    markers: Mutex<HashMap<String, FileMarkers>>,
     /// Polls of the mock translation job so far (it completes on the second).
     ai_polls: Mutex<u32>,
 }
@@ -142,7 +143,7 @@ impl MockSiloApi {
             username: "alice".into(),
             email: String::new(),
             role: "user".into(),
-            permissions: Vec::new(),
+            permissions: vec!["marker_edit".into()],
             download_allowed: true,
             password_change_required: false,
         };
@@ -174,6 +175,7 @@ impl MockSiloApi {
             inbox: Mutex::new(demo::inbox()),
             home_overrides: Mutex::new(Vec::new()),
             subtitle_device: Mutex::new(None),
+            markers: Mutex::new(HashMap::new()),
             ai_polls: Mutex::new(0),
         }
     }
@@ -1831,6 +1833,57 @@ impl SiloApi for MockSiloApi {
                 ..SubtitleAiJob::default()
             },
         })
+    }
+
+    async fn item_markers(&self, _origin: &str, auth: &Auth, item_id: &str) -> Result<FileMarkers> {
+        self.check(auth)?;
+        let stored = self
+            .markers
+            .lock()
+            .map_err(|_| problem(500, "internal"))?
+            .get(item_id)
+            .cloned();
+        Ok(stored.unwrap_or_else(|| FileMarkers {
+            file_id: format!("{item_id}-f1"),
+            intro: MarkerSegment {
+                start_seconds: Some(0.0),
+                end_seconds: Some(12.0),
+                source: "chapters".into(),
+                provider: String::new(),
+            },
+            ..FileMarkers::default()
+        }))
+    }
+
+    async fn item_markers_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        item_id: &str,
+        update: &MarkerUpdate,
+    ) -> Result<FileMarkers> {
+        let mut current = self.item_markers(origin, auth, item_id).await?;
+        let apply = |seg: &mut MarkerSegment, change: &Option<Option<MarkerRange>>| match change {
+            None => {}
+            Some(None) => *seg = MarkerSegment::default(),
+            Some(Some(r)) => {
+                *seg = MarkerSegment {
+                    start_seconds: Some(r.start_seconds),
+                    end_seconds: Some(r.end_seconds),
+                    source: "manual".into(),
+                    provider: String::new(),
+                }
+            }
+        };
+        apply(&mut current.intro, &update.intro);
+        apply(&mut current.credits, &update.credits);
+        apply(&mut current.recap, &update.recap);
+        apply(&mut current.preview, &update.preview);
+        self.markers
+            .lock()
+            .map_err(|_| problem(500, "internal"))?
+            .insert(item_id.to_owned(), current.clone());
+        Ok(current)
     }
 
     async fn subtitle_appearance(&self, _origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting> {

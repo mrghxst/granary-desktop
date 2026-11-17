@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
+import { MarkerEditor } from "../components/MarkerEditor";
 import { Alert } from "../components/ui";
 import {
   artwork,
@@ -355,6 +356,30 @@ function Stars({
   );
 }
 
+/** Whether this account may edit markers here, asked once per server for the session (the server checks each save). */
+const markersEditable = new Map<string, Promise<boolean>>();
+function useMarkersEditable(serverId: string): boolean {
+  const [known, setKnown] = useState<{ serverId: string; value: boolean } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let ask = markersEditable.get(serverId);
+    if (!ask) {
+      ask = catalog.markersEditable(serverId).catch(() => {
+        markersEditable.delete(serverId);
+        return false;
+      });
+      markersEditable.set(serverId, ask);
+    }
+    void ask.then((value) => {
+      if (alive) setKnown({ serverId, value });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [serverId]);
+  return known?.serverId === serverId && known.value;
+}
+
 /** Mark watched, favourite, star rating and the overflow menu (watchlist, not interested); optimistic. */
 function UserActions({ serverId, item }: { serverId: string; item: CatalogItemDetail }) {
   const { t } = useTranslation();
@@ -362,6 +387,10 @@ function UserActions({ serverId, item }: { serverId: string; item: CatalogItemDe
   const [local, setLocal] = useState<{ id: string; state: CatalogItemUserState; rating: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cur = local?.id === item.content_id ? local : { state: server, rating: item.user_rating ?? null };
+  const [editingMarkers, setEditingMarkers] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const editable = useMarkersEditable(serverId);
+  const canEditMarkers = editable && (item.type === "movie" || item.type === "episode");
   const flags = cur.state;
   const watched = flags.played || item.user_data?.played === true;
 
@@ -432,12 +461,41 @@ function UserActions({ serverId, item }: { serverId: string; item: CatalogItemDe
             >
               {flags.not_interested ? t("item.undoNotInterested") : t("item.notInterested")}
             </MenuItem>
+            {canEditMarkers ? (
+              <MenuItem
+                onClick={() => {
+                  setEditingMarkers(true);
+                  setNotice(null);
+                  close();
+                }}
+              >
+                {t("markers.edit")}
+              </MenuItem>
+            ) : null}
           </div>
         )}
       </Popover>
       {error ? (
         <p role="alert" className="basis-full text-sm text-destructive">
           {error}
+        </p>
+      ) : null}
+      {editingMarkers && canEditMarkers ? (
+        <div className="basis-full">
+          <MarkerEditor
+            key={item.content_id}
+            serverId={serverId}
+            itemId={item.content_id}
+            onClose={(saved) => {
+              setEditingMarkers(false);
+              if (saved) setNotice(t("markers.saved"));
+            }}
+          />
+        </div>
+      ) : null}
+      {notice ? (
+        <p role="status" className="basis-full text-sm text-muted-foreground">
+          {notice}
         </p>
       ) : null}
     </>

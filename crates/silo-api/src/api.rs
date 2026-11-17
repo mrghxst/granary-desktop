@@ -237,6 +237,16 @@ pub trait SiloApi: Send + Sync {
     ) -> Result<SubtitleAppearanceSetting>;
     /// `deleteSubtitleAppearanceDeviceOverride` (`204`): the profile's appearance applies again.
     async fn subtitle_appearance_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
+    /// `getItemMarkers`: the stored intro, recap, credits and preview segments of an item's file.
+    async fn item_markers(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<FileMarkers>;
+    /// `setItemMarkers` (`permission_gated: marker_edit`, `non_retryable`); edits are stored as `manual`.
+    async fn item_markers_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        item_id: &str,
+        update: &MarkerUpdate,
+    ) -> Result<FileMarkers>;
     /// `listNotifications`: the newest 100 of the profile's inbox.
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList>;
     /// `getNotificationUnreadCount`.
@@ -846,6 +856,22 @@ impl SiloApi for HttpSiloApi {
     async fn subtitle_ai_job(&self, origin: &str, auth: &Auth, job_id: &str) -> Result<SubtitleAiJobEnvelope> {
         let path = format!("/api/v2/subtitles/ai/jobs/{}", url_segment(job_id));
         send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn item_markers(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<FileMarkers> {
+        let path = format!("/api/v2/markers/items/{}", url_segment(item_id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn item_markers_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        item_id: &str,
+        update: &MarkerUpdate,
+    ) -> Result<FileMarkers> {
+        let path = format!("/api/v2/markers/items/{}", url_segment(item_id));
+        send_json(self.authed(Method::PUT, origin, &path, auth).json(update)).await
     }
 
     async fn subtitle_appearance(&self, origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting> {

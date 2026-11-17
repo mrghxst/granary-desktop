@@ -553,6 +553,36 @@ impl Session {
             .map(|r| r.job)
     }
 
+    pub async fn item_markers(&self, item_id: &str) -> Result<FileMarkers> {
+        self.call_profile(|auth| async move { self.api.item_markers(&self.origin, &auth, item_id).await })
+            .await
+    }
+
+    pub async fn item_markers_set(&self, item_id: &str, update: &MarkerUpdate) -> Result<FileMarkers> {
+        self.call_profile_once(
+            |auth| async move { self.api.item_markers_set(&self.origin, &auth, item_id, update).await },
+        )
+        .await
+    }
+
+    /// Whether this account may edit markers with the selected profile, as the web app decides it
+    /// (`silo-server/web/src/lib/permissions.ts@749db96a`): an admin on the primary profile (or with no profile
+    /// selected), or an account granted `marker_edit`. The server checks again on every save.
+    pub async fn marker_edit_allowed(&self) -> Result<bool> {
+        let account = self.current_user().await?;
+        if account.permissions.iter().any(|p| p == "marker_edit") {
+            return Ok(true);
+        }
+        if account.role != "admin" {
+            return Ok(false);
+        }
+        let Some(selected) = self.profile() else {
+            return Ok(true);
+        };
+        let profiles = self.profiles().await?;
+        Ok(profiles.iter().any(|p| p.id == selected.id && p.is_primary))
+    }
+
     pub async fn subtitle_appearance(&self) -> Result<SubtitleAppearanceSetting> {
         self.call_profile(|auth| async move { self.api.subtitle_appearance(&self.origin, &auth).await })
             .await

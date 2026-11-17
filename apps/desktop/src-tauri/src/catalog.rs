@@ -11,11 +11,13 @@ use granary_silo_api::catalog::{
     RecommendationRow, RequestDiscoverSection, RequestFeatureStatus, RequestMediaPage, Season, Section, TasteProfile,
     TitleRequest, TitleRequestCreate, WatchDetail,
 };
+use granary_silo_api::catalog::{FileMarkers, MarkerRange, MarkerUpdate};
 use granary_silo_api::catalog::{HomeRowOverrideWrite, HomeRows, SubtitleAppearanceSetting};
 use granary_silo_api::catalog::{
     StoredSubtitle, SubtitleAiJob, SubtitleDownload, SubtitleFeatures, SubtitleSearchResults, SubtitleTranslate,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tauri::http::{Response, StatusCode, header};
 use tauri::{AppHandle, Manager, Runtime, State};
 
@@ -479,6 +481,73 @@ pub async fn home_rows_save(
 pub async fn home_rows_reset(state: State<'_, SiloState>, server_id: String) -> CmdResult<()> {
     state
         .with_session(&server_id, |s| async move { s.home_rows_reset().await })
+        .await
+}
+
+/// The stored intro, recap, credits and preview segments of a movie or episode (`getItemMarkers`).
+#[tauri::command]
+pub async fn item_markers(state: State<'_, SiloState>, server_id: String, item_id: String) -> CmdResult<FileMarkers> {
+    if !is_opaque_id(&item_id) {
+        return Err(CommandError::invalid("item id".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.item_markers(&item_id).await })
+        .await
+}
+
+/// Whether the marker editor is offered: the server still checks `marker_edit` on every save.
+#[tauri::command]
+pub async fn markers_editable(state: State<'_, SiloState>, server_id: String) -> CmdResult<bool> {
+    state
+        .with_session(&server_id, |s| async move { s.marker_edit_allowed().await })
+        .await
+}
+
+/// The `MarkerUpdate` for segments to store (`set`) and to clear (`clear`); kinds outside the four, a kind in both
+/// lists, or a range that is not `0 <= start < end` (at most a week of seconds) are refused.
+fn marker_update(set: &BTreeMap<String, MarkerRange>, clear: &[String]) -> Result<MarkerUpdate, String> {
+    const LONGEST: f64 = 7.0 * 24.0 * 3600.0;
+    let mut update = MarkerUpdate::default();
+    for (kind, range) in set {
+        let ok = range.start_seconds.is_finite()
+            && range.end_seconds.is_finite()
+            && range.start_seconds >= 0.0
+            && range.end_seconds > range.start_seconds
+            && range.end_seconds <= LONGEST;
+        if !ok {
+            return Err(format!("markers: bad range for {kind}"));
+        }
+        let slot = update.slot(kind).ok_or_else(|| "markers: unknown kind".to_owned())?;
+        *slot = Some(Some(*range));
+    }
+    for kind in clear {
+        let slot = update.slot(kind).ok_or_else(|| "markers: unknown kind".to_owned())?;
+        if slot.is_some() {
+            return Err(format!("markers: {kind} both set and cleared"));
+        }
+        *slot = Some(None);
+    }
+    Ok(update)
+}
+
+/// Store edited markers for a movie or episode (`setItemMarkers`, needs `marker_edit`; sent once).
+#[tauri::command]
+pub async fn item_markers_save(
+    state: State<'_, SiloState>,
+    server_id: String,
+    item_id: String,
+    set: BTreeMap<String, MarkerRange>,
+    clear: Vec<String>,
+) -> CmdResult<FileMarkers> {
+    if !is_opaque_id(&item_id) {
+        return Err(CommandError::invalid("item id".into()));
+    }
+    let update = marker_update(&set, &clear).map_err(CommandError::invalid)?;
+    state
+        .with_session(
+            &server_id,
+            |s| async move { s.item_markers_set(&item_id, &update).await },
+        )
         .await
 }
 
@@ -1190,6 +1259,28 @@ mod tests {
         assert!(is_language("en") && is_language("pt-BR") && is_language("zh_Hant"));
         assert!(!is_language("") && !is_language("e") && !is_language("1en") && !is_language("en;drop"));
         assert!(is_opaque_id("9007199254740993") && !is_opaque_id("") && !is_opaque_id("a\nb"));
+    }
+
+    #[test]
+    fn marker_edits_are_checked() {
+        let r = |s: f64, e: f64| MarkerRange {
+            start_seconds: s,
+            end_seconds: e,
+        };
+        let set: BTreeMap<String, MarkerRange> = [("intro".to_owned(), r(0.0, 42.5))].into();
+        let u = marker_update(&set, &["credits".to_owned()]).unwrap();
+        assert_eq!(u.intro, Some(Some(r(0.0, 42.5))));
+        assert_eq!(u.credits, Some(None));
+        assert_eq!(u.recap, None);
+        assert_eq!(
+            serde_json::to_value(&u).unwrap(),
+            serde_json::json!({"intro": {"start_seconds": 0.0, "end_seconds": 42.5}, "credits": null})
+        );
+        let bad = |kind: &str, range: MarkerRange| marker_update(&[(kind.to_owned(), range)].into(), &[]).is_err();
+        assert!(bad("intro", r(10.0, 10.0)) && bad("intro", r(-1.0, 5.0)) && bad("intro", r(0.0, f64::NAN)));
+        assert!(bad("outro", r(0.0, 5.0)) && bad("intro", r(0.0, 1e9)));
+        assert!(marker_update(&set, &["intro".to_owned()]).is_err());
+        assert!(marker_update(&BTreeMap::new(), &["chapters".to_owned()]).is_err());
     }
 
     #[test]

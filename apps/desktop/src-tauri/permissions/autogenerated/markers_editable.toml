@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-markers-editable"
+description = "Enables the markers_editable command without any pre-configured scope."
+commands.allow = ["markers_editable"]
+
+[[permission]]
+identifier = "deny-markers-editable"
+description = "Denies the markers_editable command without any pre-configured scope."
+commands.deny = ["markers_editable"]

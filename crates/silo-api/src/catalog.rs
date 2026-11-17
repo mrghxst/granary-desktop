@@ -646,6 +646,67 @@ pub struct MarkerOccurrence {
     pub end_seconds: f64,
 }
 
+/// `MarkerSegment`: one stored marker of a file; both bounds are absent while the segment is unset.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MarkerSegment {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_seconds: Option<f64>,
+    /// Where it came from (`manual`, a detector or provider); empty when unset.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub provider: String,
+}
+
+/// `FileMarkers` (`getItemMarkers`, `setItemMarkers`): the stored segments of an item's file.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FileMarkers {
+    pub file_id: String,
+    pub intro: MarkerSegment,
+    pub credits: MarkerSegment,
+    pub recap: MarkerSegment,
+    pub preview: MarkerSegment,
+    pub marker_segments: Vec<MarkerOccurrence>,
+}
+
+/// A segment to store (a `MarkerUpdate` member), in source seconds.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MarkerRange {
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+}
+
+/// `MarkerUpdate`: an absent member leaves the segment as it is, `Some(None)` (JSON `null`) clears it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct MarkerUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intro: Option<Option<MarkerRange>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credits: Option<Option<MarkerRange>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recap: Option<Option<MarkerRange>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<Option<MarkerRange>>,
+}
+
+impl MarkerUpdate {
+    /// The member for `kind` (`intro`, `credits`, `recap`, `preview`); `None` for anything else.
+    pub fn slot(&mut self, kind: &str) -> Option<&mut Option<Option<MarkerRange>>> {
+        match kind {
+            "intro" => Some(&mut self.intro),
+            "credits" => Some(&mut self.credits),
+            "recap" => Some(&mut self.recap),
+            "preview" => Some(&mut self.preview),
+            _ => None,
+        }
+    }
+}
+
 /// `CatalogRating`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

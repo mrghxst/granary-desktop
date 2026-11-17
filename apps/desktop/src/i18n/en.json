@@ -683,5 +683,24 @@
     "save": "Save",
     "cancel": "Cancel",
     "reset": "Use the server's layout"
+  },
+  "markers": {
+    "title": "Markers",
+    "hint": "Times of the intro, recap, credits and preview, as m:ss or h:mm:ss. Saved markers are used by every app from the next playback on.",
+    "edit": "Edit markers",
+    "intro": "Intro",
+    "recap": "Recap",
+    "credits": "Credits",
+    "preview": "Preview",
+    "startOf": "{{kind}} start",
+    "endOf": "{{kind}} end",
+    "clearOf": "Clear {{kind}}",
+    "startPlaceholder": "Start",
+    "endPlaceholder": "End",
+    "needBoth": "{{kind}} needs a start and an end, as m:ss or h:mm:ss.",
+    "endBeforeStart": "{{kind}} must end after it starts.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Markers saved."
   }
 }

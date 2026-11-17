@@ -683,5 +683,24 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "reset": "Layout des Servers verwenden"
+  },
+  "markers": {
+    "title": "Marker",
+    "hint": "Zeiten von Intro, Rückblick, Abspann und Vorschau als m:ss oder h:mm:ss. Gespeicherte Marker nutzen alle Apps ab der nächsten Wiedergabe.",
+    "edit": "Marker bearbeiten",
+    "intro": "Intro",
+    "recap": "Rückblick",
+    "credits": "Abspann",
+    "preview": "Vorschau",
+    "startOf": "{{kind}}: Beginn",
+    "endOf": "{{kind}}: Ende",
+    "clearOf": "{{kind}} löschen",
+    "startPlaceholder": "Beginn",
+    "endPlaceholder": "Ende",
+    "needBoth": "{{kind}} braucht Beginn und Ende als m:ss oder h:mm:ss.",
+    "endBeforeStart": "{{kind}} muss nach dem Beginn enden.",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "saved": "Marker gespeichert."
   }
 }

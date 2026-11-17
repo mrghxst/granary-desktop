@@ -1493,3 +1493,58 @@ async fn http_client_speaks_the_subtitle_search_contract() {
     let polled = api.subtitle_ai_job(&server.uri(), &auth, &job.job.id).await.unwrap();
     assert_eq!(polled.job.id, job.job.id);
 }
+
+/// The marker editor's operations, against the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/{get_item_markers_ok,set_item_markers_ok,set_file_markers_permission_denied}.json@749db96a`).
+#[tokio::test]
+async fn http_client_speaks_the_marker_contract() {
+    use granary_silo_api::catalog::{MarkerRange, MarkerUpdate};
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/markers/items/42"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(json("get_item_markers_ok.json", 200))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/markers/items/42"))
+        .and(body_json(serde_json::json!({
+            "intro": {"start_seconds": 0.0, "end_seconds": 12.0},
+            "credits": null
+        })))
+        .respond_with(json("set_item_markers_ok.json", 200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/markers/items/43"))
+        .respond_with(json("set_file_markers_permission_denied.json", 403))
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let now = api.item_markers(&server.uri(), &auth, "42").await.unwrap();
+    assert_eq!(now.file_id, "5");
+    assert_eq!(now.intro.start_seconds, Some(0.0));
+    assert_eq!(now.intro.end_seconds, Some(12.0));
+    assert_eq!(now.credits.start_seconds, None);
+    assert!(now.marker_segments.is_empty());
+    let update = MarkerUpdate {
+        intro: Some(Some(MarkerRange {
+            start_seconds: 0.0,
+            end_seconds: 12.0,
+        })),
+        credits: Some(None),
+        ..MarkerUpdate::default()
+    };
+    let saved = api.item_markers_set(&server.uri(), &auth, "42", &update).await.unwrap();
+    assert_eq!(saved.intro.end_seconds, Some(12.0));
+    let denied = api
+        .item_markers_set(&server.uri(), &auth, "43", &update)
+        .await
+        .unwrap_err();
+    assert!(matches!(denied, ApiError::Http { status: 403, .. }), "{denied:?}");
+}

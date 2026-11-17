@@ -33,6 +33,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
   - [x] R8b subtitle appearance (server effective value + device override, mpv options; checked live in mock mode, the rendered look not inspected)
   - [x] R8c subtitle search, download and AI translation (status and search checked live read-only: 3 providers, 40 results; download and plan refresh checked in mock mode; auto-select of the new track and translation polling only by tests)
   - [x] R8d ambient letterbox (opt-in setting; bands placed from mpv's display aspect, drawn from the current seek preview; checked in mock mode with local previews: 40 px bands drawn in a 1646×1006 window; server trickplay and Seekr sources only by type checks)
+  - [x] R8e marker editing (item page; permission and the stored markers read live read-only: admin on the primary profile, IntroDB segments listed; saving checked in mock mode and by the contract test, not against the real server)
 - [ ] R9 Audiobook player
 - [ ] R10 Ebook and manga reader
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-item-markers-save"
+description = "Enables the item_markers_save command without any pre-configured scope."
+commands.allow = ["item_markers_save"]
+
+[[permission]]
+identifier = "deny-item-markers-save"
+description = "Denies the item_markers_save command without any pre-configured scope."
+commands.deny = ["item_markers_save"]

@@ -501,6 +501,31 @@ export interface SubtitleAiJob {
 }
 
 /** `EffectiveSubtitleAppearance`: JSON documents, empty when unset. */
+export type MarkerKind = "intro" | "recap" | "credits" | "preview";
+
+/** `MarkerSegment`: both bounds absent while unset. */
+export interface MarkerSegment {
+  start_seconds?: number;
+  end_seconds?: number;
+  source?: string;
+  provider?: string;
+}
+
+/** `FileMarkers` (`getItemMarkers`). */
+export interface FileMarkers {
+  file_id: string;
+  intro: MarkerSegment;
+  recap: MarkerSegment;
+  credits: MarkerSegment;
+  preview: MarkerSegment;
+  marker_segments: { kind: string; start_seconds: number; end_seconds: number }[];
+}
+
+export interface MarkerRange {
+  start_seconds: number;
+  end_seconds: number;
+}
+
 export interface SubtitleAppearanceSetting {
   effective_value: string;
   global_value: string;
@@ -745,6 +770,14 @@ export const catalog = {
   subtitleAppearanceSet: (serverId: string, value: string) =>
     call<SubtitleAppearanceSetting>("subtitle_appearance_set", { serverId, value }),
   subtitleAppearanceReset: (serverId: string) => call<null>("subtitle_appearance_reset", { serverId }),
+  itemMarkers: (serverId: string, itemId: string) => call<FileMarkers>("item_markers", { serverId, itemId }),
+  itemMarkersSave: (
+    serverId: string,
+    itemId: string,
+    set: Partial<Record<MarkerKind, MarkerRange>>,
+    clear: MarkerKind[],
+  ) => call<FileMarkers>("item_markers_save", { serverId, itemId, set, clear }),
+  markersEditable: (serverId: string) => call<boolean>("markers_editable", { serverId }),
   homeRows: (serverId: string) => call<HomeRows>("home_rows", { serverId }),
   homeRowsSave: (serverId: string, overrides: HomeRowOverrideWrite[]) =>
     call<null>("home_rows_save", { serverId, overrides }),
