@@ -205,6 +205,23 @@ export function Shell() {
           <Item to={`${base}/home`} icon={<Home className="size-[18px] shrink-0" />} label={t("shell.home")} end />
           <Item to={`${base}/search`} icon={<Search className="size-[18px] shrink-0" />} label={t("shell.search")} />
         </ul>
+        {libraries.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
+              {t("shell.libraries")}
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {libraries.map((l) => (
+                <Item
+                  key={l.id}
+                  to={`${base}/library/${encodeURIComponent(l.id)}`}
+                  icon={libraryIcon(l.kind)}
+                  label={l.name}
+                />
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-1">
           <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
             {t("shell.yours")}
@@ -258,23 +275,6 @@ export function Shell() {
             />
           </ul>
         </div>
-        {libraries.length > 0 ? (
-          <div className="flex flex-col gap-1">
-            <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
-              {t("shell.libraries")}
-            </p>
-            <ul className="flex flex-col gap-0.5">
-              {libraries.map((l) => (
-                <Item
-                  key={l.id}
-                  to={`${base}/library/${encodeURIComponent(l.id)}`}
-                  icon={libraryIcon(l.kind)}
-                  label={l.name}
-                />
-              ))}
-            </ul>
-          </div>
-        ) : null}
         <ul className="mt-auto flex flex-col gap-0.5">
           <Item
             to={`${base}/profiles`}

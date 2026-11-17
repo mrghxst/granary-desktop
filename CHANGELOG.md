@@ -47,6 +47,9 @@ follow [Semantic Versioning](https://semver.org/).
 - Watchlist, Favorites and History pages, in the sidebar under "Your lists": the profile's lists from the server,
   newest entry first, with tabs for movies and series.
 
+### Changed
+- The sidebar lists the libraries right after Home and Search, with "Your lists" below them, as the web app does.
+
 ### Fixed
 - The subtitle size from Settings now applies when a video starts; before, only the player's reset used it.
 - Dragging a row with the mouse trailed one frame behind the hand: the row now moves in the same frame as the
