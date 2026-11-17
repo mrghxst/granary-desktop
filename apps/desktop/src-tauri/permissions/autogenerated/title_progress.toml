@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-title-progress"
+description = "Enables the title_progress command without any pre-configured scope."
+commands.allow = ["title_progress"]
+
+[[permission]]
+identifier = "deny-title-progress"
+description = "Denies the title_progress command without any pre-configured scope."
+commands.deny = ["title_progress"]

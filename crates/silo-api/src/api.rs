@@ -248,6 +248,8 @@ pub trait SiloApi: Send + Sync {
         item_id: &str,
         update: &MarkerUpdate,
     ) -> Result<FileMarkers>;
+    /// `syncProgress` (`non_retryable`): titles' positions, applied in order.
+    async fn sync_progress(&self, origin: &str, auth: &Auth, items: &[ProgressSyncItem]) -> Result<ProgressSyncResult>;
     /// `getWatchTogetherCapabilities` (account level).
     async fn together_capabilities(&self, origin: &str, auth: &Auth) -> Result<TogetherCapabilities>;
     /// `createWatchTogetherRoom` (`201`): `room_id` is a client UUID, so a replay returns the same room.
@@ -660,6 +662,15 @@ impl SiloApi for HttpSiloApi {
 
     async fn events_ticket(&self, origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
         send_json(self.authed(Method::POST, origin, "/api/v2/events/ws-ticket", auth)).await
+    }
+
+    async fn sync_progress(&self, origin: &str, auth: &Auth, items: &[ProgressSyncItem]) -> Result<ProgressSyncResult> {
+        let body = serde_json::json!({ "items": items });
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/sync/progress", auth)
+                .json(&body),
+        )
+        .await
     }
 
     async fn together_capabilities(&self, origin: &str, auth: &Auth) -> Result<TogetherCapabilities> {

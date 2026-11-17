@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { errorMessage } from "../lib/errors";
 import { catalog, type Episode } from "../lib/catalog";
 import { bumpRefresh } from "../lib/events";
-import { defaultChoice, playRequest } from "../lib/play";
+import { defaultChoice, playRequest, resumePosition } from "../lib/play";
+import { bookParts, partAt } from "../lib/audiobook";
 import { applyTrackPicks } from "../lib/trackMemory";
 import {
   IDLE_STATE,
@@ -60,7 +61,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const startInner = useCallback(async (serverId: string, itemId: string, opts: StartOptions) => {
     const w = opts.watch ?? (await catalog.watch(serverId, itemId));
     const base = defaultChoice(w);
-    const picked = opts.fileId ? w.versions.find((v) => v.file_id === opts.fileId) : undefined;
+    let picked = opts.fileId ? w.versions.find((v) => v.file_id === opts.fileId) : undefined;
+    let startAt = opts.startAt;
+    // An audiobook's versions are its parts: the book position picks the part and the place in it.
+    if (w.type === "audiobook" && !picked) {
+      const at = opts.startAt ?? (opts.fromStart ? 0 : resumePosition(w));
+      const { index, local } = partAt(bookParts(w.versions), at);
+      picked = w.versions[index];
+      startAt = local;
+    }
     const choice = opts.choice ?? (base && applyTrackPicks(serverId, w, picked ? { ...base, version: picked } : base));
     if (!choice) {
       setLaunch(null);
@@ -114,7 +123,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setError(null);
     await catalog.play({
       ...playRequest(serverId, w, choice, opts.fromStart ?? false),
-      ...(opts.startAt !== undefined ? { startSeconds: Math.max(0, opts.startAt) } : {}),
+      ...(startAt !== undefined ? { startSeconds: Math.max(0, startAt) } : {}),
       ...mediaLines(w),
       hasPrevious: near.previous !== undefined,
       hasNext: near.next !== undefined,
@@ -128,10 +137,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setAutomaticStarts(automaticRef.current);
       launchArmed.current = false;
       firstPlaying.current = null;
-      setLaunch({ serverId, ...opts.art, backdrop: opts.art?.backdrop ?? opts.watch?.backdrop_url ?? null });
+      if (!opts.continuing) {
+        setLaunch({ serverId, ...opts.art, backdrop: opts.art?.backdrop ?? opts.watch?.backdrop_url ?? null });
+      }
       // Artwork for the launch screen from the item itself when the caller had none (rows, cards, next episode);
       // in parallel, never holding up playback.
-      if (!opts.art?.poster || !opts.art.logo) {
+      if (!opts.continuing && (!opts.art?.poster || !opts.art.logo)) {
         void catalog
           .item(serverId, itemId)
           .then((d) => {
@@ -185,6 +196,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           case "ended": {
             // Autoplay: the next episode starts right away when the file ends (the countdown card may have run).
             const c = ctxRef.current;
+            // An audiobook goes on with its next part.
+            if (c?.watch.type === "audiobook") {
+              const versions = c.watch.versions;
+              const i = versions.findIndex((v) => v.file_id === c.version.file_id);
+              const next = i >= 0 ? versions[i + 1] : undefined;
+              if (next) {
+                void startRef
+                  .current(c.serverId, c.watch.content_id, {
+                    watch: c.watch,
+                    fileId: next.file_id,
+                    startAt: 0,
+                    continuing: true,
+                  })
+                  .catch(() => undefined);
+              }
+              bumpRefresh();
+              break;
+            }
             const nextEp = neighbours(c).next;
             // The sleep timer set to this episode, or "Are you still watching?" being due, ends the run here.
             const sleepNow = sleepRef.current.kind === "episode";

@@ -71,6 +71,7 @@
     "allow-player-subtitle-style",
     "allow-player-subtitles-refresh",
     "allow-subtitle-appearance",
+    "allow-title-progress",
     "allow-item-markers",
     "allow-item-markers-save",
     "allow-markers-editable",

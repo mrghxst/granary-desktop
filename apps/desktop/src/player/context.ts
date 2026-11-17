@@ -20,8 +20,10 @@ export interface StartOptions {
   automatic?: boolean;
   /** Play this version (Watch Together's room file) instead of the default one. */
   fileId?: string;
-  /** Start here (seconds) instead of the resume point. */
+  /** Start here (seconds) instead of the resume point: inside `fileId` when given, else on the book's timeline. */
   startAt?: number;
+  /** The same title goes on (an audiobook's next part, a chapter in another part): no launch card. */
+  continuing?: boolean;
 }
 
 /** What the launch screen shows between Play and the first frame (artwork references, not URLs). */

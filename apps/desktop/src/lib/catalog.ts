@@ -555,6 +555,12 @@ export interface CatalogRating {
 }
 
 export interface CatalogItemDetail {
+  /** Authors, narrators and length of an audiobook. */
+  audiobook?: {
+    authors: { name: string; person_id?: string | null }[];
+    narrators: { name: string; person_id?: string | null }[];
+    total_duration_seconds?: number | null;
+  } | null;
   /** Theme tunes of the title, when the server has any; `owner_id` is the item they are granted for. */
   themes?: { owner_id: string; items: { id: string }[] } | null;
   content_id: string;
@@ -778,6 +784,8 @@ export const catalog = {
     clear: MarkerKind[],
   ) => call<FileMarkers>("item_markers_save", { serverId, itemId, set, clear }),
   markersEditable: (serverId: string) => call<boolean>("markers_editable", { serverId }),
+  titleProgress: (serverId: string, contentId: string, positionSeconds: number, durationSeconds: number) =>
+    call<null>("title_progress", { serverId, contentId, positionSeconds, durationSeconds }),
   homeRows: (serverId: string) => call<HomeRows>("home_rows", { serverId }),
   homeRowsSave: (serverId: string, overrides: HomeRowOverrideWrite[]) =>
     call<null>("home_rows_save", { serverId, overrides }),

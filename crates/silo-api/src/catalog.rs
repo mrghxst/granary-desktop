@@ -707,6 +707,49 @@ impl MarkerUpdate {
     }
 }
 
+/// `AudiobookPerson`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudiobookPerson {
+    pub name: String,
+    pub person_id: Option<String>,
+}
+
+/// `AudiobookDetailExtension` subset.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudiobookDetail {
+    pub authors: Vec<AudiobookPerson>,
+    pub narrators: Vec<AudiobookPerson>,
+    pub total_duration_seconds: Option<i64>,
+}
+
+/// `ProgressSyncItem`: a position for a whole title (an audiobook across its parts), in milliseconds.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProgressSyncItem {
+    pub media_item_id: String,
+    pub position_ms: i64,
+    pub duration_ms: i64,
+    pub force_overwrite: bool,
+}
+
+/// One result of `syncProgress`: `status` is `success` or `failure` (with `failure`).
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct ProgressSyncOutcome {
+    pub index: i64,
+    pub media_item_id: String,
+    pub status: String,
+    pub failure: Option<serde_json::Value>,
+}
+
+/// `ProgressSyncBatchResult`.
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct ProgressSyncResult {
+    pub items: Vec<ProgressSyncOutcome>,
+}
+
 /// `CatalogRating`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -723,6 +766,8 @@ pub struct CatalogRating {
 pub struct CatalogItemDetail {
     /// Theme tunes, when the server has any for the title.
     pub themes: Option<ThemeSongSet>,
+    /// Authors, narrators and length of an audiobook (`AudiobookDetailExtension`).
+    pub audiobook: Option<AudiobookDetail>,
     pub content_id: String,
     pub title: String,
     #[serde(rename = "type")]

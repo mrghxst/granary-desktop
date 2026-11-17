@@ -316,6 +316,25 @@ once the player has applied the command and settled (seek tolerance 1 s ahead or
 the host); the viewer's play, pause and seek become `transport_request`s, or are refused when the room lets only
 the host control playback. Not used: vote rooms and suggestions, the staged lobby and lobby readiness, the shared
 picker and member state, policy and selection-mode changes, source fallback, invite links, `buffering` frames.
+### 4.1j Audiobooks
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`CatalogItemDetail.audiobook`:
+`AudiobookDetailExtension {authors, narrators: [AudiobookPerson {name, person_id}], total_duration_seconds, ...}`,
+`syncProgress`, `ProgressSyncItem`, `ProgressSyncBatchResult`), the fixture
+`contracts/api/v2/fixtures/sync_progress_ok.json@749db96a` and the web player
+(`web/src/pages/audiobooks/player/useAudiobookPlayback.ts@749db96a`, `web/src/lib/audiobooks/files.ts@749db96a`,
+`web/src/hooks/queries/progress.ts@749db96a`).
+
+- An audiobook (`type: audiobook`) has one file version per part, in order; each has its `duration` and its own
+  `chapters`. The book position runs across the parts. The owner's server has books split into up to 61 parts with
+  one chapter each (read 2026-11-17).
+- Each part plays through an ordinary playback session (the file's own position), as the web player does.
+- `POST /api/v2/sync/progress` (`syncProgress`, `profile_scoped`, `non_retryable`): body `{items*: [{media_item_id*,
+  position_ms*, duration_ms*, force_overwrite?, client_ref?, updated_at?}]}` (1 to 100), answer `{items*: [{index*,
+  media_item_id*, status* (success, failure), failure?}], summary*}`. Granary saves the book position here with
+  `force_overwrite: true` every 10 s while playing, on pause and on leaving, so the item's `user_data.position_seconds`
+  is the book position used to resume.
+- Not used: `listAudiobookGroups` (author/series/narrator browsing), the narrations list, related items, smart rewind.
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

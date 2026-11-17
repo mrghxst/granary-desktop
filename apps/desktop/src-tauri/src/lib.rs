@@ -329,6 +329,7 @@ pub fn run() {
             catalog::subtitle_ai_job,
             catalog::subtitle_appearance_set,
             catalog::subtitle_appearance_reset,
+            catalog::title_progress,
             catalog::item_markers,
             catalog::item_markers_save,
             catalog::markers_editable,

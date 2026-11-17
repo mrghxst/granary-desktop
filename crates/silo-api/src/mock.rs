@@ -700,6 +700,44 @@ mod demo {
     }
 
     pub fn detail(id: &str) -> Option<CatalogItemDetail> {
+        if id == "b1" {
+            // An audiobook in three one-minute parts, one chapter each (as many books on real servers are split).
+            let part = |n: i64| FileVersion {
+                file_id: format!("b1-f{n}"),
+                container: "mp4".into(),
+                codec_audio: "aac".into(),
+                duration_seconds: 60,
+                chapters: vec![Chapter {
+                    index: 0,
+                    title: format!("Chapter {n}"),
+                    start_seconds: 0.0,
+                    end_seconds: 60.0,
+                    source: "embedded".into(),
+                }],
+                ..FileVersion::default()
+            };
+            return Some(CatalogItemDetail {
+                content_id: "b1".into(),
+                title: "The Quiet Orchard".into(),
+                kind: "audiobook".into(),
+                overview: Some("A keeper of old apple trees writes letters to the next one.".into()),
+                year: Some(2022),
+                poster_url: art("poster", "b1"),
+                audiobook: Some(AudiobookDetail {
+                    authors: vec![AudiobookPerson {
+                        name: "Ada Fenwick".into(),
+                        person_id: None,
+                    }],
+                    narrators: vec![AudiobookPerson {
+                        name: "Tom Ellery".into(),
+                        person_id: None,
+                    }],
+                    total_duration_seconds: Some(180),
+                }),
+                versions: (1..=3).map(part).collect(),
+                ..CatalogItemDetail::default()
+            });
+        }
         if let Some(m) = MOVIES.iter().find(|m| m.id == id) {
             let c = movie_card(m);
             return Some(CatalogItemDetail {
@@ -1389,6 +1427,28 @@ impl SiloApi for MockSiloApi {
         self.check(auth)?;
         self.check_profile(auth)?;
         Err(problem(404, "not_found"))
+    }
+
+    async fn sync_progress(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        items: &[ProgressSyncItem],
+    ) -> Result<ProgressSyncResult> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        Ok(ProgressSyncResult {
+            items: items
+                .iter()
+                .enumerate()
+                .map(|(i, it)| ProgressSyncOutcome {
+                    index: i as i64,
+                    media_item_id: it.media_item_id.clone(),
+                    status: "success".into(),
+                    failure: None,
+                })
+                .collect(),
+        })
     }
 
     async fn together_capabilities(&self, _origin: &str, auth: &Auth) -> Result<TogetherCapabilities> {

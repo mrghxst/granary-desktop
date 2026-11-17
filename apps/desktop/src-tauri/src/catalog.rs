@@ -484,6 +484,32 @@ pub async fn home_rows_reset(state: State<'_, SiloState>, server_id: String) -> 
         .await
 }
 
+/// Save the position of a whole title, an audiobook across its parts (`syncProgress`).
+#[tauri::command]
+pub async fn title_progress(
+    state: State<'_, SiloState>,
+    server_id: String,
+    content_id: String,
+    position_seconds: f64,
+    duration_seconds: f64,
+) -> CmdResult<()> {
+    let ok = position_seconds.is_finite()
+        && duration_seconds.is_finite()
+        && position_seconds >= 0.0
+        && duration_seconds > 0.0
+        && duration_seconds < 1e7;
+    if !is_opaque_id(&content_id) || !ok {
+        return Err(CommandError::invalid("title progress".into()));
+    }
+    let position_ms = (position_seconds.min(duration_seconds) * 1000.0).round() as i64;
+    let duration_ms = (duration_seconds * 1000.0).round() as i64;
+    state
+        .with_session(&server_id, |s| async move {
+            s.sync_title_progress(&content_id, position_ms, duration_ms).await
+        })
+        .await
+}
+
 /// The stored intro, recap, credits and preview segments of a movie or episode (`getItemMarkers`).
 #[tauri::command]
 pub async fn item_markers(state: State<'_, SiloState>, server_id: String, item_id: String) -> CmdResult<FileMarkers> {

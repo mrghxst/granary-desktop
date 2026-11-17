@@ -77,6 +77,7 @@ const COMMANDS: &[&str] = &[
     "subtitle_ai_job",
     "subtitle_appearance_set",
     "subtitle_appearance_reset",
+    "title_progress",
     "item_markers",
     "item_markers_save",
     "markers_editable",

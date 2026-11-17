@@ -712,6 +712,31 @@ impl Session {
 
     /// Mint a ticket and open the events socket (silo-api.md §9). The socket request itself carries no profile
     /// headers (`EventsSocketV2Api.kt@ee178d8` L146); the ticket is bound to the profile proof.
+    /// Save a title's position (an audiobook across its parts) with `syncProgress`, sent once.
+    pub async fn sync_title_progress(&self, content_id: &str, position_ms: i64, duration_ms: i64) -> Result<()> {
+        let items = [ProgressSyncItem {
+            media_item_id: content_id.to_owned(),
+            position_ms,
+            duration_ms,
+            force_overwrite: true,
+        }];
+        let items = &items;
+        let result = self
+            .call_profile_once(|auth| async move { self.api.sync_progress(&self.origin, &auth, items).await })
+            .await?;
+        match result.items.first() {
+            Some(o) if o.status == "success" => Ok(()),
+            Some(o) => Err(ApiError::Internal(format!(
+                "progress not saved: {}",
+                o.failure
+                    .as_ref()
+                    .and_then(|f| f["detail"].as_str())
+                    .unwrap_or("failure")
+            ))),
+            None => Err(ApiError::Internal("progress not saved".into())),
+        }
+    }
+
     pub async fn together_capabilities(&self) -> Result<crate::together::TogetherCapabilities> {
         self.call_account(|auth| async move { self.api.together_capabilities(&self.origin, &auth).await })
             .await

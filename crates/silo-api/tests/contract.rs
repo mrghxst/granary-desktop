@@ -1651,3 +1651,36 @@ async fn http_client_speaks_the_watch_together_contract() {
     assert_eq!(ticket.protocol, "silo.room.v2");
     api.together_close(&server.uri(), &auth, rid).await.unwrap();
 }
+
+/// Saving an audiobook's position across its parts, against the upstream fixture
+/// (`silo-server/contracts/api/v2/fixtures/sync_progress_ok.json@749db96a`).
+#[tokio::test]
+async fn http_client_speaks_the_progress_sync_contract() {
+    use granary_silo_api::catalog::ProgressSyncItem;
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/sync/progress"))
+        .and(header("X-Profile-Id", "7"))
+        .and(body_json(serde_json::json!({"items": [
+            {"media_item_id": "148998972336245882", "position_ms": 3_725_000, "duration_ms": 36_000_000, "force_overwrite": true}
+        ]})))
+        .respond_with(json("sync_progress_ok.json", 200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let items = [ProgressSyncItem {
+        media_item_id: "148998972336245882".into(),
+        position_ms: 3_725_000,
+        duration_ms: 36_000_000,
+        force_overwrite: true,
+    }];
+    let r = api
+        .sync_progress(&server.uri(), &auth(Some(("7", None))), &items)
+        .await
+        .unwrap();
+    assert_eq!(r.items[0].status, "success");
+    assert_eq!(r.items.len(), 2);
+}

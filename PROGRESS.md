@@ -35,7 +35,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
   - [x] R8d ambient letterbox (opt-in setting; bands placed from mpv's display aspect, drawn from the current seek preview; checked in mock mode with local previews: 40 px bands drawn in a 1646×1006 window; server trickplay and Seekr sources only by type checks)
   - [x] R8e marker editing (item page; permission and the stored markers read live read-only: admin on the primary profile, IntroDB segments listed; saving checked in mock mode and by the contract test, not against the real server)
   - [x] R8f Watch Together, scoped (host-pick party from a title page, join by code, synced play/pause/seek, readiness, clock offset; HTTP operations by contract test, the room socket by a local socket test, join/start/refusal/leave in mock mode, which has no room socket. Not checked against a real room: rooms are writes on the owner's server. Open: vote rooms and suggestions, staged lobby, shared picker, invite links, policy switch, source fallback, buffering frames)
-- [ ] R9 Audiobook player
+- [x] R9 Audiobook player (book timeline across parts, chapters, speed, skips, sleep timer, book position via `syncProgress`; parts, chapters and metadata read live read-only from the owner's Audiobooks library; playing, chapter jumps across parts, speed and the next part checked in mock mode; not played on the owner's server since that writes progress. Open: author/series/narrator browsing, smart rewind, a mini player while browsing)
 - [ ] R10 Ebook and manga reader
 
 Not wanted: the web app's extra settings and account pages, taste-seed onboarding. Seek previews stay an app

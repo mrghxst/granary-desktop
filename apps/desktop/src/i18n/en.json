@@ -731,5 +731,23 @@
       "connected": "connected",
       "closed": "disconnected"
     }
+  },
+  "book": {
+    "nowListening": "Now listening",
+    "chapterN": "Chapter {{n}}",
+    "narratedBy": "Narrated by {{names}}",
+    "part": "Part {{n}} of {{count}}",
+    "position": "Position in the book",
+    "previousChapter": "Previous chapter",
+    "nextChapter": "Next chapter",
+    "back30": "Back 30 seconds",
+    "forward30": "Forward 30 seconds",
+    "speed": "Speed",
+    "chapters_one": "{{count}} chapter",
+    "chapters_other": "{{count}} chapters",
+    "listen": "Listen",
+    "resumeListening": "Resume",
+    "parts_one": "{{count}} part",
+    "parts_other": "{{count}} parts"
   }
 }

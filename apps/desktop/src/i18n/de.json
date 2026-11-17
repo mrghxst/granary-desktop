@@ -731,5 +731,23 @@
       "connected": "verbunden",
       "closed": "getrennt"
     }
+  },
+  "book": {
+    "nowListening": "Jetzt läuft",
+    "chapterN": "Kapitel {{n}}",
+    "narratedBy": "Gelesen von {{names}}",
+    "part": "Teil {{n}} von {{count}}",
+    "position": "Position im Buch",
+    "previousChapter": "Vorheriges Kapitel",
+    "nextChapter": "Nächstes Kapitel",
+    "back30": "30 Sekunden zurück",
+    "forward30": "30 Sekunden vor",
+    "speed": "Tempo",
+    "chapters_one": "{{count}} Kapitel",
+    "chapters_other": "{{count}} Kapitel",
+    "listen": "Anhören",
+    "resumeListening": "Fortsetzen",
+    "parts_one": "{{count}} Teil",
+    "parts_other": "{{count}} Teile"
   }
 }

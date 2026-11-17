@@ -6,6 +6,9 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Audiobook player: books play on one timeline across all their parts, with chapters, 30-second skips, speed
+  (0.75× to 3×), sleep timer and the position saved on the server for every app. The book page shows authors,
+  narrators and length.
 - Watch Together: start a Watch Party from a movie or episode (More → Watch together) or join one with its code
   (Watch Party in the sidebar). Play, pause and seek stay in sync with everyone in the room, whichever app they use;
   the room code shows in the player.

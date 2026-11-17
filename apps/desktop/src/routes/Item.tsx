@@ -6,6 +6,7 @@ import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
 import { MarkerEditor } from "../components/MarkerEditor";
+import { bookChapters, bookDuration, bookParts } from "../lib/audiobook";
 import { together } from "../lib/together";
 import { useTogether } from "../player/togetherContext";
 import { Alert } from "../components/ui";
@@ -51,6 +52,88 @@ function useTrackLabels() {
       external: t("item.external"),
     },
   };
+}
+
+/** Listen/Resume for an audiobook: its parts make one timeline, so there is no version picker. */
+function BookPanel({
+  serverId,
+  item,
+  art,
+  extra,
+}: {
+  serverId: string;
+  item: CatalogItemDetail;
+  art: LaunchArt;
+  extra?: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const refresh = useRefreshTick();
+  const { data: watch, error: loadError } = useLoad(
+    `${serverId}/${item.content_id}`,
+    () => catalog.watch(serverId, item.content_id),
+    refresh,
+  );
+  const { play, busy, error: playError } = usePlay(serverId);
+  if (loadError) return <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>;
+  if (!watch) return <div className="h-12 w-40 animate-pulse rounded-full bg-white/10" />;
+  if (watch.versions.length === 0) return <Alert tone="warning">{t("item.noVersions")}</Alert>;
+  const parts = bookParts(watch.versions);
+  const total = item.audiobook?.total_duration_seconds || bookDuration(parts);
+  const chapters = bookChapters(watch.versions, parts, (n) => String(n)).length;
+  const resume = resumePosition(watch);
+  const progress = resume > 0 && total > 0 ? Math.min(1, resume / total) : 0;
+  const names = (l: { name: string }[] | undefined) => (l ?? []).map((p) => p.name).join(", ");
+  const authors = names(item.audiobook?.authors);
+  const narrators = names(item.audiobook?.narrators);
+  return (
+    <div className="flex flex-col gap-3">
+      {authors || narrators ? (
+        <p className="text-sm text-foreground/80">
+          {authors}
+          {authors && narrators ? " · " : ""}
+          {narrators ? t("book.narratedBy", { names: narrators }) : ""}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void play(item.content_id, { watch, art, fromStart: resume <= 0 })}
+          className="relative isolate inline-flex h-12 items-center gap-2.5 overflow-hidden rounded-full bg-primary pr-6 pl-5 font-semibold text-primary-foreground shadow-lg transition hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none"
+        >
+          {progress > 0 ? (
+            <span
+              aria-hidden
+              className="absolute inset-y-0 left-0 -z-10 bg-black/15"
+              style={{ width: `${String(progress * 100)}%` }}
+            />
+          ) : null}
+          <Play className="size-5 fill-current" />
+          {resume > 0 ? `${t("book.resumeListening")} · ${formatTime(resume)}` : t("book.listen")}
+        </button>
+        {resume > 0 ? (
+          <IconAction
+            label={t("item.fromStart")}
+            disabled={busy}
+            onClick={() => void play(item.content_id, { watch, art, fromStart: true })}
+          >
+            <RotateCcw className="size-5" />
+          </IconAction>
+        ) : null}
+        {extra}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {[
+          total > 0 ? runtimeLabel(Math.round(total / 60)) : null,
+          t("book.chapters", { count: chapters }),
+          parts.length > 1 ? t("book.parts", { count: parts.length }) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {playError ? <Alert>{playError}</Alert> : null}
+    </div>
+  );
 }
 
 /** Play/Resume (with progress fill) plus version/audio/subtitle pickers, for movies and episodes. */
@@ -745,7 +828,9 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
               </dl>
             ) : null}
           </div>
-          {PLAYABLE.has(item.type) ? (
+          {item.type === "audiobook" ? (
+            <BookPanel serverId={serverId} item={item} art={art} extra={actions} />
+          ) : PLAYABLE.has(item.type) ? (
             <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
           ) : (
             <SeriesPlay serverId={serverId} item={item} art={art} extra={actions} />

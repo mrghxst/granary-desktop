@@ -75,6 +75,7 @@ import { LaunchScreen } from "./LaunchScreen";
 import { useLocalPreview } from "./useLocalPreview";
 import { AmbientLetterbox } from "./AmbientLetterbox";
 import { useTogether } from "./togetherContext";
+import { AudiobookView } from "./AudiobookView";
 
 const HIDE_PLAYING_MS = 2500;
 /** With the pointer resting on the seek bar (waiting for a preview, reading the time) the controls stay this long. */
@@ -2165,7 +2166,9 @@ export function PlayerView() {
 
   return (
     <>
-      {state.active ? (
+      {state.active && ctx?.watch.type === "audiobook" ? (
+        <AudiobookView key={ctx.watch.content_id} />
+      ) : state.active ? (
         <PlayerControls key={fileKey} />
       ) : error ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 p-6" role="alertdialog">
