@@ -1263,3 +1263,81 @@ async fn http_client_speaks_the_requests_contract() {
     // The answer is the request as it stands; the sample is still active, so the list is read again afterwards.
     assert_eq!(cancelled.id, "r-1");
 }
+
+/// The home page customisation operations, against the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/{get_profile_section_settings,list_profile_section_overrides}_ok.json@749db96a`):
+/// reads for `scope=home`, and a replace whose body leaves out every member that is not set (the server refuses
+/// `null`, `replace_profile_section_overrides_null_not_clearable.json`).
+#[tokio::test]
+async fn http_client_speaks_the_home_rows_contract() {
+    use granary_silo_api::catalog::HomeRowOverrideWrite;
+    use wiremock::matchers::{body_json, query_param};
+
+    let server = MockServer::start().await;
+    for (at, fixture) in [
+        ("/api/v2/profile/sections/settings", "profile_section_settings.json"),
+        ("/api/v2/profile/sections", "profile_section_overrides.json"),
+    ] {
+        Mock::given(method("GET"))
+            .and(path(at))
+            .and(query_param("scope", "home"))
+            .and(header("X-Profile-Id", "7"))
+            .respond_with(json(fixture, 200))
+            .mount(&server)
+            .await;
+    }
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let rows = api.home_row_settings(&server.uri(), &auth).await.unwrap();
+    assert_eq!(rows.items.len(), 2);
+    assert!(rows.items[0].hidden && rows.items[0].customized && !rows.items[0].is_custom);
+    assert!(rows.items[1].is_custom && rows.items[1].config.is_some());
+    let overrides = api.home_row_overrides(&server.uri(), &auth).await.unwrap();
+    assert_eq!(overrides.items[0].section_id, "s-continue");
+    assert_eq!(
+        (overrides.items[0].position, overrides.items[1].position),
+        (Some(2), None)
+    );
+    assert_eq!(overrides.items[1].user_section_type, "hidden_gems");
+
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/profile/sections"))
+        .and(query_param("scope", "home"))
+        .and(body_json(serde_json::json!({"overrides": [
+            {"id": "o-1", "section_id": "s-continue", "position": 1, "hidden": true},
+            {"id": "o-2", "is_user_added": true, "user_section_type": "hidden_gems", "user_title": "Hidden gems",
+             "user_config": {"library_ids": [3]}, "position": 0}
+        ]})))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/v2/profile/sections"))
+        .and(query_param("scope", "home"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let write = [
+        HomeRowOverrideWrite {
+            id: "o-1".into(),
+            section_id: "s-continue".into(),
+            position: Some(1),
+            hidden: true,
+            ..HomeRowOverrideWrite::default()
+        },
+        HomeRowOverrideWrite {
+            id: "o-2".into(),
+            is_user_added: true,
+            user_section_type: "hidden_gems".into(),
+            user_title: "Hidden gems".into(),
+            user_config: Some(serde_json::json!({"library_ids": [3]})),
+            position: Some(0),
+            ..HomeRowOverrideWrite::default()
+        },
+    ];
+    api.home_rows_replace(&server.uri(), &auth, &write).await.unwrap();
+    api.home_rows_reset(&server.uri(), &auth).await.unwrap();
+}

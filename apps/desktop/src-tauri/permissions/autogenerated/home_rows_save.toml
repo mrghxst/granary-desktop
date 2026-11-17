@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-home-rows-save"
+description = "Enables the home_rows_save command without any pre-configured scope."
+commands.allow = ["home_rows_save"]
+
+[[permission]]
+identifier = "deny-home-rows-save"
+description = "Denies the home_rows_save command without any pre-configured scope."
+commands.deny = ["home_rows_save"]

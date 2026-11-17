@@ -398,6 +398,62 @@ export interface CatalogItemCollection {
 
 export type HomeSurface = "continue_watching" | "next_up";
 
+/** `ProfileSectionSetting`: one home row as the profile sees it, hidden ones included. */
+export interface HomeRowSetting {
+  id: string;
+  section_type: string;
+  title: string;
+  default_title: string;
+  featured: boolean;
+  item_limit: number;
+  hidden: boolean;
+  is_custom: boolean;
+  customized: boolean;
+  position: number;
+  config?: unknown;
+}
+
+/** `SectionOverride`: one saved customisation of the home page. */
+export interface HomeRowOverride {
+  id: string;
+  section_id: string;
+  position: number | null;
+  hidden: boolean;
+  removed: boolean;
+  section_type: string;
+  title: string;
+  featured: boolean | null;
+  item_limit: number | null;
+  config?: unknown;
+  is_user_added: boolean;
+  user_section_type: string;
+  user_title: string;
+  user_config?: unknown;
+}
+
+/** `SectionOverrideWrite`: members not set are left out (the server refuses `null`). */
+export interface HomeRowOverrideWrite {
+  id: string;
+  section_id?: string;
+  position?: number;
+  hidden?: boolean;
+  removed?: boolean;
+  section_type?: string;
+  title?: string;
+  featured?: boolean;
+  item_limit?: number;
+  config?: unknown;
+  is_user_added?: boolean;
+  user_section_type?: string;
+  user_title?: string;
+  user_config?: unknown;
+}
+
+export interface HomeRows {
+  rows: HomeRowSetting[];
+  overrides: HomeRowOverride[];
+}
+
 export interface HomeDismissal {
   surface: HomeSurface;
   item_id: string;
@@ -599,6 +655,10 @@ export const catalog = {
   /** A theme tune as encoded audio bytes (mp3, AAC, FLAC, …), fetched by the host. */
   themeAudio: (serverId: string, ownerId: string, themeId: string) =>
     call<ArrayBuffer>("theme_audio", { serverId, ownerId, themeId }),
+  homeRows: (serverId: string) => call<HomeRows>("home_rows", { serverId }),
+  homeRowsSave: (serverId: string, overrides: HomeRowOverrideWrite[]) =>
+    call<null>("home_rows_save", { serverId, overrides }),
+  homeRowsReset: (serverId: string) => call<null>("home_rows_reset", { serverId }),
   notifications: (serverId: string) => call<NotificationList>("notifications_list", { serverId }),
   notificationsUnread: (serverId: string) => call<number>("notifications_unread", { serverId }),
   notificationRead: (serverId: string, notificationId: string) =>

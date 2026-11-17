@@ -482,7 +482,11 @@
       "subtitle": "Was du gesehen hast, das Neueste zuerst.",
       "empty": "Noch nichts gesehen."
     },
-    "tabs": { "all": "Alle", "movies": "Filme", "series": "Serien" }
+    "tabs": {
+      "all": "Alle",
+      "movies": "Filme",
+      "series": "Serien"
+    }
   },
   "collections": {
     "title": "Sammlungen",
@@ -506,7 +510,11 @@
       "everything": "Alles, was bei den Titeln des Servers läuft oder erscheint."
     },
     "show": "Anzeigen",
-    "filter": { "following": "Verfolgt", "trending": "Im Trend", "everything": "Alles" },
+    "filter": {
+      "following": "Verfolgt",
+      "trending": "Im Trend",
+      "everything": "Alles"
+    },
     "empty": {
       "following": "Diese Woche steht für deine verfolgten Titel nichts an.",
       "trending": "Diese Woche steht nichts aus den Trends an.",
@@ -550,7 +558,11 @@
   "requests": {
     "title": "Anfragen",
     "subtitle": "Bitte den Server um Filme und Serien, die er noch nicht hat.",
-    "tab": { "discover": "Entdecken", "search": "Suche", "mine": "Meine Anfragen" },
+    "tab": {
+      "discover": "Entdecken",
+      "search": "Suche",
+      "mine": "Meine Anfragen"
+    },
     "notConfigured": "Anfragen sind auf diesem Server nicht eingerichtet. Die Verwaltung des Servers kann sie einschalten.",
     "disabled": "Anfragen sind auf diesem Server ausgeschaltet.",
     "notAllowed": "Dieses Profil darf keine Anfragen stellen.",
@@ -594,5 +606,17 @@
     "approved": "Deine Anfrage wurde genehmigt.",
     "declined": "Deine Anfrage wurde abgelehnt.",
     "declinedReason": "Deine Anfrage wurde abgelehnt: {{reason}}"
+  },
+  "homeRows": {
+    "edit": "Startseiten-Reihen bearbeiten",
+    "title": "Reihen der Startseite",
+    "hint": "Reihen ausblenden oder umsortieren. Das ändert nur die Startseite dieses Profils; die Web-App zeigt sie genauso.",
+    "featured": "Hervorgehoben",
+    "up": "{{title}} nach oben",
+    "down": "{{title}} nach unten",
+    "show": "{{title}} anzeigen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "reset": "Layout des Servers verwenden"
   }
 }

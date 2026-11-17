@@ -490,6 +490,30 @@ impl Session {
         self.api.fetch_audio(&url).await
     }
 
+    /// The home page's rows and the profile's saved overrides, read together for editing.
+    pub async fn home_rows(&self) -> Result<HomeRows> {
+        let rows = self
+            .call_profile(|auth| async move { self.api.home_row_settings(&self.origin, &auth).await })
+            .await?;
+        let overrides = self
+            .call_profile(|auth| async move { self.api.home_row_overrides(&self.origin, &auth).await })
+            .await?;
+        Ok(HomeRows {
+            rows: rows.items,
+            overrides: overrides.items,
+        })
+    }
+
+    pub async fn home_rows_replace(&self, overrides: &[HomeRowOverrideWrite]) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.home_rows_replace(&self.origin, &auth, overrides).await })
+            .await
+    }
+
+    pub async fn home_rows_reset(&self) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.home_rows_reset(&self.origin, &auth).await })
+            .await
+    }
+
     pub async fn notifications(&self) -> Result<NotificationList> {
         self.call_profile(|auth| async move { self.api.notifications(&self.origin, &auth).await })
             .await

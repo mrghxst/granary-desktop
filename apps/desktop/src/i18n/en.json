@@ -482,7 +482,11 @@
       "subtitle": "What you watched, most recent first.",
       "empty": "Nothing watched yet."
     },
-    "tabs": { "all": "All", "movies": "Movies", "series": "Series" }
+    "tabs": {
+      "all": "All",
+      "movies": "Movies",
+      "series": "Series"
+    }
   },
   "collections": {
     "title": "Collections",
@@ -506,7 +510,11 @@
       "everything": "Everything airing or released among the server's titles."
     },
     "show": "Show",
-    "filter": { "following": "Following", "trending": "Trending", "everything": "Everything" },
+    "filter": {
+      "following": "Following",
+      "trending": "Trending",
+      "everything": "Everything"
+    },
     "empty": {
       "following": "Nothing is scheduled this week for the titles you follow.",
       "trending": "Nothing trending is scheduled this week.",
@@ -550,7 +558,11 @@
   "requests": {
     "title": "Requests",
     "subtitle": "Ask the server for films and series it does not have yet.",
-    "tab": { "discover": "Discover", "search": "Search", "mine": "My requests" },
+    "tab": {
+      "discover": "Discover",
+      "search": "Search",
+      "mine": "My requests"
+    },
     "notConfigured": "Requests are not set up on this server. The server's administrator can turn them on.",
     "disabled": "Requests are turned off on this server.",
     "notAllowed": "This profile is not allowed to make requests.",
@@ -594,5 +606,17 @@
     "approved": "Your request was approved.",
     "declined": "Your request was declined.",
     "declinedReason": "Your request was declined: {{reason}}"
+  },
+  "homeRows": {
+    "edit": "Edit home rows",
+    "title": "Home rows",
+    "hint": "Hide rows or change their order. This changes the home page of this profile only; the web app shares it.",
+    "featured": "Featured",
+    "up": "Move {{title}} up",
+    "down": "Move {{title}} down",
+    "show": "Show {{title}}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "reset": "Use the server's layout"
   }
 }

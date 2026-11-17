@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Edit home rows (bottom of the home page): hide, show and reorder the home page's rows for your profile, or go
+  back to the server's layout. Rows renamed or built in the web app are kept.
 - Theme music (Settings, off by default): a title page plays the title's theme tune quietly, fading in and out,
   carrying on across the pages of one series and stopping when playback starts; it can loop.
 - Notifications page (sidebar, with the number of unread ones): new episodes of what you follow and answers to

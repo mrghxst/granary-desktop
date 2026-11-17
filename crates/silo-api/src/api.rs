@@ -190,6 +190,14 @@ pub trait SiloApi: Send + Sync {
     async fn theme_playback(&self, origin: &str, auth: &Auth, owner_id: &str, theme_id: &str) -> Result<ThemeGrant>;
     /// Fetch granted audio (no credentials: the grant is in the URL), up to [`MAX_AUDIO_BYTES`].
     async fn fetch_audio(&self, url: &str) -> Result<Vec<u8>>;
+    /// `getProfileSectionSettings` for the home page: its rows as the profile sees them, hidden ones included.
+    async fn home_row_settings(&self, origin: &str, auth: &Auth) -> Result<HomeRowSettingCollection>;
+    /// `listProfileSectionOverrides` for the home page.
+    async fn home_row_overrides(&self, origin: &str, auth: &Auth) -> Result<HomeRowOverrideCollection>;
+    /// `replaceProfileSectionOverrides` for the home page (`204`): the complete set replaces what was saved.
+    async fn home_rows_replace(&self, origin: &str, auth: &Auth, overrides: &[HomeRowOverrideWrite]) -> Result<()>;
+    /// `resetProfileSectionOverrides` for the home page (`204`): back to the administrator's layout.
+    async fn home_rows_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
     /// `listNotifications`: the newest 100 of the profile's inbox.
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList>;
     /// `getNotificationUnreadCount`.
@@ -707,6 +715,42 @@ impl SiloApi for HttpSiloApi {
             bytes.extend_from_slice(&chunk);
         }
         Ok(bytes)
+    }
+
+    async fn home_row_settings(&self, origin: &str, auth: &Auth) -> Result<HomeRowSettingCollection> {
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/profile/sections/settings", auth)
+                .query(&[("scope", "home")]),
+        )
+        .await
+    }
+
+    async fn home_row_overrides(&self, origin: &str, auth: &Auth) -> Result<HomeRowOverrideCollection> {
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/profile/sections", auth)
+                .query(&[("scope", "home")]),
+        )
+        .await
+    }
+
+    async fn home_rows_replace(&self, origin: &str, auth: &Auth, overrides: &[HomeRowOverrideWrite]) -> Result<()> {
+        let body = serde_json::json!({ "overrides": overrides });
+        send_raw(
+            self.authed(Method::PUT, origin, "/api/v2/profile/sections", auth)
+                .query(&[("scope", "home")])
+                .json(&body),
+        )
+        .await
+        .map(drop)
+    }
+
+    async fn home_rows_reset(&self, origin: &str, auth: &Auth) -> Result<()> {
+        send_raw(
+            self.authed(Method::DELETE, origin, "/api/v2/profile/sections", auth)
+                .query(&[("scope", "home")]),
+        )
+        .await
+        .map(drop)
     }
 
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList> {

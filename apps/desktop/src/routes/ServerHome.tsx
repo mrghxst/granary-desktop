@@ -1,7 +1,8 @@
-import { Info, Play } from "lucide-react";
+import { Info, Play, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { HomeRowsEditor } from "../components/HomeRowsEditor";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
 import { Alert, Button } from "../components/ui";
@@ -75,6 +76,9 @@ export function ServerHome() {
   const { play, error: playError } = usePlay(serverId);
   const refresh = useRefreshTick();
   const retry = useRetryTick();
+  const [editing, setEditing] = useState(false);
+  // Bumped after the rows were edited: the home rows are read again.
+  const [edits, setEdits] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -106,7 +110,7 @@ export function ServerHome() {
     return () => {
       alive = false;
     };
-  }, [serverId, navigate, t, refresh, retry]);
+  }, [serverId, navigate, t, refresh, retry, edits]);
 
   const onPlay = (item: CatalogItem, opts?: { fromStart?: boolean }) =>
     void play(item.play_content_id ?? item.content_id, opts);
@@ -116,6 +120,15 @@ export function ServerHome() {
     <div className="flex flex-col gap-10">
       {error ? <Alert onRetry={retryLoads}>{error}</Alert> : null}
       {playError ? <Alert>{playError}</Alert> : null}
+      {editing ? (
+        <HomeRowsEditor
+          serverId={serverId}
+          onClose={(changed) => {
+            setEditing(false);
+            if (changed) setEdits((n) => n + 1);
+          }}
+        />
+      ) : null}
       {sections === null && !error ? <p className="text-muted-foreground">{t("status.loading")}</p> : null}
       {featured ? (
         <Hero
@@ -141,6 +154,19 @@ export function ServerHome() {
           ))}
         </Row>
       ))}
+      {sections !== null && !editing ? (
+        <Button
+          variant="ghost"
+          className="inline-flex items-center gap-2 self-start"
+          onClick={() => {
+            setEditing(true);
+            window.scrollTo({ top: 0 });
+          }}
+        >
+          <SlidersHorizontal className="size-4" />
+          {t("homeRows.edit")}
+        </Button>
+      ) : null}
     </div>
   );
 }

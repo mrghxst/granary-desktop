@@ -251,6 +251,29 @@ of one series and stops when playback starts. Off by default (Settings, "Theme m
 used: `GET .../themes/{theme_id}/audio`, `GET /api/v2/catalog/themes/capabilities` (a refused grant simply means no
 tune).
 
+### 4.1h Home rows of a profile
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`getProfileSectionSettings`,
+`listProfileSectionOverrides`, `replaceProfileSectionOverrides`, `resetProfileSectionOverrides`, schemas
+`ProfileSectionSetting`, `SectionOverride`, `SectionOverrideSet`, `SectionOverrideWrite`), the fixtures
+`contracts/api/v2/fixtures/{get_profile_section_settings_ok,list_profile_section_overrides_ok,replace_profile_section_overrides_null_not_clearable}.json@749db96a`
+and the web app's editor (`web/src/hooks/queries/homeRows/useProfileHomeRows.ts`,
+`web/src/lib/homeRows/profileOverrides.ts`, `web/src/lib/homeLayoutTransfer.ts` `overrideToWrite`, @749db96a). All
+are `profile_scoped` and take `scope=home` (or `library` with `library_id`; Granary edits the home page only).
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/profile/sections/settings?scope=home` | `{items*: [ProfileSectionSetting]}` in the order the profile sees them, hidden ones included: `id*`, `section_type*`, `title*`, `default_title*`, `featured*`, `item_limit*`, `hidden*`, `is_custom*` (built by the profile), `customized*`, `position*`, `config?`. |
+| `GET /api/v2/profile/sections?scope=home` | `{items*: [SectionOverride]}`: `id*`, `section_id*` (empty for a profile-built row), `position*` (null: admin order), `hidden*`, `removed*`, `title*`, `featured*`, `item_limit*`, `config?`, `is_user_added*`, `user_section_type*`, `user_title*`, `user_config?`. |
+| `PUT /api/v2/profile/sections?scope=home` | Body `{overrides*: [SectionOverrideWrite]}` (at most 500): the complete set replaces what was saved; `204`. No version check (last write wins). `null` members are refused (422): unset members are left out. |
+| `DELETE /api/v2/profile/sections?scope=home` | Drops the profile's overrides: the administrator's layout again; `204`. |
+
+Granary's "Edit home rows" (bottom of the home page) hides, shows and reorders rows. Like the web app it writes
+every saved override back as stored (renames, sizes, rows built or removed in the web app survive), adds an override
+for an administrator row only when the profile hides it or has ordered the page, and stores positions for every row
+once the order is the profile's. Not used: renaming, featuring, item limits, building rows (recipes), library pages,
+`GET /api/v2/profile/sections/flags`, layout export and import.
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

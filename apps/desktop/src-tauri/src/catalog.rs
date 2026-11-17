@@ -11,6 +11,7 @@ use granary_silo_api::catalog::{
     RecommendationRow, RequestDiscoverSection, RequestFeatureStatus, RequestMediaPage, Season, Section, TasteProfile,
     TitleRequest, TitleRequestCreate, WatchDetail,
 };
+use granary_silo_api::catalog::{HomeRowOverrideWrite, HomeRows};
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -421,6 +422,60 @@ pub async fn notification_read(
 pub async fn notifications_read_all(state: State<'_, SiloState>, server_id: String, through: String) -> CmdResult<()> {
     state
         .with_session(&server_id, |s| async move { s.notifications_read_all(&through).await })
+        .await
+}
+
+/// The home page's rows and the profile's saved overrides, for editing the page (`getProfileSectionSettings`,
+/// `listProfileSectionOverrides`).
+#[tauri::command]
+pub async fn home_rows(state: State<'_, SiloState>, server_id: String) -> CmdResult<HomeRows> {
+    state
+        .with_session(&server_id, |s| async move { s.home_rows().await })
+        .await
+}
+
+/// The most overrides one page takes (`SectionOverrideSet.overrides.maxItems`).
+const MAX_HOME_OVERRIDES: usize = 500;
+
+/// Checks an override set before it replaces the profile's saved one.
+fn check_home_overrides(overrides: &[HomeRowOverrideWrite]) -> Result<(), CommandError> {
+    let bad = |what: &str| Err(CommandError::invalid(format!("home rows: {what}")));
+    if overrides.len() > MAX_HOME_OVERRIDES {
+        return bad("too many rows");
+    }
+    let mut ids = std::collections::HashSet::new();
+    for o in overrides {
+        if o.id.is_empty() || o.id.len() > 128 || !ids.insert(o.id.as_str()) {
+            return bad("every row needs its own id");
+        }
+        if o.section_id.len() > 128 || o.title.len() > 200 || o.user_title.len() > 200 {
+            return bad("value too long");
+        }
+        if o.position.is_some_and(|p| !(0..=10_000).contains(&p)) {
+            return bad("position out of range");
+        }
+    }
+    Ok(())
+}
+
+/// Replace the profile's home page overrides with a complete set (`replaceProfileSectionOverrides`).
+#[tauri::command]
+pub async fn home_rows_save(
+    state: State<'_, SiloState>,
+    server_id: String,
+    overrides: Vec<HomeRowOverrideWrite>,
+) -> CmdResult<()> {
+    check_home_overrides(&overrides)?;
+    state
+        .with_session(&server_id, |s| async move { s.home_rows_replace(&overrides).await })
+        .await
+}
+
+/// Drop the profile's home page overrides: the administrator's layout again (`resetProfileSectionOverrides`).
+#[tauri::command]
+pub async fn home_rows_reset(state: State<'_, SiloState>, server_id: String) -> CmdResult<()> {
+    state
+        .with_session(&server_id, |s| async move { s.home_rows_reset().await })
         .await
 }
 
@@ -989,5 +1044,24 @@ mod tests {
         )
         .unwrap();
         assert_eq!(v.subtitle_index, Some(3));
+    }
+
+    #[test]
+    fn home_overrides_are_checked() {
+        let row = |id: &str| HomeRowOverrideWrite {
+            id: id.into(),
+            section_id: "s-1".into(),
+            hidden: true,
+            ..HomeRowOverrideWrite::default()
+        };
+        assert!(check_home_overrides(&[row("a"), row("b")]).is_ok());
+        assert!(check_home_overrides(&[row("a"), row("a")]).is_err());
+        assert!(check_home_overrides(&[row("")]).is_err());
+        let far = HomeRowOverrideWrite {
+            position: Some(-1),
+            ..row("c")
+        };
+        assert!(check_home_overrides(&[far]).is_err());
+        assert!(check_home_overrides(&vec![row("x"); 501]).is_err());
     }
 }

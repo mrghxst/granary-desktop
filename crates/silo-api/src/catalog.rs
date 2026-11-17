@@ -831,6 +831,104 @@ pub struct CatalogFilters {
     pub original_languages: Vec<String>,
 }
 
+/// `ProfileSectionSetting` (`getProfileSectionSettings`): one home row as the profile sees it, hidden ones included.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HomeRowSetting {
+    pub id: String,
+    pub section_type: String,
+    /// The title the profile sees: its own rename, or the administrator's title.
+    pub title: String,
+    pub default_title: String,
+    pub featured: bool,
+    pub item_limit: i64,
+    pub hidden: bool,
+    /// Built by the profile (in the web app) rather than by an administrator.
+    pub is_custom: bool,
+    pub customized: bool,
+    pub position: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+}
+
+/// `ProfileSectionSettingCollection`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HomeRowSettingCollection {
+    pub items: Vec<HomeRowSetting>,
+}
+
+/// `SectionOverride` (`listProfileSectionOverrides`): one saved customisation of the home page.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HomeRowOverride {
+    pub id: String,
+    /// The administrator's row this customises; empty for a row the profile built.
+    pub section_id: String,
+    pub position: Option<i64>,
+    pub hidden: bool,
+    pub removed: bool,
+    pub section_type: String,
+    pub title: String,
+    pub featured: Option<bool>,
+    pub item_limit: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+    pub is_user_added: bool,
+    pub user_section_type: String,
+    pub user_title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_config: Option<serde_json::Value>,
+}
+
+/// `SectionOverrideCollection`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HomeRowOverrideCollection {
+    pub items: Vec<HomeRowOverride>,
+}
+
+/// `SectionOverrideWrite`: members that are empty, false or absent are left out, since the server refuses `null`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HomeRowOverrideWrite {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub section_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<i64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub removed: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub section_type: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub featured: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_limit: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_user_added: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub user_section_type: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub user_title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_config: Option<serde_json::Value>,
+}
+
+/// The home page's rows as the profile sees them and the overrides it saved, read together for editing.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HomeRows {
+    pub rows: Vec<HomeRowSetting>,
+    pub overrides: Vec<HomeRowOverride>,
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

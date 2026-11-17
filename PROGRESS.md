@@ -26,7 +26,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [x] R4 Recommendations pages ("For You": `getDiscover` rows, taste summary, a page per row; checked on the owner's server 2026-11-17). Open: row titles are the server's English labels
 - [x] R5 Requests (discover rows, search, request a title, own requests with withdraw; read side checked on the owner's server 2026-11-17, creating and withdrawing only against the mock). Open: title detail, season choice, follow, browse by genre/network/studio, see-all pages, more than 50 own requests
 - [x] R6 Notifications (inbox page, unread badge in the sidebar, mark read; reading checked on the owner's server 2026-11-17, marking read only against the mock). Open: day groups and grouping a series' episodes, muting a series, more than 100 entries, desktop toasts
-- [ ] R7 Theme music on title pages (done: setting, Web Audio playback, docs §4.1g; no title on the test server has a theme, grant path checked live via 404 only); customise home screen
+- [x] R7 Theme music on title pages (done: setting, Web Audio playback, docs §4.1g; no title on the test server has a theme, grant path checked live via 404 only); customise home screen (done: "Edit home rows" on the home page, docs §4.1h; read checked live, saving checked with contract and component tests only)
 - [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
   letterbox, marker editing, Watch Together
 - [ ] R9 Audiobook player

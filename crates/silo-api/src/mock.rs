@@ -67,6 +67,8 @@ pub struct MockSiloApi {
     /// The requests made so far, newest first.
     requests: Mutex<Vec<TitleRequest>>,
     inbox: Mutex<Vec<NotificationItem>>,
+    /// The home page overrides saved so far.
+    home_overrides: Mutex<Vec<HomeRowOverrideWrite>>,
 }
 
 /// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
@@ -166,7 +168,41 @@ impl MockSiloApi {
             playback: Mutex::new(MockPlayback::default()),
             requests: Mutex::new(Vec::new()),
             inbox: Mutex::new(demo::inbox()),
+            home_overrides: Mutex::new(Vec::new()),
         }
+    }
+
+    /// The demo home rows with the saved overrides applied, in order: removed rows are left out, hidden ones kept.
+    fn home_row_list(&self) -> Result<Vec<HomeRowSetting>> {
+        let saved = self.home_overrides.lock().map_err(|_| problem(500, "internal"))?;
+        let mut rows: Vec<HomeRowSetting> = [
+            ("featured", "Featured", "featured"),
+            ("continue", "Continue watching", "continue_watching"),
+            ("recent", "Recently added", "recently_added"),
+        ]
+        .into_iter()
+        .zip(0_i64..)
+        .filter_map(|((id, title, kind), admin_position)| {
+            let o = saved.iter().find(|o| o.section_id == id);
+            if o.is_some_and(|o| o.removed) {
+                return None;
+            }
+            Some(HomeRowSetting {
+                id: id.into(),
+                section_type: kind.into(),
+                title: title.into(),
+                default_title: title.into(),
+                featured: id == "featured",
+                item_limit: 20,
+                hidden: o.is_some_and(|o| o.hidden),
+                customized: o.is_some(),
+                position: o.and_then(|o| o.position).unwrap_or(admin_position),
+                ..HomeRowSetting::default()
+            })
+        })
+        .collect();
+        rows.sort_by_key(|r| r.position);
+        Ok(rows)
     }
 
     /// Serve media from this directory (test clips); without it media requests answer 404.
@@ -945,19 +981,22 @@ impl SiloApi for MockSiloApi {
             items,
             has_more: Some(false),
         };
-        Ok(SectionCollection {
-            sections: vec![
-                section(
-                    "featured",
-                    "Featured",
-                    "featured",
-                    true,
-                    cards.iter().take(1).cloned().collect(),
-                ),
-                section("continue", "Continue watching", "continue_watching", false, continuing),
-                section("recent", "Recently added", "recently_added", false, cards),
-            ],
-        })
+        let mut sections = vec![
+            section(
+                "featured",
+                "Featured",
+                "featured",
+                true,
+                cards.iter().take(1).cloned().collect(),
+            ),
+            section("continue", "Continue watching", "continue_watching", false, continuing),
+            section("recent", "Recently added", "recently_added", false, cards),
+        ];
+        // The profile's overrides: hidden and removed rows go, saved positions order the rest.
+        let rows = self.home_row_list()?;
+        sections.retain(|s| rows.iter().any(|r| r.id == s.id && !r.hidden));
+        sections.sort_by_key(|s| rows.iter().position(|r| r.id == s.id));
+        Ok(SectionCollection { sections })
     }
 
     async fn catalog_browse(
@@ -1638,6 +1677,48 @@ impl SiloApi for MockSiloApi {
         wav.extend_from_slice(b"data");
         wav.extend_from_slice(&0u32.to_le_bytes());
         Ok(wav)
+    }
+
+    async fn home_row_settings(&self, _origin: &str, auth: &Auth) -> Result<HomeRowSettingCollection> {
+        self.check(auth)?;
+        Ok(HomeRowSettingCollection {
+            items: self.home_row_list()?,
+        })
+    }
+
+    async fn home_row_overrides(&self, _origin: &str, auth: &Auth) -> Result<HomeRowOverrideCollection> {
+        self.check(auth)?;
+        let saved = self.home_overrides.lock().map_err(|_| problem(500, "internal"))?;
+        let items = saved
+            .iter()
+            .map(|o| HomeRowOverride {
+                id: o.id.clone(),
+                section_id: o.section_id.clone(),
+                position: o.position,
+                hidden: o.hidden,
+                removed: o.removed,
+                ..HomeRowOverride::default()
+            })
+            .collect();
+        Ok(HomeRowOverrideCollection { items })
+    }
+
+    async fn home_rows_replace(&self, _origin: &str, auth: &Auth, overrides: &[HomeRowOverrideWrite]) -> Result<()> {
+        self.check(auth)?;
+        if overrides.len() > 500 || overrides.iter().any(|o| o.id.is_empty()) {
+            return Err(problem(422, "validation_failed"));
+        }
+        *self.home_overrides.lock().map_err(|_| problem(500, "internal"))? = overrides.to_vec();
+        Ok(())
+    }
+
+    async fn home_rows_reset(&self, _origin: &str, auth: &Auth) -> Result<()> {
+        self.check(auth)?;
+        self.home_overrides
+            .lock()
+            .map_err(|_| problem(500, "internal"))?
+            .clear();
+        Ok(())
     }
 
     async fn notifications(&self, _origin: &str, auth: &Auth) -> Result<NotificationList> {
