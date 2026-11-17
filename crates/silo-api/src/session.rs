@@ -737,6 +737,34 @@ impl Session {
         }
     }
 
+    pub async fn ebook_progress(&self, content_id: &str) -> Result<Option<EbookProgress>> {
+        let body = self
+            .call_profile(|auth| async move { self.api.ebook_progress(&self.origin, &auth, content_id).await })
+            .await?;
+        Ok(body.progress)
+    }
+
+    /// Safe to retry: the server keeps only strictly newer events, and a retry carries the same `updated_at`.
+    pub async fn ebook_progress_save(
+        &self,
+        content_id: &str,
+        save: &EbookProgressSave,
+    ) -> Result<Option<EbookProgress>> {
+        let body = self
+            .call_profile(|auth| async move {
+                self.api
+                    .ebook_progress_save(&self.origin, &auth, content_id, save)
+                    .await
+            })
+            .await?;
+        Ok(body.progress)
+    }
+
+    pub async fn ebook_file(&self, content_id: &str, file_id: &str) -> Result<EbookBytes> {
+        self.call_profile(|auth| async move { self.api.ebook_file(&self.origin, &auth, content_id, file_id).await })
+            .await
+    }
+
     pub async fn together_capabilities(&self) -> Result<crate::together::TogetherCapabilities> {
         self.call_account(|auth| async move { self.api.together_capabilities(&self.origin, &auth).await })
             .await

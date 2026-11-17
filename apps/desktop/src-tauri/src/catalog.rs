@@ -585,7 +585,7 @@ fn is_language(tag: &str) -> bool {
 }
 
 /// An opaque id the server gave out.
-fn is_opaque_id(id: &str) -> bool {
+pub(crate) fn is_opaque_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 128 && !id.chars().any(char::is_control)
 }
 

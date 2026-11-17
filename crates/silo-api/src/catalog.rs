@@ -724,6 +724,68 @@ pub struct AudiobookDetail {
     pub total_duration_seconds: Option<i64>,
 }
 
+/// `EbookDetailExtension` subset.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EbookDetail {
+    pub authors: Vec<AudiobookPerson>,
+    pub publisher: Option<String>,
+}
+
+/// `MangaChapter`: one chapter of a manga series, itself an ebook item.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MangaChapter {
+    pub content_id: String,
+    pub title: String,
+    pub chapter_index: Option<f64>,
+    pub volume: Option<String>,
+    pub read: bool,
+    /// Reading position, 0..1, when the chapter was opened.
+    pub progress: Option<f64>,
+}
+
+/// `MangaDetailExtension`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MangaDetail {
+    pub chapters: Vec<MangaChapter>,
+}
+
+/// `EbookProgress`: a profile's place in a book. `location` is a CFI or a `fraction:<n>` value.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EbookProgress {
+    pub content_id: String,
+    pub file_id: String,
+    pub location: String,
+    pub progress: f64,
+    pub updated_at: String,
+}
+
+/// `EbookProgressOutputBody`: `progress` is absent when nothing is saved.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EbookProgressBody {
+    pub progress: Option<EbookProgress>,
+}
+
+/// `SaveEbookProgressInputBody`: `updated_at` is the client event time, kept exactly on a retry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EbookProgressSave {
+    pub file_id: String,
+    pub location: String,
+    pub progress: f64,
+    pub updated_at: String,
+}
+
+/// An ebook file's bytes (`readEbookFile`), with the MIME type the server served.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EbookBytes {
+    pub content_type: String,
+    pub bytes: Vec<u8>,
+}
+
 /// `ProgressSyncItem`: a position for a whole title (an audiobook across its parts), in milliseconds.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ProgressSyncItem {
@@ -768,6 +830,10 @@ pub struct CatalogItemDetail {
     pub themes: Option<ThemeSongSet>,
     /// Authors, narrators and length of an audiobook (`AudiobookDetailExtension`).
     pub audiobook: Option<AudiobookDetail>,
+    /// Authors and publisher of an ebook (`EbookDetailExtension`).
+    pub ebook: Option<EbookDetail>,
+    /// The chapters of a manga series (`MangaDetailExtension`).
+    pub manga: Option<MangaDetail>,
     pub content_id: String,
     pub title: String,
     #[serde(rename = "type")]

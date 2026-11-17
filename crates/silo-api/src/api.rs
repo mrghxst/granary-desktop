@@ -31,6 +31,8 @@ pub struct ImageData {
 pub const MAX_IMAGE_BYTES: usize = 16 * 1024 * 1024;
 /// Largest theme tune the app loads (it is decoded in memory).
 pub const MAX_AUDIO_BYTES: usize = 32 * 1024 * 1024;
+/// Largest ebook file the reader opens in memory (the web reader's limit, `docs/ebooks-api.md@749db96a`).
+pub const MAX_EBOOK_BYTES: usize = 512 * 1024 * 1024;
 /// Container and codec pairs sent as `accepted_formats` of a theme grant.
 const THEME_FORMATS: &[(&str, &str)] = &[
     ("mp3", "mp3"),
@@ -248,6 +250,18 @@ pub trait SiloApi: Send + Sync {
         item_id: &str,
         update: &MarkerUpdate,
     ) -> Result<FileMarkers>;
+    /// `getEbookProgress`: the profile's place in a book.
+    async fn ebook_progress(&self, origin: &str, auth: &Auth, content_id: &str) -> Result<EbookProgressBody>;
+    /// `saveEbookProgress`: kept only when `updated_at` is newer than the stored event; returns what is stored.
+    async fn ebook_progress_save(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        content_id: &str,
+        save: &EbookProgressSave,
+    ) -> Result<EbookProgressBody>;
+    /// `readEbookFile`: the whole file, up to [`MAX_EBOOK_BYTES`].
+    async fn ebook_file(&self, origin: &str, auth: &Auth, content_id: &str, file_id: &str) -> Result<EbookBytes>;
     /// `syncProgress` (`non_retryable`): titles' positions, applied in order.
     async fn sync_progress(&self, origin: &str, auth: &Auth, items: &[ProgressSyncItem]) -> Result<ProgressSyncResult>;
     /// `getWatchTogetherCapabilities` (account level).
@@ -671,6 +685,53 @@ impl SiloApi for HttpSiloApi {
                 .json(&body),
         )
         .await
+    }
+
+    async fn ebook_progress(&self, origin: &str, auth: &Auth, content_id: &str) -> Result<EbookProgressBody> {
+        let path = format!("/api/v2/ebooks/{}/progress", url_segment(content_id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn ebook_progress_save(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        content_id: &str,
+        save: &EbookProgressSave,
+    ) -> Result<EbookProgressBody> {
+        let path = format!("/api/v2/ebooks/{}/progress", url_segment(content_id));
+        send_json(self.authed(Method::PUT, origin, &path, auth).json(save)).await
+    }
+
+    async fn ebook_file(&self, origin: &str, auth: &Auth, content_id: &str, file_id: &str) -> Result<EbookBytes> {
+        let path = format!(
+            "/api/v2/ebooks/{}/files/{}/read",
+            url_segment(content_id),
+            url_segment(file_id)
+        );
+        let mut resp = send_raw(self.authed(Method::GET, origin, &path, auth)).await?;
+        let too_large = || ApiError::Internal("ebook too large to open".into());
+        if resp.content_length().is_some_and(|n| n > MAX_EBOOK_BYTES as u64) {
+            return Err(too_large());
+        }
+        let content_type = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream")
+            .to_owned();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| ApiError::from_transport(&e.without_url()))?
+        {
+            if bytes.len() + chunk.len() > MAX_EBOOK_BYTES {
+                return Err(too_large());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        Ok(EbookBytes { content_type, bytes })
     }
 
     async fn together_capabilities(&self, origin: &str, auth: &Auth) -> Result<TogetherCapabilities> {

@@ -555,6 +555,19 @@ export interface CatalogRating {
 }
 
 export interface CatalogItemDetail {
+  /** Authors and publisher of an ebook. */
+  ebook?: { authors: { name: string; person_id?: string | null }[]; publisher?: string | null } | null;
+  /** The chapters of a manga series; each chapter is an ebook item. */
+  manga?: {
+    chapters: {
+      content_id: string;
+      title: string;
+      chapter_index?: number | null;
+      volume?: string | null;
+      read: boolean;
+      progress?: number | null;
+    }[];
+  } | null;
   /** Authors, narrators and length of an audiobook. */
   audiobook?: {
     authors: { name: string; person_id?: string | null }[];

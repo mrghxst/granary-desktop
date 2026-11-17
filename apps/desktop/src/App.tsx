@@ -27,6 +27,7 @@ import { PlayerProvider } from "./player/PlayerProvider";
 import { PlayerView } from "./player/PlayerView";
 import { TogetherProvider } from "./player/TogetherProvider";
 import { WatchParty } from "./routes/WatchParty";
+import { Reader } from "./reader/Reader";
 
 /** The host emits `auth://revoked` when the server rejects a stored session: go back to sign-in for that server. */
 function RevokedListener() {
@@ -66,6 +67,7 @@ export function AppRoutes() {
             <Route path="/servers/add" element={<AddServer />} />
             <Route path="/servers/:serverId/login" element={<Login />} />
             <Route path="/servers/:serverId/profiles" element={<Profiles />} />
+            <Route path="/servers/:serverId/read/:contentId" element={<Reader />} />
             <Route path="/servers/:serverId" element={<Shell />}>
               <Route path="home" element={<ServerHome />} />
               <Route path="library/:libraryId" element={<Library />} />

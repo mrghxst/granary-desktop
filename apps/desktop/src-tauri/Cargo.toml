@@ -44,6 +44,8 @@ futures-util = { version = "0.3.34", default-features = false, features = ["std"
 uuid = { version = "1.29.0", features = ["v4"] }
 # Same version and features as granary-silo-api (no extra build): the optional Seekr preview client (ADR-0011).
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "http2", "charset", "json", "query", "system-proxy", "stream"] }
+# Reader archives (EPUB, CBZ), read-only inflate (R10, ADR-0013).
+zip = { version = "9.6.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target.'cfg(windows)'.dependencies.windows]
 workspace = true

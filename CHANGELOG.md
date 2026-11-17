@@ -6,6 +6,9 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Reader for ebooks and manga: EPUB, PDF and CBZ books open in the app, with a contents list, text size and
+  page colour for EPUB, page-by-page PDFs and comics, and right-to-left reading for manga. A manga's page lists its
+  chapters by volume and opens the next one. Your place is saved on the server and shared with the web reader.
 - Audiobook player: books play on one timeline across all their parts, with chapters, 30-second skips, speed
   (0.75× to 3×), sleep timer and the position saved on the server for every app. The book page shows authors,
   narrators and length.

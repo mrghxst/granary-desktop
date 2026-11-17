@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ebook-progress-save"
+description = "Enables the ebook_progress_save command without any pre-configured scope."
+commands.allow = ["ebook_progress_save"]
+
+[[permission]]
+identifier = "deny-ebook-progress-save"
+description = "Denies the ebook_progress_save command without any pre-configured scope."
+commands.deny = ["ebook_progress_save"]

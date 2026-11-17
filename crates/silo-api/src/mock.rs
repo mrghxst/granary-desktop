@@ -73,6 +73,8 @@ pub struct MockSiloApi {
     /// This device's subtitle appearance override, if any.
     subtitle_device: Mutex<Option<String>>,
     markers: Mutex<HashMap<String, FileMarkers>>,
+    /// Reading positions saved so far, by book.
+    ebook_progress: Mutex<HashMap<String, EbookProgress>>,
     /// Polls of the mock translation job so far (it completes on the second).
     ai_polls: Mutex<u32>,
 }
@@ -177,6 +179,7 @@ impl MockSiloApi {
             home_overrides: Mutex::new(Vec::new()),
             subtitle_device: Mutex::new(None),
             markers: Mutex::new(HashMap::new()),
+            ebook_progress: Mutex::new(HashMap::new()),
             ai_polls: Mutex::new(0),
         }
     }
@@ -700,6 +703,74 @@ mod demo {
     }
 
     pub fn detail(id: &str) -> Option<CatalogItemDetail> {
+        // Books for the reader (R10): an EPUB, a PDF, and a manga series whose chapters are CBZ ebooks.
+        let book_file = |item: &str, container: &str, size: i64| FileVersion {
+            file_id: format!("{item}-f1"),
+            container: container.into(),
+            file_size: size,
+            ..FileVersion::default()
+        };
+        let author = |name: &str| AudiobookPerson {
+            name: name.into(),
+            person_id: None,
+        };
+        match id {
+            "k1" | "k2" => {
+                let epub = id == "k1";
+                return Some(CatalogItemDetail {
+                    content_id: id.into(),
+                    title: if epub {
+                        "Letters from the Orchard"
+                    } else {
+                        "Field Notes"
+                    }
+                    .into(),
+                    kind: "ebook".into(),
+                    overview: Some("Short enough to read while the kettle boils.".into()),
+                    year: Some(2021),
+                    poster_url: art("poster", id),
+                    ebook: Some(EbookDetail {
+                        authors: vec![author("Ada Fenwick")],
+                        publisher: Some("Orchard Press".into()),
+                    }),
+                    versions: vec![book_file(id, if epub { "epub" } else { "pdf" }, 25_000)],
+                    ..CatalogItemDetail::default()
+                });
+            }
+            "g1" => {
+                let chapter = |n: u8| MangaChapter {
+                    content_id: format!("g1c{n}"),
+                    title: format!("Chapter {n}"),
+                    chapter_index: Some(f64::from(n)),
+                    volume: Some("v01".into()),
+                    ..MangaChapter::default()
+                };
+                return Some(CatalogItemDetail {
+                    content_id: "g1".into(),
+                    title: "Lantern Street".into(),
+                    kind: "manga".into(),
+                    overview: Some("A night market, one lantern at a time.".into()),
+                    year: Some(2020),
+                    poster_url: art("poster", "g1"),
+                    manga: Some(MangaDetail {
+                        chapters: vec![chapter(1), chapter(2)],
+                    }),
+                    ..CatalogItemDetail::default()
+                });
+            }
+            "g1c1" | "g1c2" => {
+                return Some(CatalogItemDetail {
+                    content_id: id.into(),
+                    title: format!("Chapter {}", &id[3..]),
+                    kind: "ebook".into(),
+                    series_id: Some("g1".into()),
+                    series_title: Some("Lantern Street".into()),
+                    versions: vec![book_file(id, "cbz", 28_000)],
+                    ..CatalogItemDetail::default()
+                });
+            }
+            _ => {}
+        }
         if id == "b1" {
             // An audiobook in three one-minute parts, one chapter each (as many books on real servers are split).
             let part = |n: i64| FileVersion {
@@ -1965,6 +2036,81 @@ impl SiloApi for MockSiloApi {
                 result_subtitle_id: done.then(|| "502".into()),
                 ..SubtitleAiJob::default()
             },
+        })
+    }
+
+    async fn ebook_progress(&self, _origin: &str, auth: &Auth, content_id: &str) -> Result<EbookProgressBody> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let progress = self
+            .ebook_progress
+            .lock()
+            .map_err(|_| problem(500, "internal"))?
+            .get(content_id)
+            .cloned();
+        Ok(EbookProgressBody { progress })
+    }
+
+    async fn ebook_progress_save(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        content_id: &str,
+        save: &EbookProgressSave,
+    ) -> Result<EbookProgressBody> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let valid = (0.0..=1.0).contains(&save.progress)
+            && !save.location.is_empty()
+            && save.location.len() <= 8192
+            && save.updated_at.len() >= 20;
+        if !valid {
+            return Err(problem(422, "validation_failed"));
+        }
+        if !Self::known_file(&save.file_id).is_some_and(|(item, _)| item == content_id) {
+            return Err(problem(404, "not_found"));
+        }
+        let mut all = self.ebook_progress.lock().map_err(|_| problem(500, "internal"))?;
+        // Only a strictly newer event replaces the stored one (RFC 3339 UTC with milliseconds sorts as text).
+        if all.get(content_id).is_none_or(|p| save.updated_at > p.updated_at) {
+            all.insert(
+                content_id.to_owned(),
+                EbookProgress {
+                    content_id: content_id.to_owned(),
+                    file_id: save.file_id.clone(),
+                    location: save.location.clone(),
+                    progress: save.progress,
+                    updated_at: save.updated_at.clone(),
+                },
+            );
+        }
+        Ok(EbookProgressBody {
+            progress: all.get(content_id).cloned(),
+        })
+    }
+
+    async fn ebook_file(&self, _origin: &str, auth: &Auth, content_id: &str, file_id: &str) -> Result<EbookBytes> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let Some((item, version)) = Self::known_file(file_id).filter(|(item, _)| item == content_id) else {
+            return Err(problem(404, "not_found"));
+        };
+        let (content_type, bytes): (&str, &[u8]) = match (item.as_str(), version.container.as_str()) {
+            ("k1", _) => ("application/epub+zip", include_bytes!("../mock-books/orchard.epub")),
+            ("k2", _) => ("application/pdf", include_bytes!("../mock-books/field-notes.pdf")),
+            ("g1c1", _) => (
+                "application/vnd.comicbook+zip",
+                include_bytes!("../mock-books/lanterns-1.cbz"),
+            ),
+            ("g1c2", _) => (
+                "application/vnd.comicbook+zip",
+                include_bytes!("../mock-books/lanterns-2.cbz"),
+            ),
+            _ => return Err(problem(404, "not_found")),
+        };
+        Ok(EbookBytes {
+            content_type: content_type.to_owned(),
+            bytes: bytes.to_vec(),
         })
     }
 

@@ -335,6 +335,36 @@ Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`CatalogItemDeta
   `force_overwrite: true` every 10 s while playing, on pause and on leaving, so the item's `user_data.position_seconds`
   is the book position used to resume.
 - Not used: `listAudiobookGroups` (author/series/narrator browsing), the narrations list, related items, smart rewind.
+### 4.1k Ebooks and manga (reader)
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`getEbookProgress`, `saveEbookProgress`,
+`readEbookFile`, `EbookProgress`, `EbookProgressOutputBody`, `SaveEbookProgressInputBody`,
+`CatalogItemDetail.ebook` → `EbookDetailExtension`, `CatalogItemDetail.manga` → `MangaDetailExtension`,
+`MangaChapter`), `silo-server/docs/ebooks-api.md@749db96a`, the fixtures
+`contracts/api/v2/fixtures/ebook_progress_saved.json`, `ebook_progress_absent.json` and
+`ebook_progress_missing_event_time.json@749db96a`, and the web reader (`web/src/pages/EbookReader.tsx@749db96a`,
+`web/src/reader/FoliateBookReader.tsx@749db96a`, `web/src/lib/mangaChapters.ts@749db96a`).
+
+- An ebook (`type: ebook`) lists its files in `versions` (`container`: `epub`, `pdf`, `cbz`, `mobi`, ...). The web
+  reader prefers EPUB; Granary does the same, then PDF, then CBZ. `ebook` carries `authors` and `publisher`.
+- A manga series (`type: manga`) has `manga.chapters: [MangaChapter {content_id*, title*, read*, chapter_index?,
+  volume?, progress? (0..1), poster_url?}]`. Each chapter is itself an ebook item (usually one CBZ) opened with the
+  same reader; the chapter's detail names the series in `series_id`.
+- `GET /api/v2/ebooks/{content_id}/files/{file_id}/read` (`readEbookFile`, `profile_scoped`): the file's bytes with
+  its native MIME type (Kindle files may arrive converted to EPUB). Granary fetches it in the host through the
+  session (bearer and `X-Profile-Id`), refuses anything over 512 MiB as the web reader does, and keeps it in memory
+  only.
+- `GET /api/v2/ebooks/{content_id}/progress` (`getEbookProgress`, `profile_scoped`): `{progress?: {content_id,
+  file_id, location, progress (0..1), updated_at}}`, the member absent when nothing is saved.
+- `PUT /api/v2/ebooks/{content_id}/progress` (`saveEbookProgress`, `profile_scoped`): body `{file_id*, location*
+  (1..8192 chars), progress* (0..1), updated_at*}` where `updated_at` is the client event time (RFC 3339, UTC,
+  milliseconds). Future times are refused (422); only strictly newer events replace the stored one, so a retry with
+  the same time is harmless. Granary writes `location` as `fraction:<n>`, the form the web reader restores for
+  formats without CFIs, and reads either form back (a CFI falls back to `progress`). The event time is taken 3 s
+  behind the computer's clock so a clock slightly ahead of the server still saves.
+- Not used: `getEbookCapability`, reader configuration (`reader-config`, ETag-guarded), annotations, the manga
+  files dialog (`listCatalogItemMangaFiles`), mark read/unread.
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

@@ -493,7 +493,10 @@
     "playback_session_ended": "The server ended this playback session.",
     "installation_changed": "The server was reconfigured; progress may not be saved for this playback.",
     "stream_failed": "The stream could not be recovered.",
-    "reconnecting": "Connection lost. Reconnecting…"
+    "reconnecting": "Connection lost. Reconnecting…",
+    "unsupported_book": "This book format can't be opened in Granary yet (EPUB, PDF and CBZ can).",
+    "book_too_large": "This book is too large to open here.",
+    "book_closed": "The book was closed. Open it again."
   },
   "about": {
     "title": "About Granary",
@@ -749,5 +752,38 @@
     "resumeListening": "Resume",
     "parts_one": "{{count}} part",
     "parts_other": "{{count}} parts"
+  },
+  "reader": {
+    "read": "Read",
+    "continue": "Continue",
+    "finished": "Finished",
+    "close": "Close the reader",
+    "opening": "Opening the book…",
+    "noFile": "This book has no file to read.",
+    "noChapters": "This series has no chapters yet.",
+    "progressUnavailable": "Your place in this book could not be loaded.",
+    "empty": "This book has no pages.",
+    "page": "Page {{n}} of {{count}}",
+    "section": "{{n}} / {{count}}",
+    "position": "Position in the book",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "previousChapter": "Previous chapter",
+    "nextChapter": "Next chapter",
+    "contents": "Contents",
+    "chapterFrame": "Book text",
+    "smaller": "Smaller text",
+    "larger": "Larger text",
+    "theme": "Page colour",
+    "themes": {
+      "dark": "Dark",
+      "sepia": "Sepia",
+      "light": "Light"
+    },
+    "rtl": "Right to left",
+    "chapters": "Chapters",
+    "chapterCount_one": "{{count}} chapter",
+    "chapterCount_other": "{{count}} chapters",
+    "volume": "Volume {{n}}"
   }
 }

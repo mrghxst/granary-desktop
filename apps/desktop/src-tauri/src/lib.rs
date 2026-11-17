@@ -8,6 +8,7 @@
 
 pub mod about;
 pub mod artcache;
+pub mod books;
 pub mod catalog;
 pub mod commands;
 pub mod logging;
@@ -138,6 +139,7 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     });
     app.manage(playback::events::EventsState::default());
     app.manage(together::TogetherState::default());
+    app.manage(books::BookState::default());
     app.manage(playback::preview::PreviewState::default());
     // Leftover preview scratch files from a run that did not end cleanly.
     std::thread::spawn(playback::preview::sweep_temp);
@@ -354,6 +356,11 @@ pub fn run() {
             together::together_join,
             together::together_send,
             together::together_leave,
+            books::book_open,
+            books::book_entry,
+            books::book_close,
+            books::ebook_progress,
+            books::ebook_progress_save,
             playback::events::events_disconnect,
             settings::settings_get,
             settings::settings_set,

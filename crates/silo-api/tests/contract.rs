@@ -1684,3 +1684,70 @@ async fn http_client_speaks_the_progress_sync_contract() {
     assert_eq!(r.items[0].status, "success");
     assert_eq!(r.items.len(), 2);
 }
+
+#[tokio::test]
+async fn http_client_speaks_the_ebook_reader_contract() {
+    use granary_silo_api::catalog::EbookProgressSave;
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/ebooks/book-one/progress"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(json("ebook_progress_absent.json", 200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/ebooks/book-one/progress"))
+        .and(header("X-Profile-Id", "7"))
+        .and(body_json(serde_json::json!({
+            "file_id": "12", "location": "epubcfi(/6/2)", "progress": 0.25, "updated_at": "2026-01-02T03:04:05.000Z"
+        })))
+        .respond_with(json("ebook_progress_saved.json", 200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/ebooks/book-two/progress"))
+        .respond_with(json("ebook_progress_missing_event_time.json", 422))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/ebooks/book-one/files/12/read"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "application/epub+zip")
+                .set_body_bytes(b"PK\x03\x04mock".to_vec()),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let api = HttpSiloApi::new(device()).unwrap();
+    let a = auth(Some(("7", None)));
+    let none = api.ebook_progress(&server.uri(), &a, "book-one").await.unwrap();
+    assert!(none.progress.is_none());
+    let save = EbookProgressSave {
+        file_id: "12".into(),
+        location: "epubcfi(/6/2)".into(),
+        progress: 0.25,
+        updated_at: "2026-01-02T03:04:05.000Z".into(),
+    };
+    let saved = api
+        .ebook_progress_save(&server.uri(), &a, "book-one", &save)
+        .await
+        .unwrap()
+        .progress
+        .unwrap();
+    assert_eq!((saved.file_id.as_str(), saved.progress), ("12", 0.25));
+    let err = api
+        .ebook_progress_save(&server.uri(), &a, "book-two", &save)
+        .await
+        .unwrap_err();
+    assert_eq!(err.status(), Some(422));
+    let file = api.ebook_file(&server.uri(), &a, "book-one", "12").await.unwrap();
+    assert_eq!(file.content_type, "application/epub+zip");
+    assert!(file.bytes.starts_with(b"PK"));
+}

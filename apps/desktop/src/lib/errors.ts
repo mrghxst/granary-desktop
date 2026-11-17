@@ -41,6 +41,10 @@ export const ERROR_CODES = [
   "bad_artwork_url",
   "invalid_request",
   "no_host",
+  // Reader (src-tauri/src/books.rs).
+  "unsupported_book",
+  "book_too_large",
+  "book_closed",
   // Player (apps/desktop/src-tauri/src/playback): command errors …
   "not_playable",
   "playback_unsupported",

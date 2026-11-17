@@ -493,7 +493,10 @@
     "playback_session_ended": "Der Server hat diese Wiedergabe beendet.",
     "installation_changed": "Der Server wurde neu eingerichtet; der Fortschritt dieser Wiedergabe wird eventuell nicht gespeichert.",
     "stream_failed": "Der Stream konnte nicht wiederhergestellt werden.",
-    "reconnecting": "Verbindung verloren. Neue Verbindung wird aufgebaut…"
+    "reconnecting": "Verbindung verloren. Neue Verbindung wird aufgebaut…",
+    "unsupported_book": "Dieses Buchformat kann Granary noch nicht öffnen (EPUB, PDF und CBZ gehen).",
+    "book_too_large": "Dieses Buch ist zu groß, um es hier zu öffnen.",
+    "book_closed": "Das Buch wurde geschlossen. Öffne es erneut."
   },
   "about": {
     "title": "Über Granary",
@@ -749,5 +752,38 @@
     "resumeListening": "Fortsetzen",
     "parts_one": "{{count}} Teil",
     "parts_other": "{{count}} Teile"
+  },
+  "reader": {
+    "read": "Lesen",
+    "continue": "Weiterlesen",
+    "finished": "Gelesen",
+    "close": "Leseansicht schließen",
+    "opening": "Buch wird geöffnet…",
+    "noFile": "Zu diesem Buch gibt es keine lesbare Datei.",
+    "noChapters": "Diese Reihe hat noch keine Kapitel.",
+    "progressUnavailable": "Deine Leseposition konnte nicht geladen werden.",
+    "empty": "Dieses Buch hat keine Seiten.",
+    "page": "Seite {{n}} von {{count}}",
+    "section": "{{n}} / {{count}}",
+    "position": "Position im Buch",
+    "previousPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
+    "previousChapter": "Vorheriges Kapitel",
+    "nextChapter": "Nächstes Kapitel",
+    "contents": "Inhalt",
+    "chapterFrame": "Buchtext",
+    "smaller": "Kleinere Schrift",
+    "larger": "Größere Schrift",
+    "theme": "Seitenfarbe",
+    "themes": {
+      "dark": "Dunkel",
+      "sepia": "Sepia",
+      "light": "Hell"
+    },
+    "rtl": "Von rechts nach links",
+    "chapters": "Kapitel",
+    "chapterCount_one": "{{count}} Kapitel",
+    "chapterCount_other": "{{count}} Kapitel",
+    "volume": "Band {{n}}"
   }
 }

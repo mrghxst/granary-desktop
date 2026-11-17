@@ -6,6 +6,7 @@ import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
 import { MarkerEditor } from "../components/MarkerEditor";
+import { MangaChapterList, MangaPanel, ReadPanel } from "../components/BookPanels";
 import { bookChapters, bookDuration, bookParts } from "../lib/audiobook";
 import { together } from "../lib/together";
 import { useTogether } from "../player/togetherContext";
@@ -828,7 +829,11 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
               </dl>
             ) : null}
           </div>
-          {item.type === "audiobook" ? (
+          {item.type === "ebook" ? (
+            <ReadPanel serverId={serverId} item={item} extra={actions} />
+          ) : item.type === "manga" ? (
+            <MangaPanel serverId={serverId} item={item} extra={actions} />
+          ) : item.type === "audiobook" ? (
             <BookPanel serverId={serverId} item={item} art={art} extra={actions} />
           ) : PLAYABLE.has(item.type) ? (
             <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
@@ -1259,6 +1264,7 @@ export function Item() {
             initialSeason={item.type === "season" ? item.season_number : item.play_season_number}
           />
         ) : null}
+        {item.type === "manga" ? <MangaChapterList serverId={serverId} item={item} /> : null}
         <CastAndCrew serverId={serverId} item={item} />
         <TrailersAndMore serverId={serverId} item={item} />
         {item.type === "movie" ? <BoxSetRow serverId={serverId} itemId={item.content_id} /> : null}

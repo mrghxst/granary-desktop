@@ -38,13 +38,15 @@ Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-w
 `tracing-appender`, `tokio`, `reqwest` (with `rustls`, `rustls-platform-verifier`, `aws-lc-rs`: Apache-2.0 / ISC / MIT;
 `aws-lc-sys` also OpenSSL-style licences), `keyring-core` and `windows-native-keyring-store`, `url`, `uuid`,
 `async-trait`, `bytes`, `futures-core`, `futures-util`, `hyper`, `hyper-util`, `http-body-util` (loopback media relay),
-`tokio-tungstenite` (events socket, MIT), `rustls`.
+`tokio-tungstenite` (events socket, MIT), `rustls`,
+`zip` (reader archives, MIT) with `flate2` (MIT/Apache-2.0) and `zlib-rs` (Zlib).
 `jpeg-encoder` (local seek previews; MIT OR Apache-2.0, plus the IJG licence): this software is based in part on
 the work of the Independent JPEG Group.
 Test-only (not shipped): `wiremock`, `rcgen`, `tokio-rustls`.
 
 JavaScript packages (see `pnpm-lock.yaml`; MIT unless noted): React, React DOM, React Router, i18next,
-react-i18next, `@tauri-apps/api` (MIT/Apache-2.0), Tailwind CSS, lucide-react (icons, ISC).
+react-i18next, `@tauri-apps/api` (MIT/Apache-2.0), Tailwind CSS, lucide-react (icons, ISC), `pdfjs-dist` (PDF.js,
+Mozilla, Apache-2.0; the PDF reader).
 
 Full licence texts: `THIRD_PARTY_LICENSES.txt`, installed next to `granary.exe`. It contains the GPL-3.0 text for
 libmpv/FFmpeg, the LGPL-2.1 text, and the published licence files of every Rust crate linked into the Windows binary
