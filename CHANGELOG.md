@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- "For You" page (sidebar): the server's recommendation rows for your profile, with your top genres and directors
+  once the server knows them; a row's heading opens the whole row.
 - Calendar page (sidebar): what airs or is released in a week, day by day, for the titles you follow, the
   trending ones or everything on the server; with premiere and finale badges and the airing time on your clock.
 - Collections page (sidebar): your collections, those shared with you and the server's by library; each opens

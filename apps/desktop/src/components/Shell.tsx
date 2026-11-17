@@ -11,6 +11,7 @@ import {
   Search,
   Server,
   Settings,
+  Sparkles,
   Tv,
   UserRound,
 } from "lucide-react";
@@ -75,7 +76,7 @@ export function Shell() {
   const scrolls = useRef(new Map<string, number>());
   // Detail pages are reached from many places and have no sidebar entry: they get Back, in one fixed spot that is
   // there before the page has loaded. Top-level destinations (sidebar) have none.
-  const detail = /\/(item|person|collection|box-set)\//.test(location.pathname);
+  const detail = /\/(item|person|collection|box-set|recommendations)\//.test(location.pathname);
 
   // Each history entry keeps its scroll position: Back returns to the same spot, a new page starts at the top.
   // Content loads after the first paint, so the saved position is re-applied while the page grows, until it is
@@ -183,6 +184,11 @@ export function Shell() {
             {t("shell.yours")}
           </p>
           <ul className="flex flex-col gap-0.5">
+            <Item
+              to={`${base}/recommendations`}
+              icon={<Sparkles className="size-[18px] shrink-0" />}
+              label={t("recommendations.title")}
+            />
             <Item
               to={`${base}/list/watchlist`}
               icon={<Bookmark className="size-[18px] shrink-0" />}

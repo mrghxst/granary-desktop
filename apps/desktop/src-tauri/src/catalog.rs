@@ -6,8 +6,8 @@ use granary_silo_api::api::{ImageData, raster_image_type};
 use granary_silo_api::api::{PageQuery, UserFlag};
 use granary_silo_api::catalog::{
     BoxSet, CalendarDay, CalendarQuery, CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection,
-    CatalogItemDetail, CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection, Season,
-    Section, WatchDetail,
+    CatalogItemDetail, CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection,
+    RecommendationRow, Season, Section, TasteProfile, WatchDetail,
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
@@ -366,6 +366,55 @@ pub async fn item_box_set(
 ) -> CmdResult<Option<BoxSet>> {
     state
         .with_session(&server_id, |s| async move { s.item_box_set(&item_id).await })
+        .await
+}
+
+/// The recommendation sections that have a page (`getRecommendationSection` `kind`).
+const SECTION_KINDS: &[&str] = &[
+    "for-you-main",
+    "cluster",
+    "similar-users",
+    "popular",
+    "recently-added",
+    "top-rated",
+    "genre",
+];
+
+/// The profile's recommendation rows with their cards (`getDiscover`); rows without cards are left out.
+#[tauri::command]
+pub async fn recommendations_discover(
+    state: State<'_, SiloState>,
+    server_id: String,
+) -> CmdResult<Vec<RecommendationRow>> {
+    state
+        .with_session(&server_id, |s| async move { s.discover().await })
+        .await
+}
+
+/// One recommendation row in full (`getRecommendationSection`); an unknown kind is an empty row.
+#[tauri::command]
+pub async fn recommendations_section(
+    state: State<'_, SiloState>,
+    server_id: String,
+    kind: String,
+    key: Option<String>,
+) -> CmdResult<RecommendationRow> {
+    if !SECTION_KINDS.contains(&kind.as_str()) {
+        return Ok(RecommendationRow::default());
+    }
+    let key = key.map(|k| k.trim().to_owned()).filter(|k| !k.is_empty());
+    state
+        .with_session(&server_id, |s| async move {
+            s.recommendation_section(&kind, key.as_deref()).await
+        })
+        .await
+}
+
+/// The profile's taste summary (`getTasteProfile`).
+#[tauri::command]
+pub async fn taste_profile(state: State<'_, SiloState>, server_id: String) -> CmdResult<TasteProfile> {
+    state
+        .with_session(&server_id, |s| async move { s.taste_profile().await })
         .await
 }
 

@@ -23,7 +23,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [x] R1 Favorites, Watchlist and History pages (`list/:source`, catalog read with `source`; checked on the owner's server 2026-11-16)
 - [x] R2 Collections pages, box-set pages, read side (2026-11-16). Open: collection editor; box sets as cards in library browsing and search (`searchCatalogBoxSets`); contract fixtures for the new operations
 - [x] R3 Calendar (`calendar`, `getCalendar` by week with Following, Trending, Everything; checked on the owner's server 2026-11-17). Open: per-library filter
-- [ ] R4 Recommendations pages
+- [x] R4 Recommendations pages ("For You": `getDiscover` rows, taste summary, a page per row; checked on the owner's server 2026-11-17). Open: row titles are the server's English labels
 - [ ] R5 Requests (discover, browse, request a title)
 - [ ] R6 Notifications
 - [ ] R7 Theme music on title pages; customise home screen

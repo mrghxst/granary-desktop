@@ -172,6 +172,18 @@ pub trait SiloApi: Send + Sync {
     async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet>;
     /// `getCatalogItemBoxSet`.
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet>;
+    /// `getDiscover`: the profile's recommendation rows with their cards.
+    async fn discover(&self, origin: &str, auth: &Auth) -> Result<RecommendationRowCollection>;
+    /// `getRecommendationSection`: one row in full; `cluster` and `genre` need a `key`.
+    async fn recommendation_section(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        kind: &str,
+        key: Option<&str>,
+    ) -> Result<RecommendationRow>;
+    /// `getTasteProfile`.
+    async fn taste_profile(&self, origin: &str, auth: &Auth) -> Result<TasteProfile>;
     /// `getCalendar`: airings and releases in a window of local days.
     async fn calendar(&self, origin: &str, auth: &Auth, query: &CalendarQuery) -> Result<Calendar>;
 }
@@ -614,6 +626,27 @@ impl SiloApi for HttpSiloApi {
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet> {
         let path = format!("/api/v2/catalog/items/{}/box-set", url_segment(item_id));
         send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn discover(&self, origin: &str, auth: &Auth) -> Result<RecommendationRowCollection> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/recommendations/discover", auth)).await
+    }
+
+    async fn recommendation_section(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        kind: &str,
+        key: Option<&str>,
+    ) -> Result<RecommendationRow> {
+        let path = format!("/api/v2/recommendations/section/{}", url_segment(kind));
+        // No `limit`: the default is the maximum (60).
+        let params: Vec<(&str, &str)> = key.map(|k| ("key", k)).into_iter().collect();
+        send_json(self.authed(Method::GET, origin, &path, auth).query(&params)).await
+    }
+
+    async fn taste_profile(&self, origin: &str, auth: &Auth) -> Result<TasteProfile> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/recommendations/taste-profile", auth)).await
     }
 
     async fn calendar(&self, origin: &str, auth: &Auth, query: &CalendarQuery) -> Result<Calendar> {

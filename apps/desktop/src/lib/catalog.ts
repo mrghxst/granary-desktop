@@ -239,6 +239,24 @@ export interface BoxSet {
   items: CatalogItem[];
 }
 
+/** One row of the "For You" page, or one row in full (`RecommendationRow`). */
+export interface RecommendationRow {
+  /** `cluster`, `similar_users_liked`, `popular`, `recently_added`, `top_rated`, `genre_sampler`. */
+  type: string;
+  /** Display label, as the server words it. */
+  title: string;
+  /** Section kind of the row's own page; absent when it has none. */
+  kind?: string | null;
+  key?: string | null;
+  items: CatalogItem[];
+}
+
+/** The profile's taste summary (`TasteProfile`); empty until the server has computed one. */
+export interface TasteProfile {
+  top_genres: string[];
+  favorite_directors: string[];
+}
+
 /** Which titles the calendar lists (`getCalendar` `filter`). */
 export type CalendarFilter = "following" | "trending" | "everything";
 
@@ -474,6 +492,11 @@ export const catalog = {
   boxSet: (serverId: string, libraryId: string, boxSetId: string) =>
     call<BoxSet>("box_set_get", { serverId, libraryId, boxSetId }),
   itemBoxSet: (serverId: string, itemId: string) => call<BoxSet | null>("item_box_set", { serverId, itemId }),
+  /** The profile's recommendation rows that have cards. */
+  discover: (serverId: string) => call<RecommendationRow[]>("recommendations_discover", { serverId }),
+  recommendationSection: (serverId: string, kind: string, key: string | null) =>
+    call<RecommendationRow>("recommendations_section", { serverId, kind, key }),
+  tasteProfile: (serverId: string) => call<TasteProfile>("taste_profile", { serverId }),
   /** The days between two local days (`YYYY-MM-DD`, at most 31 apart) that have airings or releases. */
   calendar: (serverId: string, start: string, end: string, filter: CalendarFilter, timezone: string) =>
     call<CalendarDay[]>("calendar_week", { serverId, start, end, filter, timezone }),

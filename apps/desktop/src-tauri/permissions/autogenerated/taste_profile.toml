@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-taste-profile"
+description = "Enables the taste_profile command without any pre-configured scope."
+commands.allow = ["taste_profile"]
+
+[[permission]]
+identifier = "deny-taste-profile"
+description = "Denies the taste_profile command without any pre-configured scope."
+commands.deny = ["taste_profile"]

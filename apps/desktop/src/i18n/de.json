@@ -528,5 +528,19 @@
       "digital": "Digital",
       "physical": "Physisch"
     }
+  },
+  "recommendations": {
+    "title": "Für dich",
+    "subtitlePersonal": "Ausgewählt nach dem, was du schaust und magst.",
+    "subtitleDefault": "Beliebtes und Neues auf diesem Server. Reihen für dich erscheinen, sobald du ein paar Titel gesehen hast.",
+    "taste": "Dein Geschmack",
+    "genres": "Top-Genres",
+    "directors": "Regie",
+    "emptyTitle": "Noch keine Empfehlungen",
+    "emptyBody": "Sie erscheinen, sobald der Server Titel hat und Vorschläge berechnet hat.",
+    "sectionEmptyTitle": "Hier ist gerade nichts",
+    "sectionEmptyBody": "Diese Reihe hat im Moment keine Titel.",
+    "count_one": "{{count}} Titel",
+    "count_other": "{{count}} Titel"
   }
 }

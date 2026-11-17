@@ -174,6 +174,20 @@ is `all`), `timezone` (IANA zone, absent is UTC), `library_id`. Response `Calend
 Granary sends `following`, `trending` or `everything` with the viewer's zone for one Monday-first week, as the web app
 does (`web/src/pages/Calendar.tsx@749db96a`); it does not send `library_id`.
 
+### 4.1d Recommendations
+
+Read from `silo-server/internal/apiv2/recommendations.go@749db96a` and the fixtures
+`silo-server/contracts/api/v2/fixtures/get_{discover,recommendation_section,taste_profile}_ok.json@749db96a`. All are
+`profile_scoped`.
+
+| Operation | Response |
+| --- | --- |
+| `GET /api/v2/recommendations/discover` (`getDiscover`) | `RecommendationRowCollection {items*: [RecommendationRow]}`. `RecommendationRow`: `type*` (`cluster`, `similar_users_liked`, `popular`, `recently_added`, `top_rated`, `genre_sampler`), `title*` (display label), `title_key?`, `title_args?`, `kind?` and `key?` (the row's own page; absent when it has none), `items*: [CatalogItem]`. |
+| `GET /api/v2/recommendations/section/{kind}?key=` (`getRecommendationSection`) | One `RecommendationRow` in full. `kind`: `for-you-main`, `cluster`, `similar-users`, `popular`, `recently-added`, `top-rated`, `genre`; `cluster` and `genre` need `key` (`422` without). `limit` 1 to 60, default 60: Granary sends none (a larger value is a `422`, seen on the owner's server). |
+| `GET /api/v2/recommendations/taste-profile` (`getTasteProfile`) | `TasteProfile {top_genres*, favorite_directors*, signal_counts*, updated_at?}`; empty members until the server has computed one. |
+
+Granary shows the server's `title` as it is (English); `title_key` and `title_args` are not used.
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

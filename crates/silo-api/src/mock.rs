@@ -1560,6 +1560,57 @@ impl SiloApi for MockSiloApi {
         Ok(CatalogItemBoxSet::default())
     }
 
+    /// Two rows: a taste cluster with its own page, and a row without one.
+    async fn discover(&self, _origin: &str, auth: &Auth) -> Result<RecommendationRowCollection> {
+        self.check(auth)?;
+        Ok(RecommendationRowCollection {
+            items: vec![
+                RecommendationRow {
+                    row_type: "cluster".into(),
+                    title: "Because you enjoy Drama".into(),
+                    kind: Some("cluster".into()),
+                    key: Some("0".into()),
+                    items: vec![demo::series_card()],
+                },
+                RecommendationRow {
+                    row_type: "popular".into(),
+                    title: "Popular on this server".into(),
+                    kind: None,
+                    key: None,
+                    items: vec![demo::series_card()],
+                },
+            ],
+        })
+    }
+
+    async fn recommendation_section(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        kind: &str,
+        key: Option<&str>,
+    ) -> Result<RecommendationRow> {
+        self.check(auth)?;
+        if matches!(kind, "cluster" | "genre") && key.is_none() {
+            return Err(problem(422, "validation_failed"));
+        }
+        Ok(RecommendationRow {
+            row_type: kind.replace('-', "_"),
+            title: "Because you enjoy Drama".into(),
+            kind: Some(kind.to_owned()),
+            key: key.map(str::to_owned),
+            items: vec![demo::series_card()],
+        })
+    }
+
+    async fn taste_profile(&self, _origin: &str, auth: &Auth) -> Result<TasteProfile> {
+        self.check(auth)?;
+        Ok(TasteProfile {
+            top_genres: vec!["Drama".into()],
+            favorite_directors: Vec::new(),
+        })
+    }
+
     /// One episode of the mock series on the first day of the window, and nothing for `trending`.
     async fn calendar(&self, _origin: &str, auth: &Auth, query: &CalendarQuery) -> Result<Calendar> {
         self.check(auth)?;

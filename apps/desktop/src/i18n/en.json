@@ -528,5 +528,19 @@
       "digital": "Digital",
       "physical": "Physical"
     }
+  },
+  "recommendations": {
+    "title": "For You",
+    "subtitlePersonal": "Picked from what you watch and like.",
+    "subtitleDefault": "Popular and new on this server. Rows picked for you appear once you have watched a few titles.",
+    "taste": "Your taste",
+    "genres": "Top genres",
+    "directors": "Directors",
+    "emptyTitle": "No recommendations yet",
+    "emptyBody": "They appear once the server has titles and has worked out what to suggest.",
+    "sectionEmptyTitle": "Nothing here right now",
+    "sectionEmptyBody": "This row has no titles at the moment.",
+    "count_one": "{{count}} title",
+    "count_other": "{{count}} titles"
   }
 }

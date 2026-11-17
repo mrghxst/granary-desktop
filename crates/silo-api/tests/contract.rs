@@ -1076,6 +1076,51 @@ async fn http_client_speaks_the_detail_and_library_contract() {
     }
 }
 
+/// The recommendation reads are not in the OAS subset yet: this serves the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/get_{discover,recommendation_section,taste_profile}_ok.json@749db96a`).
+#[tokio::test]
+async fn http_client_reads_the_recommendations() {
+    use wiremock::matchers::query_param;
+
+    let server = MockServer::start().await;
+    for (at, fixture) in [
+        ("/api/v2/recommendations/discover", "discover.json"),
+        ("/api/v2/recommendations/taste-profile", "taste_profile.json"),
+    ] {
+        Mock::given(method("GET"))
+            .and(path(at))
+            .and(header("X-Profile-Id", "7"))
+            .respond_with(json(fixture, 200))
+            .mount(&server)
+            .await;
+    }
+    Mock::given(method("GET"))
+        .and(path("/api/v2/recommendations/section/cluster"))
+        .and(query_param("key", "0"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(json("recommendation_section.json", 200))
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let rows = api.discover(&server.uri(), &auth).await.unwrap().items;
+    let row = rows.first().expect("the fixture has a row");
+    assert_eq!(row.row_type, "cluster");
+    assert_eq!((row.kind.as_deref(), row.key.as_deref()), (Some("cluster"), Some("0")));
+    assert!(!row.title.is_empty() && !row.items.is_empty());
+
+    let section = api
+        .recommendation_section(&server.uri(), &auth, "cluster", Some("0"))
+        .await
+        .unwrap();
+    assert!(!section.title.is_empty() && !section.items.is_empty());
+
+    let taste = api.taste_profile(&server.uri(), &auth).await.unwrap();
+    assert_eq!(taste.top_genres, ["Crime", "Thriller"]);
+    assert_eq!(taste.favorite_directors, ["Michael Mann"]);
+}
+
 /// `getCalendar` is not in the OAS subset yet, so this serves the upstream fixture
 /// (`silo-server/contracts/api/v2/fixtures/get_calendar_ok.json@749db96a`) and checks the request Granary sends.
 #[tokio::test]

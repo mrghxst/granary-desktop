@@ -13,6 +13,7 @@ import { Person } from "./routes/Person";
 import { Calendar } from "./routes/Calendar";
 import { BoxSetPage, CollectionPage, Collections } from "./routes/Collections";
 import { PersonalList } from "./routes/PersonalList";
+import { RecommendationSection, Recommendations } from "./routes/Recommendations";
 import { Library } from "./routes/Library";
 import { Search } from "./routes/Search";
 import { ServerHome } from "./routes/ServerHome";
@@ -68,6 +69,9 @@ export function AppRoutes() {
             <Route path="person/:personId" element={<Person />} />
             <Route path="list/:source" element={<PersonalList />} />
             <Route path="calendar" element={<Calendar />} />
+            <Route path="recommendations" element={<Recommendations />} />
+            <Route path="recommendations/:kind" element={<RecommendationSection />} />
+            <Route path="recommendations/:kind/:key" element={<RecommendationSection />} />
             <Route path="collections" element={<Collections />} />
             <Route path="collection/user/:collectionId" element={<CollectionPage />} />
             <Route path="collection/library/:libraryId/:collectionId" element={<CollectionPage />} />

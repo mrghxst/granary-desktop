@@ -288,6 +288,37 @@ pub struct CatalogItemBoxSet {
     pub box_set: Option<BoxSet>,
 }
 
+/// `RecommendationRow`: one row of the Discover page, or one section in full.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RecommendationRow {
+    /// `cluster`, `similar_users_liked`, `popular`, `recently_added`, `top_rated`, `genre_sampler`.
+    #[serde(rename = "type")]
+    pub row_type: String,
+    /// Display label, as the server words it.
+    pub title: String,
+    /// Section kind for `getRecommendationSection`; absent when the row has no page of its own.
+    pub kind: Option<String>,
+    /// Section key paired with `kind` (cluster index or genre name).
+    pub key: Option<String>,
+    pub items: Vec<CatalogItem>,
+}
+
+/// `RecommendationRowCollection` (`getDiscover`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RecommendationRowCollection {
+    pub items: Vec<RecommendationRow>,
+}
+
+/// `TasteProfile`: the profile's taste summary; empty until the server has computed one.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TasteProfile {
+    pub top_genres: Vec<String>,
+    pub favorite_directors: Vec<String>,
+}
+
 /// The `getCalendar` query: an inclusive window of the viewer's local days, at most 31 days wide.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CalendarQuery {

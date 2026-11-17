@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-recommendations-section"
+description = "Enables the recommendations_section command without any pre-configured scope."
+commands.allow = ["recommendations_section"]
+
+[[permission]]
+identifier = "deny-recommendations-section"
+description = "Denies the recommendations_section command without any pre-configured scope."
+commands.deny = ["recommendations_section"]

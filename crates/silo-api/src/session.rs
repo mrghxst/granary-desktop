@@ -480,6 +480,23 @@ impl Session {
         }
     }
 
+    /// The Discover rows that have cards.
+    pub async fn discover(&self) -> Result<Vec<RecommendationRow>> {
+        self.call_profile(|auth| async move { self.api.discover(&self.origin, &auth).await })
+            .await
+            .map(|c| c.items.into_iter().filter(|r| !r.items.is_empty()).collect())
+    }
+
+    pub async fn recommendation_section(&self, kind: &str, key: Option<&str>) -> Result<RecommendationRow> {
+        self.call_profile(|auth| async move { self.api.recommendation_section(&self.origin, &auth, kind, key).await })
+            .await
+    }
+
+    pub async fn taste_profile(&self) -> Result<TasteProfile> {
+        self.call_profile(|auth| async move { self.api.taste_profile(&self.origin, &auth).await })
+            .await
+    }
+
     /// The days of a calendar window that have airings or releases, ascending.
     pub async fn calendar(&self, query: &CalendarQuery) -> Result<Vec<CalendarDay>> {
         self.call_profile(|auth| async move { self.api.calendar(&self.origin, &auth, query).await })

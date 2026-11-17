@@ -1,10 +1,11 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import { dragScroll } from "../lib/dragScroll";
 
 /** A titled horizontal row that scrolls with wheel/trackpad, mouse drag, keyboard focus, or the arrow buttons. */
-export function Row({ title, children }: { title: string; children: ReactNode }) {
+export function Row({ title, to, children }: { title: string; to?: string | undefined; children: ReactNode }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const scroll = (dir: 1 | -1) => {
@@ -18,7 +19,16 @@ export function Row({ title, children }: { title: string; children: ReactNode })
   return (
     <section className="flex flex-col gap-3" aria-label={title}>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {to ? (
+            <Link to={to} className="group/title inline-flex items-center gap-1 rounded hover:underline">
+              {title}
+              <ChevronRight className="size-4 text-muted-foreground transition group-hover/title:translate-x-0.5" />
+            </Link>
+          ) : (
+            title
+          )}
+        </h2>
         <div className="flex gap-1">
           <button
             type="button"
