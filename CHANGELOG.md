@@ -6,6 +6,9 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Watch Together: start a Watch Party from a movie or episode (More → Watch together) or join one with its code
+  (Watch Party in the sidebar). Play, pause and seek stay in sync with everyone in the room, whichever app they use;
+  the room code shows in the player.
 - Edit markers (item page, More menu): type the intro, recap, credits and preview times of a movie or episode.
   Shown to accounts the server lets edit markers; the times are saved on the server for every app.
 - Ambient letterbox (Settings → Player, off by default): while the controls show, the black bars above and below a

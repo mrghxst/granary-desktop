@@ -18,6 +18,7 @@ import {
 } from "../lib/player";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "../lib/settings";
 import { SLEEP_OFF, sleepTick, stillWatchingDue, type SleepSetting } from "../lib/sleepTimer";
+import { inWatchParty } from "../lib/together";
 import { PlayerContext, type Launch, type PlayerApi, type PlayerError, type StartOptions } from "./context";
 
 /** The launch screen gives up after this long even without a first frame (the controls' spinner takes over). */
@@ -59,7 +60,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const startInner = useCallback(async (serverId: string, itemId: string, opts: StartOptions) => {
     const w = opts.watch ?? (await catalog.watch(serverId, itemId));
     const base = defaultChoice(w);
-    const choice = opts.choice ?? (base && applyTrackPicks(serverId, w, base));
+    const picked = opts.fileId ? w.versions.find((v) => v.file_id === opts.fileId) : undefined;
+    const choice = opts.choice ?? (base && applyTrackPicks(serverId, w, picked ? { ...base, version: picked } : base));
     if (!choice) {
       setLaunch(null);
       return false;
@@ -112,6 +114,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setError(null);
     await catalog.play({
       ...playRequest(serverId, w, choice, opts.fromStart ?? false),
+      ...(opts.startAt !== undefined ? { startSeconds: Math.max(0, opts.startAt) } : {}),
       ...mediaLines(w),
       hasPrevious: near.previous !== undefined,
       hasNext: near.next !== undefined,
@@ -193,7 +196,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
               settingsRef.current.player.autoplayNext &&
               !autoplayCancelled.current &&
               !sleepNow &&
-              !asking
+              !asking &&
+              !inWatchParty()
             ) {
               void startRef.current(c.serverId, nextEp.content_id, { automatic: true }).catch(() => undefined);
             }

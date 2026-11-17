@@ -702,5 +702,34 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "saved": "Marker gespeichert."
+  },
+  "together": {
+    "title": "Watch Party",
+    "start": "Gemeinsam schauen",
+    "join": "Beitreten",
+    "joinHint": "Gib den Code ein, den dir jemand schickt, um synchron mitzuschauen.",
+    "startHint": "Um eine Party zu starten, öffne einen Film oder eine Folge und wähle Mehr → Gemeinsam schauen. Andere treten mit dem Code aus jeder App bei.",
+    "code": "Raumcode",
+    "codePlaceholder": "Code",
+    "inRoom": "Du bist in einer Watch Party. Teile diesen Code:",
+    "members_one": "{{count}} Zuschauer",
+    "members_other": "{{count}} Zuschauer",
+    "youHost": "du bist Gastgeber",
+    "youGuest": "du bist Gast",
+    "host": "Gastgeber",
+    "waitingForHost": "Warte, bis der Gastgeber etwas auswählt.",
+    "leave": "Party verlassen",
+    "end": "Party beenden",
+    "unavailable": "Gemeinsam schauen ist auf diesem Server für dieses Profil nicht verfügbar.",
+    "hostControls": "In dieser Watch Party steuert nur der Gastgeber die Wiedergabe.",
+    "endedByHost": "Die Watch Party ist beendet.",
+    "replaced": "Dieses Profil ist der Watch Party auf einem anderen Gerät beigetreten.",
+    "lost": "Die Verbindung zur Watch Party ist verloren.",
+    "startFailed": "Der Titel der Watch Party konnte hier nicht abgespielt werden.",
+    "link": {
+      "connecting": "verbindet",
+      "connected": "verbunden",
+      "closed": "getrennt"
+    }
   }
 }

@@ -7,6 +7,7 @@ use crate::media::{FORWARDED_REQUEST_HEADERS, FORWARDED_RESPONSE_HEADERS, MediaR
 use crate::models::*;
 use crate::playback::*;
 use crate::secret::Secret;
+use crate::together::{RoomGrant, RoomSelection, TogetherCapabilities};
 use async_trait::async_trait;
 use reqwest::{Method, RequestBuilder, StatusCode};
 use serde::de::DeserializeOwned;
@@ -247,6 +248,36 @@ pub trait SiloApi: Send + Sync {
         item_id: &str,
         update: &MarkerUpdate,
     ) -> Result<FileMarkers>;
+    /// `getWatchTogetherCapabilities` (account level).
+    async fn together_capabilities(&self, origin: &str, auth: &Auth) -> Result<TogetherCapabilities>;
+    /// `createWatchTogetherRoom` (`201`): `room_id` is a client UUID, so a replay returns the same room.
+    async fn together_create(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        selection_mode: &str,
+    ) -> Result<RoomGrant>;
+    /// `joinWatchTogetherRoom` with a room code.
+    async fn together_join(&self, origin: &str, auth: &Auth, code: &str) -> Result<RoomGrant>;
+    /// `selectWatchTogetherRoomItem` (host, `non_retryable`): the room starts this title from the beginning.
+    async fn together_select(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        selection: &RoomSelection,
+    ) -> Result<RoomGrant>;
+    /// `closeWatchTogetherRoom` (host, `204`).
+    async fn together_close(&self, origin: &str, auth: &Auth, room_id: &str) -> Result<()>;
+    /// `createWatchTogetherSocketTicket` with the room proof in `X-Room-Token`.
+    async fn together_ticket(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        room_token: &Secret,
+    ) -> Result<EventsSocketTicket>;
     /// `listNotifications`: the newest 100 of the profile's inbox.
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList>;
     /// `getNotificationUnreadCount`.
@@ -629,6 +660,67 @@ impl SiloApi for HttpSiloApi {
 
     async fn events_ticket(&self, origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
         send_json(self.authed(Method::POST, origin, "/api/v2/events/ws-ticket", auth)).await
+    }
+
+    async fn together_capabilities(&self, origin: &str, auth: &Auth) -> Result<TogetherCapabilities> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/watch-together/capabilities", auth)).await
+    }
+
+    async fn together_create(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        selection_mode: &str,
+    ) -> Result<RoomGrant> {
+        let body = serde_json::json!({ "room_id": room_id, "selection_mode": selection_mode });
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/watch-together/rooms", auth)
+                .json(&body),
+        )
+        .await
+    }
+
+    async fn together_join(&self, origin: &str, auth: &Auth, code: &str) -> Result<RoomGrant> {
+        let body = serde_json::json!({ "code": code });
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/watch-together/join", auth)
+                .json(&body),
+        )
+        .await
+    }
+
+    async fn together_select(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        selection: &RoomSelection,
+    ) -> Result<RoomGrant> {
+        let path = format!("/api/v2/watch-together/rooms/{}/selection", url_segment(room_id));
+        send_json(self.authed(Method::PUT, origin, &path, auth).json(selection)).await
+    }
+
+    async fn together_close(&self, origin: &str, auth: &Auth, room_id: &str) -> Result<()> {
+        let path = format!("/api/v2/watch-together/rooms/{}", url_segment(room_id));
+        send_raw(self.authed(Method::DELETE, origin, &path, auth))
+            .await
+            .map(drop)
+    }
+
+    async fn together_ticket(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        room_token: &Secret,
+    ) -> Result<EventsSocketTicket> {
+        let path = format!("/api/v2/watch-together/rooms/{}/ws-ticket", url_segment(room_id));
+        send_json(
+            self.authed(Method::POST, origin, &path, auth)
+                .header("X-Room-Token", room_token.expose()),
+        )
+        .await
     }
 
     async fn set_flag(&self, origin: &str, auth: &Auth, flag: UserFlag, id: &str, on: bool) -> Result<()> {
@@ -1117,7 +1209,7 @@ fn is_local_host(url: &url::Url) -> bool {
 }
 
 /// Percent-encode an opaque identifier for use as one path segment.
-fn url_segment(s: &str) -> String {
+pub(crate) fn url_segment(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {

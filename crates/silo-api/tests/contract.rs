@@ -1548,3 +1548,106 @@ async fn http_client_speaks_the_marker_contract() {
         .unwrap_err();
     assert!(matches!(denied, ApiError::Http { status: 403, .. }), "{denied:?}");
 }
+
+/// Watch Together room operations. Capabilities against the upstream fixture
+/// (`silo-server/contracts/api/v2/fixtures/watch_together_capabilities.json@749db96a`); the room bodies follow
+/// `WatchTogetherRoomReadOutputBody` and `EventsSocketTicket` in `contracts/api/v2/openapi.json@749db96a` (no upstream
+/// fixtures exist for them).
+#[tokio::test]
+async fn http_client_speaks_the_watch_together_contract() {
+    use granary_silo_api::together::RoomSelection;
+    use wiremock::matchers::body_json;
+
+    let room = |role: &str, phase: &str| {
+        serde_json::json!({
+            "room": {
+                "room_id": "4f1c2d3e-0000-4000-8000-000000000001", "phase": phase, "playback_state": "waiting",
+                "selection_mode": "host_pick", "selection_revision": 1, "selected_content_id": "42",
+                "selected_file_id": "7", "code": "K7Q2PX", "guest_control_policy": "host_only", "is_paused": true,
+                "anchor_position_seconds": 0, "anchor_updated_at": "2026-11-17T12:00:00.000Z", "generation": 3,
+                "member_count": 1, "host_connected": true, "self_role": role, "self_can_control_transport": true,
+                "self_can_manage_room": true, "self_ignore_wait": false
+            },
+            "room_access_token": "proof-1"
+        })
+    };
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/watch-together/capabilities"))
+        .respond_with(json("watch_together_capabilities.json", 200))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/watch-together/rooms"))
+        .and(header("X-Profile-Id", "7"))
+        .and(body_json(
+            serde_json::json!({"room_id": "4f1c2d3e-0000-4000-8000-000000000001", "selection_mode": "host_pick"}),
+        ))
+        .respond_with(ResponseTemplate::new(201).set_body_json(room("host", "lobby")))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(
+            "/api/v2/watch-together/rooms/4f1c2d3e-0000-4000-8000-000000000001/selection",
+        ))
+        .and(body_json(serde_json::json!({"content_id": "42"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(room("host", "playing")))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/watch-together/join"))
+        .and(body_json(serde_json::json!({"code": "K7Q2PX"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(room("guest", "playing")))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(
+            "/api/v2/watch-together/rooms/4f1c2d3e-0000-4000-8000-000000000001/ws-ticket",
+        ))
+        .and(header("X-Room-Token", "proof-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "ticket": "tk-1", "expires_in": 30, "max_connection_seconds": 300, "protocol": "silo.room.v2"
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path(
+            "/api/v2/watch-together/rooms/4f1c2d3e-0000-4000-8000-000000000001",
+        ))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+    let rid = "4f1c2d3e-0000-4000-8000-000000000001";
+
+    let caps = api.together_capabilities(&server.uri(), &auth).await.unwrap();
+    assert_eq!((caps.state.as_str(), caps.allowed), ("available", false));
+    assert_eq!(caps.socket_protocol, "silo.room.v2");
+    let created = api
+        .together_create(&server.uri(), &auth, rid, "host_pick")
+        .await
+        .unwrap();
+    assert_eq!(created.room_id(), rid);
+    assert!(created.is_host());
+    let selection = RoomSelection {
+        content_id: "42".into(),
+        file_id: None,
+    };
+    let selected = api
+        .together_select(&server.uri(), &auth, rid, &selection)
+        .await
+        .unwrap();
+    assert_eq!(selected.room["phase"], "playing");
+    let joined = api.together_join(&server.uri(), &auth, "K7Q2PX").await.unwrap();
+    assert!(!joined.is_host());
+    assert_eq!(joined.room_access_token.expose(), "proof-1");
+    let ticket = api
+        .together_ticket(&server.uri(), &auth, rid, &joined.room_access_token)
+        .await
+        .unwrap();
+    assert_eq!(ticket.protocol, "silo.room.v2");
+    api.together_close(&server.uri(), &auth, rid).await.unwrap();
+}

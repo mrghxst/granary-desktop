@@ -18,6 +18,10 @@ export interface StartOptions {
   art?: LaunchArt;
   /** Started by autoplay rather than by the viewer: counts toward "Are you still watching?". */
   automatic?: boolean;
+  /** Play this version (Watch Together's room file) instead of the default one. */
+  fileId?: string;
+  /** Start here (seconds) instead of the resume point. */
+  startAt?: number;
 }
 
 /** What the launch screen shows between Play and the first frame (artwork references, not URLs). */

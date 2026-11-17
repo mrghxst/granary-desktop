@@ -712,6 +712,53 @@ impl Session {
 
     /// Mint a ticket and open the events socket (silo-api.md §9). The socket request itself carries no profile
     /// headers (`EventsSocketV2Api.kt@ee178d8` L146); the ticket is bound to the profile proof.
+    pub async fn together_capabilities(&self) -> Result<crate::together::TogetherCapabilities> {
+        self.call_account(|auth| async move { self.api.together_capabilities(&self.origin, &auth).await })
+            .await
+    }
+
+    /// Create a host-pick room (a fresh client UUID) and select `selection` in it: the room starts that title.
+    pub async fn together_start(
+        &self,
+        selection: &crate::together::RoomSelection,
+    ) -> Result<crate::together::RoomGrant> {
+        let room_id = crate::playback::mint_id();
+        let room_id = room_id.as_str();
+        let created = self
+            .call_profile(|auth| async move {
+                self.api
+                    .together_create(&self.origin, &auth, room_id, "host_pick")
+                    .await
+            })
+            .await?;
+        let room_id = created.room_id().to_owned();
+        let room_id = room_id.as_str();
+        self.call_profile_once(
+            |auth| async move { self.api.together_select(&self.origin, &auth, room_id, selection).await },
+        )
+        .await
+    }
+
+    pub async fn together_join(&self, code: &str) -> Result<crate::together::RoomGrant> {
+        self.call_profile(|auth| async move { self.api.together_join(&self.origin, &auth, code).await })
+            .await
+    }
+
+    pub async fn together_close(&self, room_id: &str) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.together_close(&self.origin, &auth, room_id).await })
+            .await
+    }
+
+    /// Mint a ticket with the room proof and open the room socket.
+    pub async fn open_room(&self, room_id: &str, room_token: &Secret) -> Result<crate::together::RoomSocket> {
+        let ticket = self
+            .call_profile(
+                |auth| async move { self.api.together_ticket(&self.origin, &auth, room_id, room_token).await },
+            )
+            .await?;
+        crate::together::RoomSocket::connect(&self.origin, room_id, &ticket.ticket).await
+    }
+
     pub async fn open_events(&self) -> Result<crate::events::EventsSocket> {
         let ticket = self.events_ticket().await?;
         crate::events::EventsSocket::connect(&self.origin, &ticket.ticket).await

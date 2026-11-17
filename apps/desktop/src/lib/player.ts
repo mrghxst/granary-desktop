@@ -135,14 +135,37 @@ async function on<T>(event: string, f: (payload: T) => void): Promise<UnlistenFn
 
 let previewSeq = 0;
 
+/** A play/pause/seek the viewer asked for: `pause` null toggles. */
+export type TransportRequest = { pause: boolean | null } | { seek: number; relative: boolean };
+/** While a Watch Party plays, the viewer's transport goes to the room; true when the gate took the request. */
+let transportGate: ((r: TransportRequest) => boolean) | null = null;
+let stopHook: (() => void) | null = null;
+export function setTransportGate(gate: ((r: TransportRequest) => boolean) | null, onStop: (() => void) | null): void {
+  transportGate = gate;
+  stopHook = onStop;
+}
+
 export const player = {
-  stop: () => call<null>("player_stop"),
+  stop: () => {
+    stopHook?.();
+    return call<null>("player_stop");
+  },
   /** The profile's subtitle appearance (a stored JSON value) for this file and the next ones. */
   /** A subtitle was added on the server: refresh the playing plan's subtitle list. */
   subtitlesRefresh: () => call<PlanSubtitle[]>("player_subtitles_refresh"),
   subtitleStyle: (value: string) => call<null>("player_subtitle_style", { value }),
-  pause: (paused?: boolean) => call<null>("player_pause", { paused: paused ?? null }),
-  seek: (seconds: number, relative = false) => call<null>("player_seek", { seconds, relative }),
+  pause: (paused?: boolean) =>
+    transportGate?.({ pause: paused ?? null })
+      ? Promise.resolve(null)
+      : call<null>("player_pause", { paused: paused ?? null }),
+  seek: (seconds: number, relative = false) =>
+    transportGate?.({ seek: seconds, relative })
+      ? Promise.resolve(null)
+      : call<null>("player_seek", { seconds, relative }),
+  /** Transport the room asked for (Watch Together), past the gate. */
+  roomPause: (paused: boolean) => call<null>("player_pause", { paused }),
+  roomSeek: (seconds: number) => call<null>("player_seek", { seconds, relative: false }),
+  roomStop: () => call<null>("player_stop"),
   set: (name: string, value: string | number | boolean) =>
     call<null>("player_set", {
       name,

@@ -274,6 +274,48 @@ for an administrator row only when the profile hides it or has ordered the page,
 once the order is the profile's. Not used: renaming, featuring, item limits, building rows (recipes), library pages,
 `GET /api/v2/profile/sections/flags`, layout export and import.
 
+### 4.1i Watch Together
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (the `watch-together` operations and their schemas),
+`docs/realtime-api.md@749db96a` (room operations, "API v2 room socket admission and lifetime", "Replaced room
+connections", "Room playback readiness", "Room membership and buffering"), the socket handler
+`internal/api/handlers/watch_together.go@749db96a` (`handleRoomClientMessage`), `internal/watchtogether/types.go@749db96a`
+and the web player's `web/src/player/hooks/useWatchTogether{RoomConnection,PlaybackSync}.ts@749db96a`. Only the
+capabilities have an upstream fixture (`contracts/api/v2/fixtures/watch_together_capabilities.json@749db96a`).
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/watch-together/capabilities` | Account level. `{state*, allowed*, socket_protocol* (silo.room.v2), connection_replaced*, ...}`; Granary offers parties when `state` is `available` and `allowed`. |
+| `POST /api/v2/watch-together/rooms` | Body `{room_id* (client UUID), selection_mode* (host_pick, vote)}`. `201 {room*, room_access_token*}`. A replay with the same `room_id` returns the same room. |
+| `PUT /api/v2/watch-together/rooms/{room_id}/selection` | Host. Body `{content_id*, file_id?, library_id?}` (positive ids as strings). The room enters `waiting` at position 0 and starts once members are ready. `non_retryable`: sent once. |
+| `POST /api/v2/watch-together/join` | Body `{code}` or `{join_token}`. `200 {room*, room_access_token*}`. |
+| `POST /api/v2/watch-together/rooms/{room_id}/ws-ticket` | Room proof in `X-Room-Token`. `EventsSocketTicket {ticket*, expires_in*, max_connection_seconds* (300), protocol*}`; single use, at most 30 s. |
+| `GET /api/v2/watch-together/rooms/{room_id}/ws` | Offers `silo.room.v2` and `silo.ticket.<ticket>`; no query string. Closes after at most 5 minutes; reconnect with a new ticket. |
+| `DELETE /api/v2/watch-together/rooms/{room_id}` | Host ends the room (`204`). There is no leave operation or frame: closing the socket is leaving. |
+
+`WatchTogetherRoomSnapshot`: `{room_id*, phase* (lobby, playing, ended), playback_state* (idle, waiting, paused, playing),
+selection_mode*, selection_revision*, selected_content_id?, selected_file_id?, code*, guest_control_policy*, is_paused*,
+anchor_position_seconds*, anchor_updated_at*, generation*, member_count*, host_connected*, self_role* (host, guest),
+self_can_control_transport*, self_can_manage_room*, self_ignore_wait*, attached_session_id?, members?}`. HTTP sends ids
+as strings; socket frames carry the same snapshot with numeric file ids, so Granary reads both.
+
+Socket frames (JSON with a `type`). From the server: `snapshot {room}` (a lower `generation` than the one held is
+stale), `transport_command {command: {command_id, session_id?, selection_revision, action (play, pause, seek),
+position_seconds, execute_at, issued_at, playback_state}}`, `pong {client_sent_at, server_received_at, server_sent_at}`,
+`suggestions_update`, `room_closed {reason}`, `connection_replaced {reason}` (terminal: do not reconnect) and
+`error {code, message}`. From the client: `attach_session {session_id}`, `state_report {session_id, command_id?,
+position_seconds, is_paused, is_ready?}` (every 1.5 s, every 0.5 s while acknowledging), `ready {session_id,
+command_id, position_seconds, is_paused}`, `transport_request {action, position_seconds, is_paused}`,
+`buffering {session_id, position_seconds, is_paused}`, `lobby_ready {ready}` and `ping {client_sent_at}`. A client
+frame over 64 KiB closes the socket with 1009.
+
+Granary's party (scoped): start one from a movie or episode page (host_pick, server-chosen file), or join with a code.
+The room's selection plays at the room's position; the playback session is attached to the room; commands run at
+`execute_at` on the server clock (offset from the quickest recent ping); readiness is acknowledged on the state tick
+once the player has applied the command and settled (seek tolerance 1 s ahead or 5 s behind for a guest, 15 s for
+the host); the viewer's play, pause and seek become `transport_request`s, or are refused when the room lets only
+the host control playback. Not used: vote rooms and suggestions, the staged lobby and lobby readiness, the shared
+picker and member state, policy and selection-mode changes, source fallback, invite links, `buffering` frames.
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

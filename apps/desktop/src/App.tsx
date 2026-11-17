@@ -25,6 +25,8 @@ import { Profiles } from "./routes/Profiles";
 import { usePlayer } from "./player/context";
 import { PlayerProvider } from "./player/PlayerProvider";
 import { PlayerView } from "./player/PlayerView";
+import { TogetherProvider } from "./player/TogetherProvider";
+import { WatchParty } from "./routes/WatchParty";
 
 /** The host emits `auth://revoked` when the server rejects a stored session: go back to sign-in for that server. */
 function RevokedListener() {
@@ -55,55 +57,58 @@ function HiddenWhilePlaying({ children }: { children: ReactNode }) {
 export function AppRoutes() {
   return (
     <PlayerProvider>
-      <RevokedListener />
-      <OfflineBanner />
-      <PlayerView />
-      <HiddenWhilePlaying>
-        <Routes>
-          <Route path="/servers/add" element={<AddServer />} />
-          <Route path="/servers/:serverId/login" element={<Login />} />
-          <Route path="/servers/:serverId/profiles" element={<Profiles />} />
-          <Route path="/servers/:serverId" element={<Shell />}>
-            <Route path="home" element={<ServerHome />} />
-            <Route path="library/:libraryId" element={<Library />} />
-            <Route path="search" element={<Search />} />
-            <Route path="item/:itemId" element={<Item />} />
-            <Route path="person/:personId" element={<Person />} />
-            <Route path="list/:source" element={<PersonalList />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="requests" element={<Requests />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="recommendations" element={<Recommendations />} />
-            <Route path="recommendations/:kind" element={<RecommendationSection />} />
-            <Route path="recommendations/:kind/:key" element={<RecommendationSection />} />
-            <Route path="collections" element={<Collections />} />
-            <Route path="collection/user/:collectionId" element={<CollectionPage />} />
-            <Route path="collection/library/:libraryId/:collectionId" element={<CollectionPage />} />
-            <Route path="box-set/:libraryId/:boxSetId" element={<BoxSetPage />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="about" element={<About />} />
-            <Route index element={<Navigate to="home" replace />} />
-            <Route path="libraries" element={<Navigate to="../home" replace />} />
-          </Route>
-          <Route
-            path="/settings"
-            element={
-              <main className="mx-auto w-full max-w-3xl p-6">
-                <Settings />
-              </main>
-            }
-          />
-          <Route
-            path="/about"
-            element={
-              <main className="mx-auto w-full max-w-3xl p-6">
-                <About />
-              </main>
-            }
-          />
-          <Route path="*" element={<Home />} />
-        </Routes>
-      </HiddenWhilePlaying>
+      <TogetherProvider>
+        <RevokedListener />
+        <OfflineBanner />
+        <PlayerView />
+        <HiddenWhilePlaying>
+          <Routes>
+            <Route path="/servers/add" element={<AddServer />} />
+            <Route path="/servers/:serverId/login" element={<Login />} />
+            <Route path="/servers/:serverId/profiles" element={<Profiles />} />
+            <Route path="/servers/:serverId" element={<Shell />}>
+              <Route path="home" element={<ServerHome />} />
+              <Route path="library/:libraryId" element={<Library />} />
+              <Route path="search" element={<Search />} />
+              <Route path="item/:itemId" element={<Item />} />
+              <Route path="person/:personId" element={<Person />} />
+              <Route path="list/:source" element={<PersonalList />} />
+              <Route path="calendar" element={<Calendar />} />
+              <Route path="watch-party" element={<WatchParty />} />
+              <Route path="requests" element={<Requests />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="recommendations" element={<Recommendations />} />
+              <Route path="recommendations/:kind" element={<RecommendationSection />} />
+              <Route path="recommendations/:kind/:key" element={<RecommendationSection />} />
+              <Route path="collections" element={<Collections />} />
+              <Route path="collection/user/:collectionId" element={<CollectionPage />} />
+              <Route path="collection/library/:libraryId/:collectionId" element={<CollectionPage />} />
+              <Route path="box-set/:libraryId/:boxSetId" element={<BoxSetPage />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="about" element={<About />} />
+              <Route index element={<Navigate to="home" replace />} />
+              <Route path="libraries" element={<Navigate to="../home" replace />} />
+            </Route>
+            <Route
+              path="/settings"
+              element={
+                <main className="mx-auto w-full max-w-3xl p-6">
+                  <Settings />
+                </main>
+              }
+            />
+            <Route
+              path="/about"
+              element={
+                <main className="mx-auto w-full max-w-3xl p-6">
+                  <About />
+                </main>
+              }
+            />
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </HiddenWhilePlaying>
+      </TogetherProvider>
     </PlayerProvider>
   );
 }

@@ -17,6 +17,7 @@ pub mod redact;
 pub mod seekr;
 pub mod settings;
 pub mod silo;
+pub mod together;
 
 use commands::{AppInfo, LibmpvStatus};
 use tauri::{Manager, RunEvent};
@@ -136,6 +137,7 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
         libmpv,
     });
     app.manage(playback::events::EventsState::default());
+    app.manage(together::TogetherState::default());
     app.manage(playback::preview::PreviewState::default());
     // Leftover preview scratch files from a run that did not end cleanly.
     std::thread::spawn(playback::preview::sweep_temp);
@@ -346,6 +348,11 @@ pub fn run() {
             playback::commands::player_gpu,
             playback::commands::display_list,
             playback::events::events_connect,
+            together::together_capabilities,
+            together::together_start,
+            together::together_join,
+            together::together_send,
+            together::together_leave,
             playback::events::events_disconnect,
             settings::settings_get,
             settings::settings_set,

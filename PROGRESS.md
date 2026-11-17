@@ -27,13 +27,14 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [x] R5 Requests (discover rows, search, request a title, own requests with withdraw; read side checked on the owner's server 2026-11-17, creating and withdrawing only against the mock). Open: title detail, season choice, follow, browse by genre/network/studio, see-all pages, more than 50 own requests
 - [x] R6 Notifications (inbox page, unread badge in the sidebar, mark read; reading checked on the owner's server 2026-11-17, marking read only against the mock). Open: day groups and grouping a series' episodes, muting a series, more than 100 entries, desktop toasts
 - [x] R7 Theme music on title pages (done: setting, Web Audio playback, docs §4.1g; no title on the test server has a theme, grant path checked live via 404 only); customise home screen (done: "Edit home rows" on the home page, docs §4.1h; read checked live, saving checked with contract and component tests only)
-- [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
+- [x] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
   letterbox, marker editing, Watch Together
   - [x] R8a sleep timer and "Are you still watching?" (client only; countdown and the end-of-file gate checked live in mock mode, the card itself only by code review)
   - [x] R8b subtitle appearance (server effective value + device override, mpv options; checked live in mock mode, the rendered look not inspected)
   - [x] R8c subtitle search, download and AI translation (status and search checked live read-only: 3 providers, 40 results; download and plan refresh checked in mock mode; auto-select of the new track and translation polling only by tests)
   - [x] R8d ambient letterbox (opt-in setting; bands placed from mpv's display aspect, drawn from the current seek preview; checked in mock mode with local previews: 40 px bands drawn in a 1646×1006 window; server trickplay and Seekr sources only by type checks)
   - [x] R8e marker editing (item page; permission and the stored markers read live read-only: admin on the primary profile, IntroDB segments listed; saving checked in mock mode and by the contract test, not against the real server)
+  - [x] R8f Watch Together, scoped (host-pick party from a title page, join by code, synced play/pause/seek, readiness, clock offset; HTTP operations by contract test, the room socket by a local socket test, join/start/refusal/leave in mock mode, which has no room socket. Not checked against a real room: rooms are writes on the owner's server. Open: vote rooms and suggestions, staged lobby, shared picker, invite links, policy switch, source fallback, buffering frames)
 - [ ] R9 Audiobook player
 - [ ] R10 Ebook and manga reader
 

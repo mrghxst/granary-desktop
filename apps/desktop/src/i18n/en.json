@@ -702,5 +702,34 @@
     "save": "Save",
     "cancel": "Cancel",
     "saved": "Markers saved."
+  },
+  "together": {
+    "title": "Watch Party",
+    "start": "Watch together",
+    "join": "Join",
+    "joinHint": "Enter the code a friend shares to watch in sync with them.",
+    "startHint": "To start a party, open a movie or episode and choose More → Watch together. Friends can join from any app with the code.",
+    "code": "Room code",
+    "codePlaceholder": "Code",
+    "inRoom": "You are in a Watch Party. Share this code:",
+    "members_one": "{{count}} viewer",
+    "members_other": "{{count}} viewers",
+    "youHost": "you host",
+    "youGuest": "you are a guest",
+    "host": "host",
+    "waitingForHost": "Waiting for the host to pick something to watch.",
+    "leave": "Leave party",
+    "end": "End party",
+    "unavailable": "Watch Together is not available on this server for this profile.",
+    "hostControls": "Only the host controls playback in this Watch Party.",
+    "endedByHost": "The Watch Party has ended.",
+    "replaced": "This profile joined the Watch Party on another device.",
+    "lost": "The Watch Party connection was lost.",
+    "startFailed": "The Watch Party's title could not be played here.",
+    "link": {
+      "connecting": "connecting",
+      "connected": "connected",
+      "closed": "disconnected"
+    }
   }
 }

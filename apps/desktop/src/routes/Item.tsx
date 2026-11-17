@@ -6,6 +6,8 @@ import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
 import { MarkerEditor } from "../components/MarkerEditor";
+import { together } from "../lib/together";
+import { useTogether } from "../player/togetherContext";
 import { Alert } from "../components/ui";
 import {
   artwork,
@@ -356,6 +358,33 @@ function Stars({
   );
 }
 
+/** Whether Watch Together is offered on this server, asked once per server for the session. */
+const togetherOffered = new Map<string, Promise<boolean>>();
+function useTogetherOffered(serverId: string): boolean {
+  const [known, setKnown] = useState<{ serverId: string; value: boolean } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let ask = togetherOffered.get(serverId);
+    if (!ask) {
+      ask = together
+        .capabilities(serverId)
+        .then((c) => c.state === "available" && c.allowed)
+        .catch(() => {
+          togetherOffered.delete(serverId);
+          return false;
+        });
+      togetherOffered.set(serverId, ask);
+    }
+    void ask.then((value) => {
+      if (alive) setKnown({ serverId, value });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [serverId]);
+  return known?.serverId === serverId && known.value;
+}
+
 /** Whether this account may edit markers here, asked once per server for the session (the server checks each save). */
 const markersEditable = new Map<string, Promise<boolean>>();
 function useMarkersEditable(serverId: string): boolean {
@@ -391,6 +420,14 @@ function UserActions({ serverId, item }: { serverId: string; item: CatalogItemDe
   const [notice, setNotice] = useState<string | null>(null);
   const editable = useMarkersEditable(serverId);
   const canEditMarkers = editable && (item.type === "movie" || item.type === "episode");
+  const party = useTogether();
+  const partyOffered = useTogetherOffered(serverId) && (item.type === "movie" || item.type === "episode");
+  const startParty = () => {
+    setError(null);
+    party.start(serverId, item.content_id, null).catch((e: unknown) => {
+      setError(errorMessage(t, e));
+    });
+  };
   const flags = cur.state;
   const watched = flags.played || item.user_data?.played === true;
 
@@ -461,6 +498,16 @@ function UserActions({ serverId, item }: { serverId: string; item: CatalogItemDe
             >
               {flags.not_interested ? t("item.undoNotInterested") : t("item.notInterested")}
             </MenuItem>
+            {partyOffered ? (
+              <MenuItem
+                onClick={() => {
+                  startParty();
+                  close();
+                }}
+              >
+                {t("together.start")}
+              </MenuItem>
+            ) : null}
             {canEditMarkers ? (
               <MenuItem
                 onClick={() => {

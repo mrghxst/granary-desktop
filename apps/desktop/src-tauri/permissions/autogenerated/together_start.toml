@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-together-start"
+description = "Enables the together_start command without any pre-configured scope."
+commands.allow = ["together_start"]
+
+[[permission]]
+identifier = "deny-together-start"
+description = "Denies the together_start command without any pre-configured scope."
+commands.deny = ["together_start"]

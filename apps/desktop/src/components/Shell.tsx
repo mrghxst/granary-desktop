@@ -16,6 +16,7 @@ import {
   Sparkles,
   Tv,
   UserRound,
+  Users,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -238,6 +239,11 @@ export function Shell() {
               to={`${base}/calendar`}
               icon={<CalendarDays className="size-[18px] shrink-0" />}
               label={t("calendar.title")}
+            />
+            <Item
+              to={`${base}/watch-party`}
+              icon={<Users className="size-[18px] shrink-0" />}
+              label={t("together.title")}
             />
             <Item
               to={`${base}/requests`}

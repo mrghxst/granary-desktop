@@ -74,6 +74,7 @@ import { usePlayer } from "./context";
 import { LaunchScreen } from "./LaunchScreen";
 import { useLocalPreview } from "./useLocalPreview";
 import { AmbientLetterbox } from "./AmbientLetterbox";
+import { useTogether } from "./togetherContext";
 
 const HIDE_PLAYING_MS = 2500;
 /** With the pointer resting on the seek bar (waiting for a preview, reading the time) the controls stay this long. */
@@ -775,6 +776,7 @@ function PlayerControls() {
   const { t, i18n } = useTranslation();
   const p = usePlayer();
   const { state, ctx, plan, settings, window: win, setWindow, showToast } = p;
+  const party = useTogether();
   const [visible, setVisible] = useState(true);
   const [dimmed, setDimmed] = useState(false);
   const dimTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -1505,6 +1507,20 @@ function PlayerControls() {
             <div className="min-w-0">
               <div className="truncate text-base font-semibold">{lines.title}</div>
               {lines.subtitle ? <div className="truncate text-sm text-white/70">{lines.subtitle}</div> : null}
+            </div>
+          ) : null}
+          {party.room ? (
+            <div
+              className="ml-auto flex shrink-0 items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-sm"
+              title={t(`together.link.${party.link}`)}
+            >
+              <span
+                aria-hidden="true"
+                className={`size-2 rounded-full ${party.link === "connected" ? "bg-emerald-400" : "bg-amber-400"}`}
+              />
+              <span>{t("together.title")}</span>
+              <span className="font-mono tracking-widest">{party.room.code}</span>
+              <span className="text-white/60">{t("together.members", { count: party.room.member_count })}</span>
             </div>
           ) : null}
         </div>

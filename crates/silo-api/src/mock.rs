@@ -8,6 +8,7 @@ use crate::media::{MediaRequest, MediaResponse, parse_range};
 use crate::models::*;
 use crate::playback::*;
 use crate::secret::Secret;
+use crate::together::{RoomGrant, RoomSelection, TogetherCapabilities};
 use async_trait::async_trait;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -1390,6 +1391,78 @@ impl SiloApi for MockSiloApi {
         Err(problem(404, "not_found"))
     }
 
+    async fn together_capabilities(&self, _origin: &str, auth: &Auth) -> Result<TogetherCapabilities> {
+        self.check(auth)?;
+        Ok(TogetherCapabilities {
+            revision: "mock".into(),
+            state: "available".into(),
+            allowed: true,
+            connection_replaced: true,
+            socket_protocol: crate::together::PROTOCOL.into(),
+        })
+    }
+
+    async fn together_create(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        selection_mode: &str,
+    ) -> Result<RoomGrant> {
+        self.check(auth)?;
+        Ok(mock_room(room_id, "host", selection_mode, None))
+    }
+
+    async fn together_join(&self, _origin: &str, auth: &Auth, code: &str) -> Result<RoomGrant> {
+        self.check(auth)?;
+        if !code.eq_ignore_ascii_case("MOCK42") {
+            return Err(problem(404, "not_found"));
+        }
+        Ok(mock_room(
+            "6b0c8d4e-1f2a-4c3b-9d8e-7f6a5b4c3d2e",
+            "guest",
+            "host_pick",
+            Some(("m2", "m2-f1")),
+        ))
+    }
+
+    async fn together_select(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        room_id: &str,
+        selection: &RoomSelection,
+    ) -> Result<RoomGrant> {
+        self.check(auth)?;
+        let file = selection
+            .file_id
+            .clone()
+            .unwrap_or_else(|| format!("{}-f1", selection.content_id));
+        Ok(mock_room(
+            room_id,
+            "host",
+            "host_pick",
+            Some((&selection.content_id, &file)),
+        ))
+    }
+
+    async fn together_close(&self, _origin: &str, auth: &Auth, _room_id: &str) -> Result<()> {
+        self.check(auth)?;
+        Ok(())
+    }
+
+    async fn together_ticket(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        _room_id: &str,
+        _room_token: &Secret,
+    ) -> Result<EventsSocketTicket> {
+        self.check(auth)?;
+        // The mock server has no room socket.
+        Err(problem(503, "service_unavailable"))
+    }
+
     async fn events_ticket(&self, _origin: &str, auth: &Auth) -> Result<EventsSocketTicket> {
         self.check(auth)?;
         Ok(EventsSocketTicket {
@@ -2210,5 +2283,36 @@ mod png {
         // CRC of "IEND" with no data is the well-known AE426082.
         assert_eq!(crc32(b"IEND"), 0xAE42_6082);
         assert_eq!(adler32(b"Wikipedia"), 0x11E6_0398);
+    }
+}
+
+/// A room snapshot as the room operations return it (`WatchTogetherRoomSnapshot`).
+fn mock_room(room_id: &str, role: &str, mode: &str, selected: Option<(&str, &str)>) -> RoomGrant {
+    let mut room = serde_json::json!({
+        "room_id": room_id,
+        "phase": if selected.is_some() { "playing" } else { "lobby" },
+        "playback_state": if selected.is_some() { "waiting" } else { "idle" },
+        "selection_mode": mode,
+        "selection_revision": i64::from(selected.is_some()),
+        "code": "MOCK42",
+        "guest_control_policy": "host_only",
+        "is_paused": true,
+        "anchor_position_seconds": 0.0,
+        "anchor_updated_at": "2026-11-17T12:00:00.000Z",
+        "generation": 1,
+        "member_count": 1,
+        "host_connected": role == "host",
+        "self_role": role,
+        "self_can_control_transport": role == "host",
+        "self_can_manage_room": role == "host",
+        "self_ignore_wait": false,
+    });
+    if let Some((content, file)) = selected {
+        room["selected_content_id"] = content.into();
+        room["selected_file_id"] = file.into();
+    }
+    RoomGrant {
+        room,
+        room_access_token: Secret::new("mock-room-proof"),
     }
 }

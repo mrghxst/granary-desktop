@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-together-join"
+description = "Enables the together_join command without any pre-configured scope."
+commands.allow = ["together_join"]
+
+[[permission]]
+identifier = "deny-together-join"
+description = "Denies the together_join command without any pre-configured scope."
+commands.deny = ["together_join"]

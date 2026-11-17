@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-together-capabilities"
+description = "Enables the together_capabilities command without any pre-configured scope."
+commands.allow = ["together_capabilities"]
+
+[[permission]]
+identifier = "deny-together-capabilities"
+description = "Denies the together_capabilities command without any pre-configured scope."
+commands.deny = ["together_capabilities"]
