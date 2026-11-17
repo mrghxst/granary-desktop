@@ -307,7 +307,12 @@
     "artworkCache": "Artwork cache",
     "artworkCacheHint": "Posters and backgrounds are kept on this PC for faster browsing and offline use. Never grows past {{limit}}; artwork of titles you are still watching is kept longest.",
     "artworkCacheUsed": "{{used}} used",
-    "clearCache": "Clear"
+    "clearCache": "Clear",
+    "stillWatching": "Ask \"Are you still watching?\"",
+    "stillWatchingHint": "After this many episodes in a row started on their own, the next one waits for you.",
+    "stillWatchingNever": "Never",
+    "stillWatchingCount_one": "After {{count}} episode",
+    "stillWatchingCount_other": "After {{count}} episodes"
   },
   "player": {
     "handoff": "Starting playback…",
@@ -379,7 +384,18 @@
       "help": "This help"
     },
     "starting": "Starting {{title}}",
-    "preparing": "Preparing playback"
+    "preparing": "Preparing playback",
+    "sleep": "Sleep timer",
+    "sleepLeft": "Sleep timer: {{time}} left",
+    "sleepOff": "Off",
+    "sleepMinutes_one": "{{count}} minute",
+    "sleepMinutes_other": "{{count}} minutes",
+    "sleepEpisode": "End of this video",
+    "sleepPaused": "Sleep timer: paused.",
+    "stillWatching": "Are you still watching?",
+    "stillWatchingNext": "Next: {{title}}",
+    "keepWatching": "Keep watching",
+    "notNow": "Not now"
   },
   "errors": {
     "unknown": "Something went wrong.",

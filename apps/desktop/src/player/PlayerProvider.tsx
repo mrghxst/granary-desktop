@@ -17,6 +17,7 @@ import {
   type WindowState,
 } from "../lib/player";
 import { DEFAULT_SETTINGS, loadSettings, type Settings } from "../lib/settings";
+import { SLEEP_OFF, sleepTick, stillWatchingDue, type SleepSetting } from "../lib/sleepTimer";
 import { PlayerContext, type Launch, type PlayerApi, type PlayerError, type StartOptions } from "./context";
 
 /** The launch screen gives up after this long even without a first frame (the controls' spinner takes over). */
@@ -40,6 +41,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const firstPlaying = useRef<number | null>(null);
   const ctxRef = useRef(ctx);
   const autoplayCancelled = useRef(false);
+  // Automatic next episodes in a row since the viewer last started something.
+  const [automaticStarts, setAutomaticStarts] = useState(0);
+  const automaticRef = useRef(0);
+  const [sleep, setSleepState] = useState<SleepSetting>(SLEEP_OFF);
+  const sleepRef = useRef(sleep);
+  const setSleep = useCallback((s: SleepSetting) => {
+    sleepRef.current = s;
+    setSleepState(s);
+  }, []);
   const settingsRef = useRef(settings);
   useEffect(() => {
     ctxRef.current = ctx;
@@ -105,6 +115,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(
     async (serverId: string, itemId: string, opts: StartOptions = {}) => {
+      automaticRef.current = opts.automatic ? automaticRef.current + 1 : 0;
+      setAutomaticStarts(automaticRef.current);
       launchArmed.current = false;
       firstPlaying.current = null;
       setLaunch({ serverId, ...opts.art, backdrop: opts.art?.backdrop ?? opts.watch?.backdrop_url ?? null });
@@ -165,14 +177,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             // Autoplay: the next episode starts right away when the file ends (the countdown card may have run).
             const c = ctxRef.current;
             const nextEp = neighbours(c).next;
-            if (c && nextEp && settingsRef.current.player.autoplayNext && !autoplayCancelled.current) {
-              void startRef.current(c.serverId, nextEp.content_id).catch(() => undefined);
+            // The sleep timer set to this episode, or "Are you still watching?" being due, ends the run here.
+            const sleepNow = sleepRef.current.kind === "episode";
+            if (sleepNow) setSleep(SLEEP_OFF);
+            const asking = stillWatchingDue(automaticRef.current, settingsRef.current.player.stillWatchingAfter);
+            if (
+              c &&
+              nextEp &&
+              settingsRef.current.player.autoplayNext &&
+              !autoplayCancelled.current &&
+              !sleepNow &&
+              !asking
+            ) {
+              void startRef.current(c.serverId, nextEp.content_id, { automatic: true }).catch(() => undefined);
             }
             bumpRefresh();
             break;
           }
           case "stopped":
             setLaunch(null);
+            setSleep(SLEEP_OFF);
             bumpRefresh();
             break;
           case "progress":
@@ -195,7 +219,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         });
       });
     };
-  }, []);
+  }, [setSleep]);
+
+  // The sleep timer counts down while the video plays and pauses it when it runs out.
+  const sleepCounting = sleep.kind === "time" && state.active && state.phase === "playing";
+  useEffect(() => {
+    if (!sleepCounting) return;
+    let last = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now();
+      const { next, expired } = sleepTick(sleepRef.current, now - last);
+      last = now;
+      setSleep(next);
+      if (expired) {
+        void player.pause(true).catch(() => undefined);
+        setToast(tRef.current("player.sleepPaused"));
+      }
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [sleepCounting, setSleep]);
 
   // The page turns transparent while a playback attempt runs, so the native video window below shows through.
   useEffect(() => {
@@ -264,8 +308,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       cancelAutoplay: () => {
         autoplayCancelled.current = true;
       },
+      sleep,
+      setSleep,
+      stillWatchingDue: stillWatchingDue(automaticStarts, settings.player.stillWatchingAfter),
     }),
-    [state, plan, ctx, win, settings, error, toast, launch, start],
+    [state, plan, ctx, win, settings, error, toast, launch, start, sleep, setSleep, automaticStarts],
   );
 
   return <PlayerContext.Provider value={api}>{children}</PlayerContext.Provider>;

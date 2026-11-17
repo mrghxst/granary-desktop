@@ -307,7 +307,12 @@
     "artworkCache": "Bilder-Cache",
     "artworkCacheHint": "Poster und Hintergründe werden auf diesem PC zwischengespeichert – für schnelleres Stöbern und offline. Wird nie größer als {{limit}}; Bilder von Titeln, die du gerade schaust, bleiben am längsten.",
     "artworkCacheUsed": "{{used}} belegt",
-    "clearCache": "Leeren"
+    "clearCache": "Leeren",
+    "stillWatching": "„Schaust du noch?“ fragen",
+    "stillWatchingHint": "Nach so vielen Folgen, die von selbst nacheinander gestartet sind, wartet die nächste auf dich.",
+    "stillWatchingNever": "Nie",
+    "stillWatchingCount_one": "Nach {{count}} Folge",
+    "stillWatchingCount_other": "Nach {{count}} Folgen"
   },
   "player": {
     "handoff": "Wiedergabe wird gestartet …",
@@ -379,7 +384,18 @@
       "help": "Diese Hilfe"
     },
     "starting": "{{title}} wird gestartet",
-    "preparing": "Wiedergabe wird vorbereitet"
+    "preparing": "Wiedergabe wird vorbereitet",
+    "sleep": "Sleep-Timer",
+    "sleepLeft": "Sleep-Timer: noch {{time}}",
+    "sleepOff": "Aus",
+    "sleepMinutes_one": "{{count}} Minute",
+    "sleepMinutes_other": "{{count}} Minuten",
+    "sleepEpisode": "Ende dieses Videos",
+    "sleepPaused": "Sleep-Timer: angehalten.",
+    "stillWatching": "Schaust du noch?",
+    "stillWatchingNext": "Als Nächstes: {{title}}",
+    "keepWatching": "Weiterschauen",
+    "notNow": "Jetzt nicht"
   },
   "errors": {
     "unknown": "Etwas ist schiefgelaufen.",

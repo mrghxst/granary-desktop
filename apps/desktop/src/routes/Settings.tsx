@@ -353,6 +353,20 @@ export function Settings() {
             set((d) => ({ ...d, player: { ...d.player, autoplayNext } }));
           }}
         />
+        {s.player.autoplayNext ? (
+          <Choice
+            label={t("settings.stillWatching")}
+            hint={t("settings.stillWatchingHint")}
+            value={String(s.player.stillWatchingAfter)}
+            options={[0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map((n) => ({
+              value: String(n),
+              label: n === 0 ? t("settings.stillWatchingNever") : t("settings.stillWatchingCount", { count: n }),
+            }))}
+            onChange={(v) => {
+              set((d) => ({ ...d, player: { ...d.player, stillWatchingAfter: Number(v) } }));
+            }}
+          />
+        ) : null}
         <Toggle
           label={t("settings.seekPreviews")}
           hint={t("settings.seekPreviewsHint")}

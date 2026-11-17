@@ -32,6 +32,8 @@ pub struct PlayerSettings {
     /// mpv `hwdec`: `auto-safe`, `auto-copy-safe` or `no`.
     pub hwdec: String,
     pub autoplay_next: bool,
+    /// "Are you still watching?": automatic next episodes in a row before one waits for the viewer (0 = never, ..=20).
+    pub still_watching_after: u32,
     /// Seconds per arrow-key seek (1..=120).
     pub seek_step: u32,
     /// Seek-bar previews decoded locally when the server has no trickplay sheets (ADR-0009).
@@ -157,6 +159,7 @@ impl Default for PlayerSettings {
         Self {
             hwdec: "auto-safe".into(),
             autoplay_next: true,
+            still_watching_after: 3,
             seek_step: 10,
             seek_previews: true,
             preview_sources: default_preview_sources(),
@@ -220,6 +223,7 @@ impl Settings {
             "auto-safe",
         );
         self.player.seek_step = self.player.seek_step.clamp(1, 120);
+        self.player.still_watching_after = self.player.still_watching_after.min(20);
         one_of(
             &mut self.player.render_quality,
             &["auto", "fast", "balanced", "high", "max"],

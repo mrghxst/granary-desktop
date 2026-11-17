@@ -18,6 +18,8 @@ export interface Settings {
     hwdec: "auto-safe" | "auto-copy-safe" | "no";
     /** Start the next episode automatically after a countdown. */
     autoplayNext: boolean;
+    /** Automatic next episodes in a row before "Are you still watching?" (0 = never). */
+    stillWatchingAfter: number;
     /** Seconds per arrow-key seek. */
     seekStep: number;
     /** Master switch for seek-bar previews. */
@@ -133,6 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   player: {
     hwdec: "auto-safe",
     autoplayNext: true,
+    stillWatchingAfter: 3,
     seekStep: 10,
     seekPreviews: true,
     previewSources: DEFAULT_PREVIEW_SOURCES,

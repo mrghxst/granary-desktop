@@ -3,6 +3,7 @@ import type { WatchDetail } from "../lib/catalog";
 import type { PlayChoice } from "../lib/play";
 import type { PlanInfo, PlaybackContext, PlayerState, WindowState } from "../lib/player";
 import type { Settings } from "../lib/settings";
+import type { SleepSetting } from "../lib/sleepTimer";
 
 export interface PlayerError {
   code: string;
@@ -15,6 +16,8 @@ export interface StartOptions {
   watch?: WatchDetail;
   /** Artwork for the launch screen when the caller already has it (the detail page). */
   art?: LaunchArt;
+  /** Started by autoplay rather than by the viewer: counts toward "Are you still watching?". */
+  automatic?: boolean;
 }
 
 /** What the launch screen shows between Play and the first frame (artwork references, not URLs). */
@@ -53,6 +56,10 @@ export interface PlayerApi {
   dismissError: () => void;
   /** The user cancelled up-next: the end of this file does not start the next episode. */
   cancelAutoplay: () => void;
+  sleep: SleepSetting;
+  setSleep: (s: SleepSetting) => void;
+  /** The next automatic episode has to wait for the viewer ("Are you still watching?"). */
+  stillWatchingDue: boolean;
 }
 
 export const PlayerContext = createContext<PlayerApi | null>(null);

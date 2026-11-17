@@ -8,6 +8,7 @@ import {
   Loader2,
   Maximize,
   Minimize,
+  Moon,
   Pause,
   PictureInPicture2,
   Play,
@@ -25,6 +26,7 @@ import { ContextMenu, type MenuAction } from "../components/ContextMenu";
 import { artwork } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { formatTime } from "../lib/play";
+import { SLEEP_MINUTES, SLEEP_OFF, sleepCountdown } from "../lib/sleepTimer";
 import { rememberTracks } from "../lib/trackMemory";
 import { audioInfo, subtitleInfo, trackSummary, type TrackInfo } from "../lib/tracks";
 import {
@@ -65,7 +67,7 @@ const PROMPT_POP_MS = 8000;
 const HIDE_PAUSED_MS = 30000;
 /** A paused picture dims the controls first. */
 const DIM_PAUSED_MS = 8000;
-type MenuName = "audio" | "subtitles" | "speed" | "picture";
+type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep";
 
 interface SubtitleOption {
   key: string;
@@ -657,9 +659,9 @@ function PlayerControls() {
   );
 
   const playEpisode = useCallback(
-    (contentId: string) => {
+    (contentId: string, automatic = false) => {
       if (!ctx) return;
-      void p.start(ctx.serverId, contentId).catch(fail);
+      void p.start(ctx.serverId, contentId, { automatic }).catch(fail);
     },
     [ctx, p, fail],
   );
@@ -670,9 +672,12 @@ function PlayerControls() {
   // resume point in the credits, a stale position right after a file switch) still gets the full countdown.
   const upNextFrom = upNextStart(markers, duration);
   const inWindow = position >= upNextFrom && position < duration;
+  // The sleep timer set to this episode, or "Are you still watching?" being due, holds the next episode back.
+  const holdNext = p.stillWatchingDue || p.sleep.kind === "episode";
   const eligible =
     near.next !== undefined &&
     settings.player.autoplayNext &&
+    !holdNext &&
     !upNextCancelled &&
     duration > 60 &&
     state.phase === "playing" &&
@@ -681,12 +686,25 @@ function PlayerControls() {
   const anchorNow = upNextAnchorFor(upNextAnchor, eligible, position, upNextFrom);
   if (anchorNow !== upNextAnchor) setUpNextAnchor(anchorNow);
   const counting =
-    anchorNow !== null && settings.player.autoplayNext && !upNextCancelled && near.next !== undefined && inWindow;
+    anchorNow !== null &&
+    settings.player.autoplayNext &&
+    !holdNext &&
+    !upNextCancelled &&
+    near.next !== undefined &&
+    inWindow;
+  const asking =
+    p.stillWatchingDue &&
+    p.sleep.kind !== "episode" &&
+    settings.player.autoplayNext &&
+    !upNextCancelled &&
+    near.next !== undefined &&
+    duration > 60 &&
+    inWindow;
   const remaining = counting ? upNextRemaining(anchorNow, position) : UP_NEXT_SECONDS;
   useEffect(() => {
     if (!counting || remaining > 0 || !near.next || upNextFired.current) return;
     upNextFired.current = true;
-    playEpisode(near.next.content_id);
+    playEpisode(near.next.content_id, true);
   }, [counting, remaining, near.next, playEpisode]);
 
   const set = useCallback(
@@ -964,8 +982,8 @@ function PlayerControls() {
         : null;
   // Next episode by hand: during credits (also mid-episode ones with an epilogue after them, next to Skip credits) and
   // again in the final stretch whenever the countdown is not running (autoplay off or cancelled).
-  const showNext = near.next !== undefined && !counting && (marker?.kind === "credits" || inWindow);
-  const promptKey = counting ? "up-next" : skip ? `skip:${String(skip.to)}` : showNext ? "next" : null;
+  const showNext = near.next !== undefined && !counting && !asking && (marker?.kind === "credits" || inWindow);
+  const promptKey = counting || asking ? "up-next" : skip ? `skip:${String(skip.to)}` : showNext ? "next" : null;
   const popped = promptKey !== null && (promptKey === "up-next" || expired !== promptKey);
   useEffect(() => {
     if (promptKey === null || promptKey === "up-next") return;
@@ -1173,6 +1191,19 @@ function PlayerControls() {
                   <Gauge className="size-5" />
                 </IconButton>
                 <IconButton
+                  label={
+                    p.sleep.kind === "time"
+                      ? t("player.sleepLeft", { time: sleepCountdown(p.sleep.remainingMs) })
+                      : t("player.sleep")
+                  }
+                  active={menu === "sleep" || p.sleep.kind !== "off"}
+                  onClick={() => {
+                    setMenu(menu === "sleep" ? null : "sleep");
+                  }}
+                >
+                  <Moon className="size-5" />
+                </IconButton>
+                <IconButton
                   label={t("player.picture")}
                   active={menu === "picture"}
                   onClick={() => {
@@ -1249,6 +1280,40 @@ function PlayerControls() {
               {t("player.nextEpisode")}
             </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {asking && near.next ? (
+        <div
+          role="alertdialog"
+          aria-label={t("player.stillWatching")}
+          className="absolute right-8 bottom-32 flex w-80 flex-col gap-3 rounded-xl border border-white/15 bg-black/85 p-4 shadow-2xl"
+        >
+          <div className="font-semibold">{t("player.stillWatching")}</div>
+          <div className="truncate text-sm text-white/70">
+            {t("player.stillWatchingNext", { title: near.next.title })}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+              onClick={() => {
+                if (near.next) playEpisode(near.next.content_id);
+              }}
+            >
+              {t("player.keepWatching")}
+            </button>
+            <button
+              type="button"
+              className="flex-1 rounded-lg bg-white/15 px-3 py-2 text-sm"
+              onClick={() => {
+                setUpNextCancelled(true);
+                p.cancelAutoplay();
+              }}
+            >
+              {t("player.notNow")}
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -1374,6 +1439,50 @@ function PlayerControls() {
               {s === 1 ? t("player.speedNormal") : `${String(s)}×`}
             </Choice>
           ))}
+        </Popover>
+      ) : null}
+
+      {menu === "sleep" ? (
+        <Popover
+          title={
+            p.sleep.kind === "time"
+              ? t("player.sleepLeft", { time: sleepCountdown(p.sleep.remainingMs) })
+              : t("player.sleep")
+          }
+          onClose={() => {
+            setMenu(null);
+          }}
+        >
+          <Choice
+            selected={p.sleep.kind === "off"}
+            onSelect={() => {
+              p.setSleep(SLEEP_OFF);
+              setMenu(null);
+            }}
+          >
+            {t("player.sleepOff")}
+          </Choice>
+          {SLEEP_MINUTES.map((m) => (
+            <Choice
+              key={m}
+              selected={false}
+              onSelect={() => {
+                p.setSleep({ kind: "time", remainingMs: m * 60_000 });
+                setMenu(null);
+              }}
+            >
+              {t("player.sleepMinutes", { count: m })}
+            </Choice>
+          ))}
+          <Choice
+            selected={p.sleep.kind === "episode"}
+            onSelect={() => {
+              p.setSleep({ kind: "episode" });
+              setMenu(null);
+            }}
+          >
+            {t("player.sleepEpisode")}
+          </Choice>
         </Popover>
       ) : null}
 

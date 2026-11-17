@@ -29,6 +29,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [x] R7 Theme music on title pages (done: setting, Web Audio playback, docs §4.1g; no title on the test server has a theme, grant path checked live via 404 only); customise home screen (done: "Edit home rows" on the home page, docs §4.1h; read checked live, saving checked with contract and component tests only)
 - [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
   letterbox, marker editing, Watch Together
+  - [x] R8a sleep timer and "Are you still watching?" (client only; countdown and the end-of-file gate checked live in mock mode, the card itself only by code review)
 - [ ] R9 Audiobook player
 - [ ] R10 Ebook and manga reader
 

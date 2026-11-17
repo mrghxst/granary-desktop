@@ -6,6 +6,10 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Sleep timer in the player (moon button): pause after 15 to 120 minutes of playing, or stop at the end of the
+  video. It counts only while the video plays.
+- "Are you still watching?": after a number of episodes in a row that started on their own (Settings, default 3),
+  the next one waits for you.
 - Edit home rows (bottom of the home page): hide, show and reorder the home page's rows for your profile, or go
   back to the server's layout. Rows renamed or built in the web app are kept.
 - Theme music (Settings, off by default): a title page plays the title's theme tune quietly, fading in and out,
