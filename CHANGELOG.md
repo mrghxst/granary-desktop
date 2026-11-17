@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Ambient letterbox (Settings → Player, off by default): while the controls show, the black bars above and below a
+  wide film glow softly in the colours of the scene, taken from the seek previews of the current spot.
 - Find subtitles in the player (Subtitles menu): search the server's subtitle providers in a language and add one,
   or have the server translate the subtitles you are watching into another language. The new track is switched on
   when it is ready.

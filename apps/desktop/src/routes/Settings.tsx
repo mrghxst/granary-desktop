@@ -382,6 +382,16 @@ export function Settings() {
             set((d) => ({ ...d, player: { ...d.player, previewSources } }));
           }}
         />
+        {s.player.seekPreviews ? (
+          <Toggle
+            label={t("settings.ambientLetterbox")}
+            hint={t("settings.ambientLetterboxHint")}
+            checked={s.player.ambientLetterbox}
+            onChange={(ambientLetterbox) => {
+              set((d) => ({ ...d, player: { ...d.player, ambientLetterbox } }));
+            }}
+          />
+        ) : null}
         <Choice
           label={t("settings.seekStep")}
           value={String(s.player.seekStep) as "5" | "10" | "15" | "30"}

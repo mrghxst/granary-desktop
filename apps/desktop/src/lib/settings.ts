@@ -24,6 +24,7 @@ export interface Settings {
     seekStep: number;
     /** Master switch for seek-bar previews. */
     seekPreviews: boolean;
+    ambientLetterbox: boolean;
     /** Preview providers in the order they are tried (server trickplay, Seekr, local decoding). */
     previewSources: PreviewSourceSetting[];
     /** Rendering quality: `auto` is a little lighter on integrated GPUs; `max` is mpv's high-quality profile. */
@@ -138,6 +139,7 @@ export const DEFAULT_SETTINGS: Settings = {
     stillWatchingAfter: 3,
     seekStep: 10,
     seekPreviews: true,
+    ambientLetterbox: false,
     previewSources: DEFAULT_PREVIEW_SOURCES,
     renderQuality: "auto",
     superResolution: false,

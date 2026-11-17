@@ -312,7 +312,9 @@
     "stillWatchingHint": "After this many episodes in a row started on their own, the next one waits for you.",
     "stillWatchingNever": "Never",
     "stillWatchingCount_one": "After {{count}} episode",
-    "stillWatchingCount_other": "After {{count}} episodes"
+    "stillWatchingCount_other": "After {{count}} episodes",
+    "ambientLetterbox": "Ambient letterbox",
+    "ambientLetterboxHint": "While the controls show, the black bars of wide films take a soft glow of the picture. Uses the seek previews of the current scene."
   },
   "player": {
     "handoff": "Starting playback…",

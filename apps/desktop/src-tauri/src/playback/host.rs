@@ -40,6 +40,7 @@ pub const UI_PROPERTIES: &[(&str, granary_player::state::ObserveFormat)] = {
         ("video-zoom", Double),
         ("video-params/gamma", Str),
         ("video-params/primaries", Str),
+        ("video-params/aspect", Double),
     ]
 };
 

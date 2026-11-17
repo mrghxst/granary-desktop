@@ -41,6 +41,8 @@ pub struct PlayerSettings {
     /// Where previews come from, tried in this order (ADR-0011): `server` trickplay, `seekr` (needs a key),
     /// `local` decoding. Every id appears exactly once.
     pub preview_sources: Vec<PreviewSource>,
+    /// The picture's colours glow into the black bars of wide films while the controls show (opt-in).
+    pub ambient_letterbox: bool,
     /// Rendering quality (ADR-0012): `auto` (lighter on integrated GPUs), `fast`, `balanced`, `high` or `max`.
     pub render_quality: String,
     /// Video Super Resolution for SDR video below the monitor resolution (NVIDIA RTX, Intel Arc/Xe; opt-in).
@@ -163,6 +165,7 @@ impl Default for PlayerSettings {
             seek_step: 10,
             seek_previews: true,
             preview_sources: default_preview_sources(),
+            ambient_letterbox: false,
             render_quality: "auto".into(),
             super_resolution: false,
             rtx_hdr: false,

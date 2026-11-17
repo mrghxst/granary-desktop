@@ -312,7 +312,9 @@
     "stillWatchingHint": "Nach so vielen Folgen, die von selbst nacheinander gestartet sind, wartet die nächste auf dich.",
     "stillWatchingNever": "Nie",
     "stillWatchingCount_one": "Nach {{count}} Folge",
-    "stillWatchingCount_other": "Nach {{count}} Folgen"
+    "stillWatchingCount_other": "Nach {{count}} Folgen",
+    "ambientLetterbox": "Leuchtende Balken",
+    "ambientLetterboxHint": "Solange die Steuerung sichtbar ist, nehmen die schwarzen Balken breiter Filme einen sanften Schein des Bildes an. Nutzt die Vorschaubilder der aktuellen Szene."
   },
   "player": {
     "handoff": "Wiedergabe wird gestartet …",

@@ -73,6 +73,7 @@ import { enabledSources, providerTile, resolvePreviewProvider, seekr, type Previ
 import { usePlayer } from "./context";
 import { LaunchScreen } from "./LaunchScreen";
 import { useLocalPreview } from "./useLocalPreview";
+import { AmbientLetterbox } from "./AmbientLetterbox";
 
 const HIDE_PLAYING_MS = 2500;
 /** With the pointer resting on the seek bar (waiting for a preview, reading the time) the controls stay this long. */
@@ -807,8 +808,12 @@ function PlayerControls() {
   const speed = num(props.speed, 1);
   const subDelay = num(props["sub-delay"], 0);
   const subScale = num(props["sub-scale"], settings.subtitles.scale);
-  const aspect = typeof props["video-aspect-override"] === "string" ? props["video-aspect-override"] : "no";
+  const rawAspect = typeof props["video-aspect-override"] === "string" ? props["video-aspect-override"] : "no";
+  // mpv reports its automatic aspect as a negative number (`-1`, `-2.000000`); the menus know it as `no`.
+  const aspect = rawAspect === "no" || Number(rawAspect) < 0 ? "no" : rawAspect;
   const zoom = num(props["video-zoom"], 0);
+  // The picture's display aspect (width / height) as mpv shows it; unknown until the first frame.
+  const videoAspect = num(props["video-params/aspect"], 0);
   const near = neighbours(ctx);
   const chapters = useMemo(() => ctx?.version.chapters ?? [], [ctx]);
   const markers = useMemo(() => ctx?.version.marker_segments ?? [], [ctx]);
@@ -1468,6 +1473,18 @@ function PlayerControls() {
           run(e.deltaY < 0 ? "volume-up" : "volume-down");
         }}
       />
+
+      {settings.player.ambientLetterbox && settings.player.seekPreviews && ctx && !win.mini ? (
+        <AmbientLetterbox
+          serverId={ctx.serverId}
+          provider={previewProvider}
+          position={position}
+          duration={duration}
+          // A forced aspect or zoom moves the picture away from the plain fit the bands are placed around.
+          aspect={aspect === "no" && zoom === 0 ? videoAspect : 0}
+          active={visible && !barHover && !loading}
+        />
+      ) : null}
 
       <div
         className={`pointer-events-none relative flex flex-1 flex-col justify-between transition-opacity duration-300 ${
