@@ -662,6 +662,31 @@ Progress positions are reported as **source** positions.
 
 *Granary note:* libmpv renders ASS/SSA, SRT, PGS and DVB natively from MKV. Advertise mkv `native_embedded` codecs `subrip`, `ass`, `hdmv_pgs_subtitle`, `dvd_subtitle` and `dvb_subtitle`, with `ass_styling: true` and `font_attachments: true`. Whether the server then always prefers in-process selection over sidecars for `original_http` is **UNVERIFIED**.
 
+### 7.1 Subtitle appearance
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`getEffectiveSubtitleAppearance`,
+`updateSubtitleAppearanceDeviceOverride`, `deleteSubtitleAppearanceDeviceOverride`, schemas
+`EffectiveSubtitleAppearance`, `SubtitleAppearanceDeviceOverride`), the fixtures
+`contracts/api/v2/fixtures/{get_effective_subtitle_appearance,update_subtitle_appearance_device_override}_ok.json@749db96a`,
+the value schema `contracts/settings/v1/schemas/subtitle-appearance.json@749db96a` and its default in
+`contracts/settings/v1/manifest.json@749db96a` (`playback.subtitle_appearance`, revision 14). All are
+`profile_scoped` and require the device headers (§1.4), which name the device the override belongs to.
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/settings/subtitle-appearance/effective` | `{key*, profile_id*, global_value*, effective_value*, has_device_override*, device_value?, device_id?, device_name?, updated_at?}`; the values are JSON documents as strings, empty when unset. |
+| `PUT /api/v2/settings/device/subtitle-appearance` | Body `{value*}` (a JSON document as a string; the server checks only that it is JSON). Answers the effective appearance. |
+| `DELETE /api/v2/settings/device/subtitle-appearance` | `204`: the profile's appearance applies on this device again. |
+
+The value is a sparse object over the default `{fontSize: "large", fontFamily: "sans-serif", fontColor: "#ffffff",
+backgroundColor: "#000000", backgroundStyle: "box", backgroundOpacity: 75, textOpacity: 100, textOutline: false,
+textOutlineColor: "#000000", position: "bottom"}` (`fontSize` small to xxlarge, `backgroundStyle`
+box/shadow/outline/none, `position` bottom/lower-third/top). Granary reads the effective value at each playback
+start and maps it to mpv options (`sub-font-size` from the web's sizes at a 720-line frame, `sub-color`,
+`sub-border-style` background-box or outline-and-shadow, `sub-back-color`, `sub-outline-*`, `sub-shadow-*`,
+`sub-align-y`/`sub-pos`); text subtitles follow it, ASS keeps its own styles (`sub-ass-override=scale`). The
+player's "Subtitle style" menu writes this device's override. Not used: the profile-wide value (settings values API).
+
 ## 8. Progress and watch state
 
 ### 8.1 During playback

@@ -198,6 +198,17 @@ pub trait SiloApi: Send + Sync {
     async fn home_rows_replace(&self, origin: &str, auth: &Auth, overrides: &[HomeRowOverrideWrite]) -> Result<()>;
     /// `resetProfileSectionOverrides` for the home page (`204`): back to the administrator's layout.
     async fn home_rows_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
+    /// `getEffectiveSubtitleAppearance` (device headers name this computer).
+    async fn subtitle_appearance(&self, origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting>;
+    /// `updateSubtitleAppearanceDeviceOverride`: `value` is the appearance as a JSON document.
+    async fn subtitle_appearance_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        value: &str,
+    ) -> Result<SubtitleAppearanceSetting>;
+    /// `deleteSubtitleAppearanceDeviceOverride` (`204`): the profile's appearance applies again.
+    async fn subtitle_appearance_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
     /// `listNotifications`: the newest 100 of the profile's inbox.
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList>;
     /// `getNotificationUnreadCount`.
@@ -749,6 +760,41 @@ impl SiloApi for HttpSiloApi {
             self.authed(Method::DELETE, origin, "/api/v2/profile/sections", auth)
                 .query(&[("scope", "home")]),
         )
+        .await
+        .map(drop)
+    }
+
+    async fn subtitle_appearance(&self, origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting> {
+        send_json(self.authed(
+            Method::GET,
+            origin,
+            "/api/v2/settings/subtitle-appearance/effective",
+            auth,
+        ))
+        .await
+    }
+
+    async fn subtitle_appearance_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        value: &str,
+    ) -> Result<SubtitleAppearanceSetting> {
+        let body = serde_json::json!({ "value": value });
+        send_json(
+            self.authed(Method::PUT, origin, "/api/v2/settings/device/subtitle-appearance", auth)
+                .json(&body),
+        )
+        .await
+    }
+
+    async fn subtitle_appearance_reset(&self, origin: &str, auth: &Auth) -> Result<()> {
+        send_raw(self.authed(
+            Method::DELETE,
+            origin,
+            "/api/v2/settings/device/subtitle-appearance",
+            auth,
+        ))
         .await
         .map(drop)
     }

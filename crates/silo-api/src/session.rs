@@ -490,6 +490,21 @@ impl Session {
         self.api.fetch_audio(&url).await
     }
 
+    pub async fn subtitle_appearance(&self) -> Result<SubtitleAppearanceSetting> {
+        self.call_profile(|auth| async move { self.api.subtitle_appearance(&self.origin, &auth).await })
+            .await
+    }
+
+    pub async fn subtitle_appearance_set(&self, value: &str) -> Result<SubtitleAppearanceSetting> {
+        self.call_profile(|auth| async move { self.api.subtitle_appearance_set(&self.origin, &auth, value).await })
+            .await
+    }
+
+    pub async fn subtitle_appearance_reset(&self) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.subtitle_appearance_reset(&self.origin, &auth).await })
+            .await
+    }
+
     /// The home page's rows and the profile's saved overrides, read together for editing.
     pub async fn home_rows(&self) -> Result<HomeRows> {
         let rows = self

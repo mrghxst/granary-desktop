@@ -6,6 +6,9 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Subtitle style in the player (Subtitles menu): size, text colour, background and position, saved on the server
+  for this computer and shared with the profile's other apps. Text subtitles follow the profile's style from the
+  first frame; styled (ASS) subtitles keep their own look.
 - Sleep timer in the player (moon button): pause after 15 to 120 minutes of playing, or stop at the end of the
   video. It counts only while the video plays.
 - "Are you still watching?": after a number of episodes in a row that started on their own (Settings, default 3),
@@ -29,6 +32,7 @@ follow [Semantic Versioning](https://semver.org/).
   newest entry first, with tabs for movies and series.
 
 ### Fixed
+- The subtitle size from Settings now applies when a video starts; before, only the player's reset used it.
 - Dragging a row with the mouse trailed one frame behind the hand: the row now moves in the same frame as the
   mouse.
 

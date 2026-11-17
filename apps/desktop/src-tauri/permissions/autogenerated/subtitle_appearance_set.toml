@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-subtitle-appearance-set"
+description = "Enables the subtitle_appearance_set command without any pre-configured scope."
+commands.allow = ["subtitle_appearance_set"]
+
+[[permission]]
+identifier = "deny-subtitle-appearance-set"
+description = "Denies the subtitle_appearance_set command without any pre-configured scope."
+commands.deny = ["subtitle_appearance_set"]

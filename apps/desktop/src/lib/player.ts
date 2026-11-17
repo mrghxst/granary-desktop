@@ -135,6 +135,8 @@ let previewSeq = 0;
 
 export const player = {
   stop: () => call<null>("player_stop"),
+  /** The profile's subtitle appearance (a stored JSON value) for this file and the next ones. */
+  subtitleStyle: (value: string) => call<null>("player_subtitle_style", { value }),
   pause: (paused?: boolean) => call<null>("player_pause", { paused: paused ?? null }),
   seek: (seconds: number, relative = false) => call<null>("player_seek", { seconds, relative }),
   set: (name: string, value: string | number | boolean) =>

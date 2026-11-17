@@ -922,6 +922,18 @@ pub struct HomeRowOverrideWrite {
     pub user_config: Option<serde_json::Value>,
 }
 
+/// `EffectiveSubtitleAppearance`: the subtitle appearance that applies to the profile on this device. The values are
+/// JSON documents (`playback.subtitle_appearance`); empty when unset.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleAppearanceSetting {
+    pub effective_value: String,
+    pub global_value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_value: Option<String>,
+    pub has_device_override: bool,
+}
+
 /// The home page's rows as the profile sees them and the overrides it saved, read together for editing.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct HomeRows {

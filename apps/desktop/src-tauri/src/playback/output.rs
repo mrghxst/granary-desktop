@@ -60,6 +60,8 @@ struct Inner {
     render_summary: Vec<(String, String)>,
     /// Rendering options set for the title playing now.
     render_options: Vec<(String, String)>,
+    /// The profile's subtitle appearance, for every file until it changes.
+    subtitle: super::subtitle_style::SubtitleAppearance,
 }
 
 /// The content facts the display policy needs, from the negotiated plan.
@@ -170,6 +172,7 @@ impl Output {
                 video: None,
                 render_summary: Vec::new(),
                 render_options: Vec::new(),
+                subtitle: super::subtitle_style::SubtitleAppearance::default(),
             }),
         }
     }
@@ -189,10 +192,12 @@ impl Output {
         let display = self.apply(&mut inner, &settings, content, None);
         inner.video = Some(source.clone());
         let rendering = self.rendering(&mut inner, &settings, true);
+        let subtitles = super::subtitle_style::mpv_options(&inner.subtitle, settings.subtitles.scale);
         display
             .into_iter()
             .chain(audio_options(&settings.audio))
             .chain(rendering)
+            .chain(subtitles)
             .collect()
     }
 
@@ -220,6 +225,14 @@ impl Output {
         inner.video = None;
         inner.render_summary.clear();
         inner.render_options.clear();
+    }
+
+    /// A new subtitle appearance: kept for the next files; returns the options to set on the one playing now.
+    pub fn set_subtitle(&self, appearance: super::subtitle_style::SubtitleAppearance) -> Vec<(String, String)> {
+        let scale = (self.settings)().subtitles.scale;
+        let mut inner = self.lock();
+        inner.subtitle = appearance;
+        super::subtitle_style::mpv_options(&inner.subtitle, scale)
     }
 
     /// Audio options from the current settings (applied live when settings change during playback).

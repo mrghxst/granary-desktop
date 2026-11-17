@@ -99,6 +99,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
     const near = neighbours(next);
     const s = await loadSettings().catch(() => settingsRef.current);
+    // The profile's subtitle appearance on this computer; without it the contract's default applies.
+    const appearance = await catalog
+      .subtitleAppearance(serverId)
+      .then((a) => a.effective_value)
+      .catch(() => "");
+    await player.subtitleStyle(appearance).catch(() => undefined);
     setSettings(s);
     autoplayCancelled.current = false;
     setCtx(next);

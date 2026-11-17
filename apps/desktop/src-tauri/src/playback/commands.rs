@@ -421,6 +421,14 @@ pub async fn player_stop(host: State<'_, PlayerHost>) -> CmdResult<()> {
     Ok(())
 }
 
+/// The profile's subtitle appearance (a stored JSON value) for this file and the next ones.
+#[tauri::command]
+pub fn player_subtitle_style(host: State<'_, PlayerHost>, value: String) {
+    // Longer than any appearance the contract allows: read as the default rather than parsed.
+    let value = if value.len() > 2048 { String::new() } else { value };
+    host.send(Cmd::SubtitleStyle(value));
+}
+
 #[tauri::command]
 pub fn player_pause(host: State<'_, PlayerHost>, paused: Option<bool>) {
     host.send(Cmd::Pause(paused));

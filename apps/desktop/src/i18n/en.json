@@ -395,7 +395,39 @@
     "stillWatching": "Are you still watching?",
     "stillWatchingNext": "Next: {{title}}",
     "keepWatching": "Keep watching",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "subStyle": "Subtitle style",
+    "subStyleSize": "Size",
+    "subStyleSizes": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "xlarge": "Extra large",
+      "xxlarge": "Huge"
+    },
+    "subStyleColor": "Text colour",
+    "subStyleColors": {
+      "ffffff": "White",
+      "ffff00": "Yellow",
+      "00ffff": "Cyan",
+      "00ff00": "Green",
+      "ff00ff": "Magenta"
+    },
+    "subStyleBackground": "Background",
+    "subStyleBackgrounds": {
+      "box": "Box",
+      "shadow": "Shadow",
+      "outline": "Outline",
+      "none": "None"
+    },
+    "subStylePosition": "Position",
+    "subStylePositions": {
+      "bottom": "Bottom",
+      "lowerThird": "Lower third",
+      "top": "Top"
+    },
+    "subStyleHint": "Saved for this computer on the server. Applies to plain text subtitles; styled (ASS) subtitles keep their own look.",
+    "subStyleReset": "Use the profile’s style"
   },
   "errors": {
     "unknown": "Something went wrong.",

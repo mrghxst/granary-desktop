@@ -449,6 +449,14 @@ export interface HomeRowOverrideWrite {
   user_config?: unknown;
 }
 
+/** `EffectiveSubtitleAppearance`: JSON documents, empty when unset. */
+export interface SubtitleAppearanceSetting {
+  effective_value: string;
+  global_value: string;
+  device_value?: string;
+  has_device_override: boolean;
+}
+
 export interface HomeRows {
   rows: HomeRowSetting[];
   overrides: HomeRowOverride[];
@@ -655,6 +663,10 @@ export const catalog = {
   /** A theme tune as encoded audio bytes (mp3, AAC, FLAC, …), fetched by the host. */
   themeAudio: (serverId: string, ownerId: string, themeId: string) =>
     call<ArrayBuffer>("theme_audio", { serverId, ownerId, themeId }),
+  subtitleAppearance: (serverId: string) => call<SubtitleAppearanceSetting>("subtitle_appearance", { serverId }),
+  subtitleAppearanceSet: (serverId: string, value: string) =>
+    call<SubtitleAppearanceSetting>("subtitle_appearance_set", { serverId, value }),
+  subtitleAppearanceReset: (serverId: string) => call<null>("subtitle_appearance_reset", { serverId }),
   homeRows: (serverId: string) => call<HomeRows>("home_rows", { serverId }),
   homeRowsSave: (serverId: string, overrides: HomeRowOverrideWrite[]) =>
     call<null>("home_rows_save", { serverId, overrides }),

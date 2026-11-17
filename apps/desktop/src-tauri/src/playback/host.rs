@@ -209,6 +209,8 @@ pub enum Cmd {
     BackendGone,
     /// Settings were saved: apply the audio and display options live.
     SettingsChanged,
+    /// The profile's subtitle appearance (a stored JSON value): for this file and the next ones.
+    SubtitleStyle(String),
     /// The main window moved or changed DPI: re-check the monitor it is on.
     WindowMoved,
     /// Display options decided off the host task after a monitor move, for the playback with this generation.
@@ -496,6 +498,17 @@ impl Runner {
                     for (name, value) in display.into_iter().chain(self.output.audio_now()) {
                         if let Err(e) = b.set_property(&name, &value) {
                             tracing::warn!(option = %name, error = %e, "option not applied live");
+                        }
+                    }
+                }
+            }
+            Cmd::SubtitleStyle(json) => {
+                let appearance = super::subtitle_style::SubtitleAppearance::parse(&json);
+                let options = self.output.set_subtitle(appearance);
+                if let Some(b) = self.active_backend() {
+                    for (name, value) in options {
+                        if let Err(e) = b.set_property(&name, &value) {
+                            tracing::warn!(option = %name, error = %e, "subtitle option not applied");
                         }
                     }
                 }

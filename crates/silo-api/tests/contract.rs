@@ -1341,3 +1341,44 @@ async fn http_client_speaks_the_home_rows_contract() {
     api.home_rows_replace(&server.uri(), &auth, &write).await.unwrap();
     api.home_rows_reset(&server.uri(), &auth).await.unwrap();
 }
+
+/// The subtitle appearance operations, against the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/{get_effective_subtitle_appearance,update_subtitle_appearance_device_override}_ok.json@749db96a`).
+#[tokio::test]
+async fn http_client_speaks_the_subtitle_appearance_contract() {
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/settings/subtitle-appearance/effective"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(json("subtitle_appearance.json", 200))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/settings/device/subtitle-appearance"))
+        .and(body_json(serde_json::json!({"value": "{\"fontSize\":\"xxlarge\"}"})))
+        .respond_with(json("subtitle_appearance_update.json", 200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/v2/settings/device/subtitle-appearance"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let now = api.subtitle_appearance(&server.uri(), &auth).await.unwrap();
+    assert!(now.has_device_override);
+    assert_eq!(now.effective_value, r#"{"fontSize":"xxlarge"}"#);
+    assert_eq!(now.global_value, r#"{"fontSize":"large"}"#);
+    let saved = api
+        .subtitle_appearance_set(&server.uri(), &auth, r#"{"fontSize":"xxlarge"}"#)
+        .await
+        .unwrap();
+    assert_eq!(saved.device_value.as_deref(), Some(r#"{"fontSize":"xxlarge"}"#));
+    api.subtitle_appearance_reset(&server.uri(), &auth).await.unwrap();
+}

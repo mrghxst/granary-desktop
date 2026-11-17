@@ -23,9 +23,18 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ContextMenu, type MenuAction } from "../components/ContextMenu";
-import { artwork } from "../lib/catalog";
+import { artwork, catalog, type SubtitleAppearanceSetting } from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { formatTime } from "../lib/play";
+import {
+  BACKGROUND_STYLES,
+  FONT_COLORS,
+  FONT_SIZES,
+  POSITIONS,
+  effective,
+  parseAppearance,
+  withMember,
+} from "../lib/subtitleAppearance";
 import { SLEEP_MINUTES, SLEEP_OFF, sleepCountdown } from "../lib/sleepTimer";
 import { rememberTracks } from "../lib/trackMemory";
 import { audioInfo, subtitleInfo, trackSummary, type TrackInfo } from "../lib/tracks";
@@ -67,7 +76,7 @@ const PROMPT_POP_MS = 8000;
 const HIDE_PAUSED_MS = 30000;
 /** A paused picture dims the controls first. */
 const DIM_PAUSED_MS = 8000;
-type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep";
+type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep" | "subStyle";
 
 interface SubtitleOption {
   key: string;
@@ -174,6 +183,123 @@ function Choice({ selected, onSelect, children }: { selected: boolean; onSelect:
       <Check className={`size-4 shrink-0 transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
       {children}
     </button>
+  );
+}
+
+function MenuHeading({ children }: { children: ReactNode }) {
+  return <div className="px-3 pt-2 pb-1 text-xs text-white/60 uppercase">{children}</div>;
+}
+
+/**
+ * The subtitle appearance on this computer: saved on the server as this device's override of the profile's
+ * appearance (as the web app's Settings > Subtitles does per device), and applied to the playing file at once.
+ */
+function SubtitleStyleMenu({ serverId, onClose }: { serverId: string; onClose: () => void }) {
+  const { t } = useTranslation();
+  const [setting, setSetting] = useState<SubtitleAppearanceSetting | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    catalog
+      .subtitleAppearance(serverId)
+      .then((s) => {
+        if (alive) setSetting(s);
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(errorMessage(t, e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [serverId, t]);
+  const a = parseAppearance(setting?.effective_value ?? "");
+  const apply = (next: Promise<SubtitleAppearanceSetting>) => {
+    setError(null);
+    next
+      .then((s) => {
+        setSetting(s);
+        return player.subtitleStyle(s.effective_value);
+      })
+      .catch((e: unknown) => {
+        setError(errorMessage(t, e));
+      });
+  };
+  const choose = <K extends "fontSize" | "fontColor" | "backgroundStyle" | "position">(
+    key: K,
+    value: (typeof a)[K],
+  ) => {
+    apply(catalog.subtitleAppearanceSet(serverId, withMember(a, key, value)));
+  };
+  return (
+    <Popover title={t("player.subStyle")} onClose={onClose}>
+      {error ? <div className="px-3 py-2 text-red-300">{error}</div> : null}
+      {setting === null && !error ? <div className="px-3 py-2 text-white/60">{t("status.loading")}</div> : null}
+      {setting !== null ? (
+        <>
+          <MenuHeading>{t("player.subStyleSize")}</MenuHeading>
+          {FONT_SIZES.map((s) => (
+            <Choice
+              key={s}
+              selected={effective(a, "fontSize") === s}
+              onSelect={() => {
+                choose("fontSize", s);
+              }}
+            >
+              {t(`player.subStyleSizes.${s}`)}
+            </Choice>
+          ))}
+          <MenuHeading>{t("player.subStyleColor")}</MenuHeading>
+          {FONT_COLORS.map((c) => (
+            <Choice
+              key={c}
+              selected={effective(a, "fontColor").toLowerCase() === c}
+              onSelect={() => {
+                choose("fontColor", c);
+              }}
+            >
+              <span className="size-4 rounded-full border border-white/30" style={{ background: c }} />
+              {t(`player.subStyleColors.${c.slice(1)}`)}
+            </Choice>
+          ))}
+          <MenuHeading>{t("player.subStyleBackground")}</MenuHeading>
+          {BACKGROUND_STYLES.map((b) => (
+            <Choice
+              key={b}
+              selected={effective(a, "backgroundStyle") === b}
+              onSelect={() => {
+                choose("backgroundStyle", b);
+              }}
+            >
+              {t(`player.subStyleBackgrounds.${b}`)}
+            </Choice>
+          ))}
+          <MenuHeading>{t("player.subStylePosition")}</MenuHeading>
+          {POSITIONS.map((p) => (
+            <Choice
+              key={p}
+              selected={effective(a, "position") === p}
+              onSelect={() => {
+                choose("position", p);
+              }}
+            >
+              {t(`player.subStylePositions.${p === "lower-third" ? "lowerThird" : p}`)}
+            </Choice>
+          ))}
+          <p className="px-3 pt-2 text-xs text-white/60">{t("player.subStyleHint")}</p>
+          {setting.has_device_override ? (
+            <button
+              type="button"
+              className="mx-3 mt-2 mb-1 rounded-lg bg-white/10 px-3 py-2 text-left hover:bg-white/15"
+              onClick={() => {
+                apply(catalog.subtitleAppearanceReset(serverId).then(() => catalog.subtitleAppearance(serverId)));
+              }}
+            >
+              {t("player.subStyleReset")}
+            </button>
+          ) : null}
+        </>
+      ) : null}
+    </Popover>
   );
 }
 
@@ -1417,7 +1543,28 @@ function PlayerControls() {
               set("sub-scale", settings.subtitles.scale);
             }}
           />
+          {ctx ? (
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left font-medium text-white/85 hover:bg-white/[0.07] hover:text-white"
+              onClick={() => {
+                setMenu("subStyle");
+              }}
+            >
+              {t("player.subStyle")}
+              <span aria-hidden="true">›</span>
+            </button>
+          ) : null}
         </Popover>
+      ) : null}
+
+      {menu === "subStyle" && ctx ? (
+        <SubtitleStyleMenu
+          serverId={ctx.serverId}
+          onClose={() => {
+            setMenu(null);
+          }}
+        />
       ) : null}
 
       {menu === "speed" ? (

@@ -11,7 +11,7 @@ use granary_silo_api::catalog::{
     RecommendationRow, RequestDiscoverSection, RequestFeatureStatus, RequestMediaPage, Season, Section, TasteProfile,
     TitleRequest, TitleRequestCreate, WatchDetail,
 };
-use granary_silo_api::catalog::{HomeRowOverrideWrite, HomeRows};
+use granary_silo_api::catalog::{HomeRowOverrideWrite, HomeRows, SubtitleAppearanceSetting};
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -476,6 +476,41 @@ pub async fn home_rows_save(
 pub async fn home_rows_reset(state: State<'_, SiloState>, server_id: String) -> CmdResult<()> {
     state
         .with_session(&server_id, |s| async move { s.home_rows_reset().await })
+        .await
+}
+
+/// The subtitle appearance for this profile on this computer (`getEffectiveSubtitleAppearance`).
+#[tauri::command]
+pub async fn subtitle_appearance(
+    state: State<'_, SiloState>,
+    server_id: String,
+) -> CmdResult<SubtitleAppearanceSetting> {
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_appearance().await })
+        .await
+}
+
+/// Save this computer's subtitle appearance (`updateSubtitleAppearanceDeviceOverride`); `value` must be a JSON object.
+#[tauri::command]
+pub async fn subtitle_appearance_set(
+    state: State<'_, SiloState>,
+    server_id: String,
+    value: String,
+) -> CmdResult<SubtitleAppearanceSetting> {
+    let object = serde_json::from_str::<serde_json::Value>(&value).is_ok_and(|v| v.is_object());
+    if value.len() > 2048 || !object {
+        return Err(CommandError::invalid("subtitle appearance: a JSON object".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_appearance_set(&value).await })
+        .await
+}
+
+/// Drop this computer's subtitle appearance: the profile's applies again (`deleteSubtitleAppearanceDeviceOverride`).
+#[tauri::command]
+pub async fn subtitle_appearance_reset(state: State<'_, SiloState>, server_id: String) -> CmdResult<()> {
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_appearance_reset().await })
         .await
 }
 

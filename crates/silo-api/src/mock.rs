@@ -69,6 +69,8 @@ pub struct MockSiloApi {
     inbox: Mutex<Vec<NotificationItem>>,
     /// The home page overrides saved so far.
     home_overrides: Mutex<Vec<HomeRowOverrideWrite>>,
+    /// This device's subtitle appearance override, if any.
+    subtitle_device: Mutex<Option<String>>,
 }
 
 /// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
@@ -169,6 +171,7 @@ impl MockSiloApi {
             requests: Mutex::new(Vec::new()),
             inbox: Mutex::new(demo::inbox()),
             home_overrides: Mutex::new(Vec::new()),
+            subtitle_device: Mutex::new(None),
         }
     }
 
@@ -1718,6 +1721,42 @@ impl SiloApi for MockSiloApi {
             .lock()
             .map_err(|_| problem(500, "internal"))?
             .clear();
+        Ok(())
+    }
+
+    async fn subtitle_appearance(&self, _origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting> {
+        self.check(auth)?;
+        let global = r#"{"fontSize":"large"}"#.to_owned();
+        let device = self
+            .subtitle_device
+            .lock()
+            .map_err(|_| problem(500, "internal"))?
+            .clone();
+        Ok(SubtitleAppearanceSetting {
+            effective_value: device.clone().unwrap_or_else(|| global.clone()),
+            global_value: global,
+            has_device_override: device.is_some(),
+            device_value: device,
+        })
+    }
+
+    async fn subtitle_appearance_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        value: &str,
+    ) -> Result<SubtitleAppearanceSetting> {
+        self.check(auth)?;
+        if serde_json::from_str::<serde_json::Value>(value).is_err() {
+            return Err(problem(422, "validation_failed"));
+        }
+        *self.subtitle_device.lock().map_err(|_| problem(500, "internal"))? = Some(value.to_owned());
+        self.subtitle_appearance(origin, auth).await
+    }
+
+    async fn subtitle_appearance_reset(&self, _origin: &str, auth: &Auth) -> Result<()> {
+        self.check(auth)?;
+        *self.subtitle_device.lock().map_err(|_| problem(500, "internal"))? = None;
         Ok(())
     }
 

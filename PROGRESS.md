@@ -30,6 +30,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient
   letterbox, marker editing, Watch Together
   - [x] R8a sleep timer and "Are you still watching?" (client only; countdown and the end-of-file gate checked live in mock mode, the card itself only by code review)
+  - [x] R8b subtitle appearance (server effective value + device override, mpv options; checked live in mock mode, the rendered look not inspected)
 - [ ] R9 Audiobook player
 - [ ] R10 Ebook and manga reader
 

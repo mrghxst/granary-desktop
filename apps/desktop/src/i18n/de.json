@@ -395,7 +395,39 @@
     "stillWatching": "Schaust du noch?",
     "stillWatchingNext": "Als Nächstes: {{title}}",
     "keepWatching": "Weiterschauen",
-    "notNow": "Jetzt nicht"
+    "notNow": "Jetzt nicht",
+    "subStyle": "Untertitel-Stil",
+    "subStyleSize": "Größe",
+    "subStyleSizes": {
+      "small": "Klein",
+      "medium": "Mittel",
+      "large": "Groß",
+      "xlarge": "Sehr groß",
+      "xxlarge": "Riesig"
+    },
+    "subStyleColor": "Textfarbe",
+    "subStyleColors": {
+      "ffffff": "Weiß",
+      "ffff00": "Gelb",
+      "00ffff": "Cyan",
+      "00ff00": "Grün",
+      "ff00ff": "Magenta"
+    },
+    "subStyleBackground": "Hintergrund",
+    "subStyleBackgrounds": {
+      "box": "Kasten",
+      "shadow": "Schatten",
+      "outline": "Kontur",
+      "none": "Keiner"
+    },
+    "subStylePosition": "Position",
+    "subStylePositions": {
+      "bottom": "Unten",
+      "lowerThird": "Unteres Drittel",
+      "top": "Oben"
+    },
+    "subStyleHint": "Für diesen Computer auf dem Server gespeichert. Gilt für einfache Text-Untertitel; gestaltete (ASS-)Untertitel behalten ihr eigenes Aussehen.",
+    "subStyleReset": "Stil des Profils verwenden"
   },
   "errors": {
     "unknown": "Etwas ist schiefgelaufen.",

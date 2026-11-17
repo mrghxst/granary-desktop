@@ -10,6 +10,7 @@ pub mod platform;
 pub mod preview;
 pub mod relay;
 pub mod rendering;
+pub mod subtitle_style;
 #[cfg(windows)]
 pub mod video;
 
