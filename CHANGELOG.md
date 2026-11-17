@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Requests page (sidebar): ask the server for films and series it does not have, from its suggestion rows or by
+  search, and follow or withdraw your own requests. Shown only as a notice when the server has requests off.
 - "For You" page (sidebar): the server's recommendation rows for your profile, with your top genres and directors
   once the server knows them; a row's heading opens the whole row.
 - Calendar page (sidebar): what airs or is released in a week, day by day, for the titles you follow, the

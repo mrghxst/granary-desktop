@@ -1156,3 +1156,61 @@ async fn http_client_reads_the_calendar() {
     assert_eq!(day.date, event.local_air_date);
     assert!(!event.content_id.is_empty() && !event.title.is_empty() && !event.kind.is_empty());
 }
+
+/// The request operations are not in the OAS subset yet: this serves the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/{request_status,list_my_requests,create_request,cancel_request}_ok.json@749db96a`)
+/// and checks the body Granary sends for a new request.
+#[tokio::test]
+async fn http_client_speaks_the_requests_contract() {
+    use granary_silo_api::catalog::TitleRequestCreate;
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    for (verb, at, fixture, status) in [
+        ("GET", "/api/v2/requests/status", "request_status.json", 200),
+        ("GET", "/api/v2/requests/mine", "list_my_requests.json", 200),
+        ("POST", "/api/v2/requests/r-2/cancel", "cancel_request.json", 200),
+    ] {
+        Mock::given(method(verb))
+            .and(path(at))
+            .and(header("X-Profile-Id", "7"))
+            .respond_with(json(fixture, status))
+            .mount(&server)
+            .await;
+    }
+    // Members that are not set are left out: the server refuses unknown and null members.
+    Mock::given(method("POST"))
+        .and(path("/api/v2/requests"))
+        .and(body_json(
+            serde_json::json!({"media_type": "movie", "tmdb_id": 12345, "title": "Example", "year": 1995}),
+        ))
+        .respond_with(json("create_request.json", 201))
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let status = api.request_status(&server.uri(), &auth).await.unwrap();
+    assert!(status.state == "available" && status.allowed && status.requests_enabled);
+
+    let mine = api.my_requests(&server.uri(), &auth).await.unwrap().items;
+    let first = mine.first().expect("the fixture has a request");
+    assert_eq!(
+        (first.id.as_str(), first.title.as_str(), first.state.as_str()),
+        ("r-2", "Heat", "pending")
+    );
+
+    let body = TitleRequestCreate {
+        media_type: "movie".into(),
+        tmdb_id: 12345,
+        title: "Example".into(),
+        year: Some(1995),
+        ..TitleRequestCreate::default()
+    };
+    let created = api.create_request(&server.uri(), &auth, &body).await.unwrap();
+    assert!(!created.id.is_empty() && created.outcome == "active");
+
+    let cancelled = api.cancel_request(&server.uri(), &auth, "r-2").await.unwrap();
+    // The answer is the request as it stands; the sample is still active, so the list is read again afterwards.
+    assert_eq!(cancelled.id, "r-1");
+}

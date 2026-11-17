@@ -542,5 +542,39 @@
     "sectionEmptyBody": "This row has no titles at the moment.",
     "count_one": "{{count}} title",
     "count_other": "{{count}} titles"
+  },
+  "requests": {
+    "title": "Requests",
+    "subtitle": "Ask the server for films and series it does not have yet.",
+    "tab": { "discover": "Discover", "search": "Search", "mine": "My requests" },
+    "notConfigured": "Requests are not set up on this server. The server's administrator can turn them on.",
+    "disabled": "Requests are turned off on this server.",
+    "notAllowed": "This profile is not allowed to make requests.",
+    "discoverEmpty": "The server has no titles to suggest right now. Use the search to find one.",
+    "searchPlaceholder": "Search films and series to request",
+    "searchHint": "Type a title to search the catalogue the server requests from.",
+    "searchEmpty": "Nothing found for \"{{query}}\".",
+    "mineEmpty": "You have not requested anything yet.",
+    "movie": "Film",
+    "series": "Series",
+    "request": "Request",
+    "requesting": "Requesting…",
+    "requestTitle": "Request {{title}}",
+    "inLibrary": "In library",
+    "notRequestable": "Not requestable",
+    "cancel": "Withdraw",
+    "cancelTitle": "Withdraw the request for {{title}}",
+    "seasons": "Seasons {{seasons}}",
+    "requestedOn": "requested {{date}}",
+    "state": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "processing": "Processing",
+      "partially_available": "Partly available",
+      "available": "Available",
+      "declined": "Declined",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    }
   }
 }

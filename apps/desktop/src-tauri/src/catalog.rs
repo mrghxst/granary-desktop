@@ -7,7 +7,8 @@ use granary_silo_api::api::{PageQuery, UserFlag};
 use granary_silo_api::catalog::{
     BoxSet, CalendarDay, CalendarQuery, CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection,
     CatalogItemDetail, CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection,
-    RecommendationRow, Season, Section, TasteProfile, WatchDetail,
+    RecommendationRow, RequestDiscoverSection, RequestFeatureStatus, RequestMediaPage, Season, Section, TasteProfile,
+    TitleRequest, TitleRequestCreate, WatchDetail,
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
@@ -366,6 +367,82 @@ pub async fn item_box_set(
 ) -> CmdResult<Option<BoxSet>> {
     state
         .with_session(&server_id, |s| async move { s.item_box_set(&item_id).await })
+        .await
+}
+
+/// Whether the viewer can request titles (`getRequestStatus`).
+#[tauri::command]
+pub async fn request_status(state: State<'_, SiloState>, server_id: String) -> CmdResult<RequestFeatureStatus> {
+    state
+        .with_session(&server_id, |s| async move { s.request_status().await })
+        .await
+}
+
+/// The rows of titles to request (`listDiscoverSections`).
+#[tauri::command]
+pub async fn request_discover(
+    state: State<'_, SiloState>,
+    server_id: String,
+) -> CmdResult<Vec<RequestDiscoverSection>> {
+    state
+        .with_session(&server_id, |s| async move { s.request_discover().await })
+        .await
+}
+
+/// Search the request provider (`searchRequestMedia`); an empty query is an empty page.
+#[tauri::command]
+pub async fn request_search(
+    state: State<'_, SiloState>,
+    server_id: String,
+    q: String,
+    media_type: Option<String>,
+    page: Option<u32>,
+) -> CmdResult<RequestMediaPage> {
+    let q = q.trim().to_owned();
+    if q.is_empty() {
+        return Ok(RequestMediaPage::default());
+    }
+    let media_type = media_type
+        .filter(|m| matches!(m.as_str(), "movie" | "series"))
+        .unwrap_or_else(|| "all".to_owned());
+    let page = page.unwrap_or(1).clamp(1, 500);
+    state
+        .with_session(
+            &server_id,
+            |s| async move { s.request_search(&q, &media_type, page).await },
+        )
+        .await
+}
+
+/// The account's requests, newest first (`listMyRequests`).
+#[tauri::command]
+pub async fn request_list(state: State<'_, SiloState>, server_id: String) -> CmdResult<Vec<TitleRequest>> {
+    state
+        .with_session(&server_id, |s| async move { s.my_requests().await })
+        .await
+}
+
+/// Request a movie or series (`createRequest`).
+#[tauri::command]
+pub async fn request_create(
+    state: State<'_, SiloState>,
+    server_id: String,
+    request: TitleRequestCreate,
+) -> CmdResult<TitleRequest> {
+    state
+        .with_session(&server_id, |s| async move { s.create_request(&request).await })
+        .await
+}
+
+/// Withdraw a request (`cancelRequest`).
+#[tauri::command]
+pub async fn request_cancel(
+    state: State<'_, SiloState>,
+    server_id: String,
+    request_id: String,
+) -> CmdResult<TitleRequest> {
+    state
+        .with_session(&server_id, |s| async move { s.cancel_request(&request_id).await })
         .await
 }
 

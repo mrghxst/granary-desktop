@@ -188,6 +188,29 @@ Read from `silo-server/internal/apiv2/recommendations.go@749db96a` and the fixtu
 
 Granary shows the server's `title` as it is (English); `title_key` and `title_args` are not used.
 
+### 4.1e Requests
+
+Read from `silo-server/internal/apiv2/requests.go@749db96a`, `contracts/api/v2/openapi.json@749db96a` and the fixtures
+`contracts/api/v2/fixtures/{request_status,list_my_requests,create_request,cancel_request}_ok.json@749db96a`. All are
+`profile_scoped`.
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/requests/status` (`getRequestStatus`) | `FeatureStatus`: `state*` (`available`, `disabled`, `not_configured`, `unsupported`), `allowed*`, `requests_enabled*`, capability flags. |
+| `GET /api/v2/requests/discover` (`listDiscoverSections`) | `{items*: [DiscoverSection {key*, title*, results*: [RequestMediaResult], page*, total_pages*, …}], row_order*}`: each title row with its first page. |
+| `GET /api/v2/requests/search?q=&media_type=&page=` (`searchRequestMedia`) | `RequestMediaPage {page*, results*, total_pages*, total_results*}`; `media_type` is `movie`, `series` or `all`. |
+| `GET /api/v2/requests/mine` (`listMyRequests`) | `{items*: [MediaRequest], page?}`, newest first, 50 per page (the maximum). Granary reads the first page. |
+| `POST /api/v2/requests` (`createRequest`) | Body `MediaRequestCreate {media_type*, tmdb_id*, title*, year?, overview?, poster_path?, backdrop_path?, imdb_id?, tvdb_id?, seasons?}`, no other members; `201 MediaRequest`. Without `seasons` a series request covers every aired season not complete in the library. Upstream: an uncertain answer must not be retried automatically. |
+| `POST /api/v2/requests/{id}/cancel` (`cancelRequest`) | `200 MediaRequest` as it stands (the upstream sample is still `active`), so the list is read again. |
+
+`RequestMediaResult`: `tmdb_id*`, `media_type*`, `title*`, `availability*` (`missing`, `available`), `in_watchlist*`,
+`request*: RequestMediaState {requestable*, requested_by_viewer*, following*, reason?, request_id?, state?, status?}`,
+`year?`, `overview?`, `poster_path?`, `backdrop_path?`, `library_content_id?`. `MediaRequest.state` is the one state to
+show: `pending`, `approved`, `processing`, `partially_available`, `available`, `declined`, `cancelled`, `failed`.
+Posters are TMDB paths; the web app loads them from `https://image.tmdb.org/t/p/w342` (`web/src/lib/mediaRequests.ts@749db96a`)
+and so does Granary, through the host's image handler without credentials. Not used: title detail, follow, season
+choice, discover browse by genre, network or studio, see-all pages.
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

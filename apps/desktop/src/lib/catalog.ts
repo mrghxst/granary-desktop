@@ -239,6 +239,83 @@ export interface BoxSet {
   items: CatalogItem[];
 }
 
+/** Whether the viewer can request titles (`FeatureStatus`). */
+export interface RequestFeatureStatus {
+  /** `available`, `disabled`, `not_configured` or `unsupported`. */
+  state: string;
+  allowed: boolean;
+  requests_enabled: boolean;
+}
+
+/** What the viewer can do with a title, and the active request if there is one (`RequestMediaState`). */
+export interface RequestMediaState {
+  requestable: boolean;
+  requested_by_viewer: boolean;
+  reason?: string | null;
+  request_id?: string | null;
+  /** `pending`, `approved` or `processing`, when a request is active. */
+  state?: string | null;
+}
+
+/** A movie or series of the request provider with its state on this server (`RequestMediaResult`). */
+export interface RequestMediaResult {
+  tmdb_id: number;
+  /** `movie` or `series`. */
+  media_type: string;
+  title: string;
+  year?: number | null;
+  overview?: string | null;
+  /** TMDB image path (`/abc.jpg`). */
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  /** `missing` or `available` in this server's catalog. */
+  availability: string;
+  library_content_id?: string | null;
+  request: RequestMediaState;
+}
+
+export interface RequestMediaPage {
+  page: number;
+  total_pages: number;
+  results: RequestMediaResult[];
+}
+
+/** One row of titles to request (`DiscoverSection`). */
+export interface RequestDiscoverSection {
+  key: string;
+  title: string;
+  results: RequestMediaResult[];
+}
+
+/** A request for a movie or series (`MediaRequest`). */
+export interface TitleRequest {
+  id: string;
+  tmdb_id: number;
+  media_type: string;
+  title: string;
+  year?: number | null;
+  poster_path?: string | null;
+  /** `pending`, `approved`, `processing`, `partially_available`, `available`, `declined`, `cancelled`, `failed`. */
+  state: string;
+  outcome: string;
+  outcome_reason?: string | null;
+  created_at: string;
+  library_content_id?: string | null;
+  seasons: number[];
+  download?: { phase: string; percent?: number | null } | null;
+}
+
+/** The `createRequest` body; members that are not known are left out. */
+export interface TitleRequestCreate {
+  media_type: string;
+  tmdb_id: number;
+  title: string;
+  year?: number;
+  overview?: string;
+  poster_path?: string;
+  backdrop_path?: string;
+}
+
 /** One row of the "For You" page, or one row in full (`RecommendationRow`). */
 export interface RecommendationRow {
   /** `cluster`, `similar_users_liked`, `popular`, `recently_added`, `top_rated`, `genre_sampler`. */
@@ -492,6 +569,13 @@ export const catalog = {
   boxSet: (serverId: string, libraryId: string, boxSetId: string) =>
     call<BoxSet>("box_set_get", { serverId, libraryId, boxSetId }),
   itemBoxSet: (serverId: string, itemId: string) => call<BoxSet | null>("item_box_set", { serverId, itemId }),
+  requestStatus: (serverId: string) => call<RequestFeatureStatus>("request_status", { serverId }),
+  requestDiscover: (serverId: string) => call<RequestDiscoverSection[]>("request_discover", { serverId }),
+  requestSearch: (serverId: string, q: string) => call<RequestMediaPage>("request_search", { serverId, q }),
+  requestList: (serverId: string) => call<TitleRequest[]>("request_list", { serverId }),
+  requestCreate: (serverId: string, request: TitleRequestCreate) =>
+    call<TitleRequest>("request_create", { serverId, request }),
+  requestCancel: (serverId: string, requestId: string) => call<TitleRequest>("request_cancel", { serverId, requestId }),
   /** The profile's recommendation rows that have cards. */
   discover: (serverId: string) => call<RecommendationRow[]>("recommendations_discover", { serverId }),
   recommendationSection: (serverId: string, kind: string, key: string | null) =>

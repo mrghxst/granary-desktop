@@ -542,5 +542,39 @@
     "sectionEmptyBody": "Diese Reihe hat im Moment keine Titel.",
     "count_one": "{{count}} Titel",
     "count_other": "{{count}} Titel"
+  },
+  "requests": {
+    "title": "Anfragen",
+    "subtitle": "Bitte den Server um Filme und Serien, die er noch nicht hat.",
+    "tab": { "discover": "Entdecken", "search": "Suche", "mine": "Meine Anfragen" },
+    "notConfigured": "Anfragen sind auf diesem Server nicht eingerichtet. Die Verwaltung des Servers kann sie einschalten.",
+    "disabled": "Anfragen sind auf diesem Server ausgeschaltet.",
+    "notAllowed": "Dieses Profil darf keine Anfragen stellen.",
+    "discoverEmpty": "Der Server hat gerade keine Vorschläge. Nutze die Suche, um einen Titel zu finden.",
+    "searchPlaceholder": "Filme und Serien zum Anfragen suchen",
+    "searchHint": "Gib einen Titel ein, um den Katalog zu durchsuchen, aus dem der Server anfragt.",
+    "searchEmpty": "Nichts gefunden für „{{query}}“.",
+    "mineEmpty": "Du hast noch nichts angefragt.",
+    "movie": "Film",
+    "series": "Serie",
+    "request": "Anfragen",
+    "requesting": "Wird angefragt…",
+    "requestTitle": "{{title}} anfragen",
+    "inLibrary": "In der Mediathek",
+    "notRequestable": "Nicht anfragbar",
+    "cancel": "Zurückziehen",
+    "cancelTitle": "Anfrage für {{title}} zurückziehen",
+    "seasons": "Staffeln {{seasons}}",
+    "requestedOn": "angefragt am {{date}}",
+    "state": {
+      "pending": "Ausstehend",
+      "approved": "Genehmigt",
+      "processing": "In Arbeit",
+      "partially_available": "Teilweise verfügbar",
+      "available": "Verfügbar",
+      "declined": "Abgelehnt",
+      "cancelled": "Zurückgezogen",
+      "failed": "Fehlgeschlagen"
+    }
   }
 }

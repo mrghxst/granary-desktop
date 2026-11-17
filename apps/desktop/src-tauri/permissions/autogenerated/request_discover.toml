@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-request-discover"
+description = "Enables the request_discover command without any pre-configured scope."
+commands.allow = ["request_discover"]
+
+[[permission]]
+identifier = "deny-request-discover"
+description = "Denies the request_discover command without any pre-configured scope."
+commands.deny = ["request_discover"]

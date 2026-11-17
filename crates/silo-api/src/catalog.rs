@@ -288,6 +288,128 @@ pub struct CatalogItemBoxSet {
     pub box_set: Option<BoxSet>,
 }
 
+/// `FeatureStatus` (`getRequestStatus`): whether the viewer can request titles.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestFeatureStatus {
+    /// `available`, `disabled`, `not_configured` or `unsupported`.
+    pub state: String,
+    /// Whether this viewer may make requests.
+    pub allowed: bool,
+    pub requests_enabled: bool,
+}
+
+/// `RequestDownload`: how far a request's download is.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestDownload {
+    pub phase: String,
+    pub percent: Option<i64>,
+}
+
+/// `RequestMediaState`: what the viewer can do with a title, and the active request if there is one.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestMediaState {
+    pub requestable: bool,
+    pub requested_by_viewer: bool,
+    /// Why the title is not requestable.
+    pub reason: Option<String>,
+    pub request_id: Option<String>,
+    /// `pending`, `approved` or `processing`, when a request is active.
+    pub state: Option<String>,
+}
+
+/// `RequestMediaResult`: a movie or series of the request provider (TMDB), with its state on this server.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestMediaResult {
+    pub tmdb_id: i64,
+    /// `movie` or `series`.
+    pub media_type: String,
+    pub title: String,
+    pub year: Option<i64>,
+    pub overview: Option<String>,
+    /// TMDB image path (`/abc.jpg`).
+    pub poster_path: Option<String>,
+    pub backdrop_path: Option<String>,
+    /// `missing` or `available` in this server's catalog.
+    pub availability: String,
+    pub library_content_id: Option<String>,
+    pub request: RequestMediaState,
+}
+
+/// `RequestMediaPage` (`searchRequestMedia`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestMediaPage {
+    pub page: i64,
+    pub total_pages: i64,
+    pub results: Vec<RequestMediaResult>,
+}
+
+/// `DiscoverSection`: one row of titles to request, with its first page.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestDiscoverSection {
+    pub key: String,
+    pub title: String,
+    pub results: Vec<RequestMediaResult>,
+}
+
+/// `DiscoverSectionCollection` (`listDiscoverSections`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RequestDiscoverSectionCollection {
+    pub items: Vec<RequestDiscoverSection>,
+}
+
+/// `MediaRequest`: a request for a movie or series.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TitleRequest {
+    pub id: String,
+    pub tmdb_id: i64,
+    pub media_type: String,
+    pub title: String,
+    pub year: Option<i64>,
+    pub poster_path: Option<String>,
+    /// The one state to show: `pending`, `approved`, `processing`, `partially_available`, `available`, `declined`,
+    /// `cancelled` or `failed`.
+    pub state: String,
+    /// `active`, `declined`, `cancelled`, `failed`.
+    pub outcome: String,
+    pub outcome_reason: Option<String>,
+    pub created_at: String,
+    pub library_content_id: Option<String>,
+    pub seasons: Vec<i64>,
+    pub download: Option<RequestDownload>,
+}
+
+/// `TitleRequestCollection` (`listMyRequests`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TitleRequestCollection {
+    pub items: Vec<TitleRequest>,
+}
+
+/// `TitleRequestCreate`: the `createRequest` body. Without `seasons` a series request covers every aired season
+/// that is not complete in the library.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TitleRequestCreate {
+    pub media_type: String,
+    pub tmdb_id: i64,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub year: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overview: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub poster_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backdrop_path: Option<String>,
+}
+
 /// `RecommendationRow`: one row of the Discover page, or one section in full.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

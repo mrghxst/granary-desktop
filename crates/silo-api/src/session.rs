@@ -480,6 +480,39 @@ impl Session {
         }
     }
 
+    pub async fn request_status(&self) -> Result<RequestFeatureStatus> {
+        self.call_profile(|auth| async move { self.api.request_status(&self.origin, &auth).await })
+            .await
+    }
+
+    /// The rows of titles to request that have titles.
+    pub async fn request_discover(&self) -> Result<Vec<RequestDiscoverSection>> {
+        self.call_profile(|auth| async move { self.api.request_discover(&self.origin, &auth).await })
+            .await
+            .map(|c| c.items.into_iter().filter(|s| !s.results.is_empty()).collect())
+    }
+
+    pub async fn request_search(&self, q: &str, media_type: &str, page: u32) -> Result<RequestMediaPage> {
+        self.call_profile(|auth| async move { self.api.request_search(&self.origin, &auth, q, media_type, page).await })
+            .await
+    }
+
+    pub async fn my_requests(&self) -> Result<Vec<TitleRequest>> {
+        self.call_profile(|auth| async move { self.api.my_requests(&self.origin, &auth).await })
+            .await
+            .map(|c| c.items)
+    }
+
+    pub async fn create_request(&self, body: &TitleRequestCreate) -> Result<TitleRequest> {
+        self.call_profile(|auth| async move { self.api.create_request(&self.origin, &auth, body).await })
+            .await
+    }
+
+    pub async fn cancel_request(&self, id: &str) -> Result<TitleRequest> {
+        self.call_profile(|auth| async move { self.api.cancel_request(&self.origin, &auth, id).await })
+            .await
+    }
+
     /// The Discover rows that have cards.
     pub async fn discover(&self) -> Result<Vec<RecommendationRow>> {
         self.call_profile(|auth| async move { self.api.discover(&self.origin, &auth).await })

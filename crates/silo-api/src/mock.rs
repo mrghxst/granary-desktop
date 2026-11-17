@@ -64,6 +64,8 @@ pub struct MockSiloApi {
     /// Directory with the generated test clips (`scripts/gen-test-media.ps1`); media requests read from it.
     media_dir: Option<PathBuf>,
     playback: Mutex<MockPlayback>,
+    /// The requests made so far, newest first.
+    requests: Mutex<Vec<TitleRequest>>,
 }
 
 /// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
@@ -161,6 +163,7 @@ impl MockSiloApi {
             }),
             media_dir: None,
             playback: Mutex::new(MockPlayback::default()),
+            requests: Mutex::new(Vec::new()),
         }
     }
 
@@ -489,6 +492,25 @@ mod demo {
                 ..CatalogItemOverlay::default()
             }),
             ..CatalogItem::default()
+        }
+    }
+
+    /// A film the mock server does not have; `requested` once the mock holds a request.
+    pub fn request_result(requested: bool) -> RequestMediaResult {
+        RequestMediaResult {
+            tmdb_id: 949,
+            media_type: "movie".into(),
+            title: "Night Train".into(),
+            year: Some(1995),
+            availability: "missing".into(),
+            request: RequestMediaState {
+                requestable: !requested,
+                requested_by_viewer: requested,
+                reason: requested.then(|| "already_requested".into()),
+                request_id: requested.then(|| "r-949".into()),
+                state: requested.then(|| "pending".into()),
+            },
+            ..RequestMediaResult::default()
         }
     }
 
@@ -1558,6 +1580,92 @@ impl SiloApi for MockSiloApi {
     async fn item_box_set(&self, _origin: &str, auth: &Auth, _item_id: &str) -> Result<CatalogItemBoxSet> {
         self.check(auth)?;
         Ok(CatalogItemBoxSet::default())
+    }
+
+    async fn request_status(&self, _origin: &str, auth: &Auth) -> Result<RequestFeatureStatus> {
+        self.check(auth)?;
+        Ok(RequestFeatureStatus {
+            state: "available".into(),
+            allowed: true,
+            requests_enabled: true,
+        })
+    }
+
+    async fn request_discover(&self, _origin: &str, auth: &Auth) -> Result<RequestDiscoverSectionCollection> {
+        self.check(auth)?;
+        Ok(RequestDiscoverSectionCollection {
+            items: vec![RequestDiscoverSection {
+                key: "trending_movies".into(),
+                title: "Trending movies".into(),
+                results: vec![demo::request_result(
+                    self.requests.lock().map(|r| !r.is_empty()).unwrap_or(false),
+                )],
+            }],
+        })
+    }
+
+    async fn request_search(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        q: &str,
+        _media_type: &str,
+        _page: u32,
+    ) -> Result<RequestMediaPage> {
+        self.check(auth)?;
+        let hit = demo::request_result(self.requests.lock().map(|r| !r.is_empty()).unwrap_or(false));
+        let results = if hit.title.to_lowercase().contains(&q.to_lowercase()) {
+            vec![hit]
+        } else {
+            Vec::new()
+        };
+        Ok(RequestMediaPage {
+            page: 1,
+            total_pages: 1,
+            results,
+        })
+    }
+
+    async fn my_requests(&self, _origin: &str, auth: &Auth) -> Result<TitleRequestCollection> {
+        self.check(auth)?;
+        Ok(TitleRequestCollection {
+            items: self.requests.lock().map(|r| r.clone()).unwrap_or_default(),
+        })
+    }
+
+    async fn create_request(&self, _origin: &str, auth: &Auth, body: &TitleRequestCreate) -> Result<TitleRequest> {
+        self.check(auth)?;
+        let request = TitleRequest {
+            id: format!("r-{}", body.tmdb_id),
+            tmdb_id: body.tmdb_id,
+            media_type: body.media_type.clone(),
+            title: body.title.clone(),
+            year: body.year,
+            poster_path: body.poster_path.clone(),
+            state: "pending".into(),
+            outcome: "active".into(),
+            created_at: "2026-01-02T03:04:05.000Z".into(),
+            ..TitleRequest::default()
+        };
+        if let Ok(mut all) = self.requests.lock() {
+            if all.iter().any(|r| r.tmdb_id == body.tmdb_id && r.outcome == "active") {
+                return Err(problem(409, "conflict"));
+            }
+            all.insert(0, request.clone());
+        }
+        Ok(request)
+    }
+
+    async fn cancel_request(&self, _origin: &str, auth: &Auth, id: &str) -> Result<TitleRequest> {
+        self.check(auth)?;
+        let mut all = self.requests.lock().map_err(|_| problem(500, "internal"))?;
+        let request = all
+            .iter_mut()
+            .find(|r| r.id == id)
+            .ok_or_else(|| problem(404, "not_found"))?;
+        request.state = "cancelled".into();
+        request.outcome = "cancelled".into();
+        Ok(request.clone())
     }
 
     /// Two rows: a taste cluster with its own page, and a row without one.

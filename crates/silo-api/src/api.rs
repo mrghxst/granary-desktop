@@ -172,6 +172,25 @@ pub trait SiloApi: Send + Sync {
     async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet>;
     /// `getCatalogItemBoxSet`.
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet>;
+    /// `getRequestStatus`.
+    async fn request_status(&self, origin: &str, auth: &Auth) -> Result<RequestFeatureStatus>;
+    /// `listDiscoverSections`: the rows of titles to request, each with its first page.
+    async fn request_discover(&self, origin: &str, auth: &Auth) -> Result<RequestDiscoverSectionCollection>;
+    /// `searchRequestMedia`; `media_type` is `movie`, `series` or `all`.
+    async fn request_search(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        q: &str,
+        media_type: &str,
+        page: u32,
+    ) -> Result<RequestMediaPage>;
+    /// `listMyRequests`: the newest 50.
+    async fn my_requests(&self, origin: &str, auth: &Auth) -> Result<TitleRequestCollection>;
+    /// `createRequest`.
+    async fn create_request(&self, origin: &str, auth: &Auth, body: &TitleRequestCreate) -> Result<TitleRequest>;
+    /// `cancelRequest`.
+    async fn cancel_request(&self, origin: &str, auth: &Auth, id: &str) -> Result<TitleRequest>;
     /// `getDiscover`: the profile's recommendation rows with their cards.
     async fn discover(&self, origin: &str, auth: &Auth) -> Result<RecommendationRowCollection>;
     /// `getRecommendationSection`: one row in full; `cluster` and `genre` need a `key`.
@@ -626,6 +645,43 @@ impl SiloApi for HttpSiloApi {
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet> {
         let path = format!("/api/v2/catalog/items/{}/box-set", url_segment(item_id));
         send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn request_status(&self, origin: &str, auth: &Auth) -> Result<RequestFeatureStatus> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/requests/status", auth)).await
+    }
+
+    async fn request_discover(&self, origin: &str, auth: &Auth) -> Result<RequestDiscoverSectionCollection> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/requests/discover", auth)).await
+    }
+
+    async fn request_search(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        q: &str,
+        media_type: &str,
+        page: u32,
+    ) -> Result<RequestMediaPage> {
+        let page = page.to_string();
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/requests/search", auth)
+                .query(&[("q", q), ("media_type", media_type), ("page", page.as_str())]),
+        )
+        .await
+    }
+
+    async fn my_requests(&self, origin: &str, auth: &Auth) -> Result<TitleRequestCollection> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/requests/mine", auth)).await
+    }
+
+    async fn create_request(&self, origin: &str, auth: &Auth, body: &TitleRequestCreate) -> Result<TitleRequest> {
+        send_json(self.authed(Method::POST, origin, "/api/v2/requests", auth).json(body)).await
+    }
+
+    async fn cancel_request(&self, origin: &str, auth: &Auth, id: &str) -> Result<TitleRequest> {
+        let path = format!("/api/v2/requests/{}/cancel", url_segment(id));
+        send_json(self.authed(Method::POST, origin, &path, auth)).await
     }
 
     async fn discover(&self, origin: &str, auth: &Auth) -> Result<RecommendationRowCollection> {

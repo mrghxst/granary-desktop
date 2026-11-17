@@ -24,7 +24,7 @@ Ported from the Silo web app, in this order; each step starts with its endpoints
 - [x] R2 Collections pages, box-set pages, read side (2026-11-16). Open: collection editor; box sets as cards in library browsing and search (`searchCatalogBoxSets`); contract fixtures for the new operations
 - [x] R3 Calendar (`calendar`, `getCalendar` by week with Following, Trending, Everything; checked on the owner's server 2026-11-17). Open: per-library filter
 - [x] R4 Recommendations pages ("For You": `getDiscover` rows, taste summary, a page per row; checked on the owner's server 2026-11-17). Open: row titles are the server's English labels
-- [ ] R5 Requests (discover, browse, request a title)
+- [x] R5 Requests (discover rows, search, request a title, own requests with withdraw; read side checked on the owner's server 2026-11-17, creating and withdrawing only against the mock). Open: title detail, season choice, follow, browse by genre/network/studio, see-all pages, more than 50 own requests
 - [ ] R6 Notifications
 - [ ] R7 Theme music on title pages; customise home screen
 - [ ] R8 Player: sleep timer, "still watching", subtitle appearance, subtitle search and translation, ambient

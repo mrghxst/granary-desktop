@@ -6,6 +6,7 @@ import {
   Heart,
   History,
   Home,
+  Inbox,
   Info,
   Layers,
   Search,
@@ -213,6 +214,11 @@ export function Shell() {
               to={`${base}/calendar`}
               icon={<CalendarDays className="size-[18px] shrink-0" />}
               label={t("calendar.title")}
+            />
+            <Item
+              to={`${base}/requests`}
+              icon={<Inbox className="size-[18px] shrink-0" />}
+              label={t("requests.title")}
             />
           </ul>
         </div>
