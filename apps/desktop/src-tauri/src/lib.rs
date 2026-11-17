@@ -298,6 +298,7 @@ pub fn run() {
             catalog::recommendations_discover,
             catalog::recommendations_section,
             catalog::taste_profile,
+            catalog::theme_audio,
             catalog::notifications_list,
             catalog::notifications_unread,
             catalog::notification_read,

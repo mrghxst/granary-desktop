@@ -28,6 +28,20 @@ pub struct ImageData {
 
 /// Largest artwork body accepted (bytes); larger responses are refused rather than buffered.
 pub const MAX_IMAGE_BYTES: usize = 16 * 1024 * 1024;
+/// Largest theme tune the app loads (it is decoded in memory).
+pub const MAX_AUDIO_BYTES: usize = 32 * 1024 * 1024;
+/// Container and codec pairs sent as `accepted_formats` of a theme grant.
+const THEME_FORMATS: &[(&str, &str)] = &[
+    ("mp3", "mp3"),
+    ("mp4", "aac"),
+    ("m4a", "aac"),
+    ("aac", "aac"),
+    ("flac", "flac"),
+    ("ogg", "vorbis"),
+    ("ogg", "opus"),
+    ("opus", "opus"),
+    ("wav", "pcm"),
+];
 
 /// Raster image types Granary displays. SVG is refused: it can carry script, and the artwork scheme is served from
 /// an origin Tauri treats as local (phase-5 review M3).
@@ -172,6 +186,10 @@ pub trait SiloApi: Send + Sync {
     async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet>;
     /// `getCatalogItemBoxSet`.
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet>;
+    /// `createThemeSongPlayback`: a grant for one theme's audio in a format Chromium decodes.
+    async fn theme_playback(&self, origin: &str, auth: &Auth, owner_id: &str, theme_id: &str) -> Result<ThemeGrant>;
+    /// Fetch granted audio (no credentials: the grant is in the URL), up to [`MAX_AUDIO_BYTES`].
+    async fn fetch_audio(&self, url: &str) -> Result<Vec<u8>>;
     /// `listNotifications`: the newest 100 of the profile's inbox.
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList>;
     /// `getNotificationUnreadCount`.
@@ -653,6 +671,42 @@ impl SiloApi for HttpSiloApi {
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet> {
         let path = format!("/api/v2/catalog/items/{}/box-set", url_segment(item_id));
         send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn theme_playback(&self, origin: &str, auth: &Auth, owner_id: &str, theme_id: &str) -> Result<ThemeGrant> {
+        let path = format!(
+            "/api/v2/catalog/items/{}/themes/{}/playback",
+            url_segment(owner_id),
+            url_segment(theme_id)
+        );
+        // What the WebView decodes; anything else the server converts to AAC in MP4.
+        let formats: Vec<serde_json::Value> = THEME_FORMATS
+            .iter()
+            .map(|(container, codec)| serde_json::json!({ "container": container, "audio_codec": codec }))
+            .collect();
+        let body = serde_json::json!({ "accepted_formats": formats });
+        send_json(self.authed(Method::POST, origin, &path, auth).json(&body)).await
+    }
+
+    async fn fetch_audio(&self, url: &str) -> Result<Vec<u8>> {
+        // As for artwork: no device identity, no bearer, no profile headers.
+        let mut resp = send_raw(self.http.get(url).header("Accept", "audio/*, video/mp4")).await?;
+        let too_large = || ApiError::Internal("theme audio too large".into());
+        if resp.content_length().is_some_and(|n| n > MAX_AUDIO_BYTES as u64) {
+            return Err(too_large());
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| ApiError::from_transport(&e.without_url()))?
+        {
+            if bytes.len() + chunk.len() > MAX_AUDIO_BYTES {
+                return Err(too_large());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        Ok(bytes)
     }
 
     async fn notifications(&self, origin: &str, auth: &Auth) -> Result<NotificationList> {

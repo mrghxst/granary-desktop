@@ -1611,6 +1611,35 @@ impl SiloApi for MockSiloApi {
         Ok(CatalogItemBoxSet::default())
     }
 
+    async fn theme_playback(&self, origin: &str, auth: &Auth, owner_id: &str, theme_id: &str) -> Result<ThemeGrant> {
+        self.check(auth)?;
+        Ok(ThemeGrant {
+            url: format!("{origin}/api/v2/catalog/items/{owner_id}/themes/{theme_id}/audio?token=mock"),
+            delivery: Some("original".into()),
+        })
+    }
+
+    /// A 44-byte WAV header with no samples.
+    async fn fetch_audio(&self, url: &str) -> Result<Vec<u8>> {
+        if !url.contains("/themes/") {
+            return Err(problem(404, "not_found"));
+        }
+        let mut wav = Vec::with_capacity(44);
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&36u32.to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16u32.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&8000u32.to_le_bytes());
+        wav.extend_from_slice(&16000u32.to_le_bytes());
+        wav.extend_from_slice(&2u16.to_le_bytes());
+        wav.extend_from_slice(&16u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&0u32.to_le_bytes());
+        Ok(wav)
+    }
+
     async fn notifications(&self, _origin: &str, auth: &Auth) -> Result<NotificationList> {
         self.check(auth)?;
         Ok(NotificationList {

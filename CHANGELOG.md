@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Theme music (Settings, off by default): a title page plays the title's theme tune quietly, fading in and out,
+  carrying on across the pages of one series and stopping when playback starts; it can loop.
 - Notifications page (sidebar, with the number of unread ones): new episodes of what you follow and answers to
   your requests. Opening one marks it read; "Mark all read" clears the rest.
 - Requests page (sidebar): ask the server for films and series it does not have, from its suggestion rows or by

@@ -257,6 +257,24 @@ export function Settings() {
             set((d) => ({ ...d, posterTags }));
           }}
         />
+        <Toggle
+          label={t("settings.themeMusic")}
+          hint={t("settings.themeMusicHint")}
+          checked={s.themeMusic}
+          onChange={(themeMusic) => {
+            set((d) => ({ ...d, themeMusic }));
+          }}
+        />
+        {s.themeMusic ? (
+          <Toggle
+            label={t("settings.themeMusicLoop")}
+            hint={t("settings.themeMusicLoopHint")}
+            checked={s.themeMusicLoop}
+            onChange={(themeMusicLoop) => {
+              set((d) => ({ ...d, themeMusicLoop }));
+            }}
+          />
+        ) : null}
       </Section>
 
       <Section id="s-servers" title={t("settings.servers")}>

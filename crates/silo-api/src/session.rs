@@ -480,6 +480,16 @@ impl Session {
         }
     }
 
+    /// One theme tune's audio: a grant for the acting profile, then the bytes from the granted URL, which must be on
+    /// the server's origin or `https`.
+    pub async fn theme_audio(&self, owner_id: &str, theme_id: &str) -> Result<Vec<u8>> {
+        let grant = self
+            .call_profile(|auth| async move { self.api.theme_playback(&self.origin, &auth, owner_id, theme_id).await })
+            .await?;
+        let url = crate::api::resolve_artwork_url(&self.origin, &grant.url)?;
+        self.api.fetch_audio(&url).await
+    }
+
     pub async fn notifications(&self) -> Result<NotificationList> {
         self.call_profile(|auth| async move { self.api.notifications(&self.origin, &auth).await })
             .await

@@ -288,6 +288,31 @@ pub struct CatalogItemBoxSet {
     pub box_set: Option<BoxSet>,
 }
 
+/// `ThemeSong`: a theme tune of a movie or series.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ThemeSong {
+    pub id: String,
+}
+
+/// `ThemeSongSet` (`CatalogItemDetail.themes`): the themes of the title a detail page belongs to.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ThemeSongSet {
+    /// The item the themes are granted for (a season or episode shares its series' themes).
+    pub owner_id: String,
+    pub items: Vec<ThemeSong>,
+}
+
+/// The `createThemeSongPlayback` answer: a short-lived URL of the audio.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ThemeGrant {
+    pub url: String,
+    /// `original` or `converted` (AAC in MP4).
+    pub delivery: Option<String>,
+}
+
 /// `NotificationItem`: one entry of the profile's notification inbox.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -635,6 +660,8 @@ pub struct CatalogRating {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CatalogItemDetail {
+    /// Theme tunes, when the server has any for the title.
+    pub themes: Option<ThemeSongSet>,
     pub content_id: String,
     pub title: String,
     #[serde(rename = "type")]

@@ -415,6 +415,8 @@ export interface CatalogRating {
 }
 
 export interface CatalogItemDetail {
+  /** Theme tunes of the title, when the server has any; `owner_id` is the item they are granted for. */
+  themes?: { owner_id: string; items: { id: string }[] } | null;
   content_id: string;
   title: string;
   type: string;
@@ -594,6 +596,9 @@ export const catalog = {
   boxSet: (serverId: string, libraryId: string, boxSetId: string) =>
     call<BoxSet>("box_set_get", { serverId, libraryId, boxSetId }),
   itemBoxSet: (serverId: string, itemId: string) => call<BoxSet | null>("item_box_set", { serverId, itemId }),
+  /** A theme tune as encoded audio bytes (mp3, AAC, FLAC, …), fetched by the host. */
+  themeAudio: (serverId: string, ownerId: string, themeId: string) =>
+    call<ArrayBuffer>("theme_audio", { serverId, ownerId, themeId }),
   notifications: (serverId: string) => call<NotificationList>("notifications_list", { serverId }),
   notificationsUnread: (serverId: string) => call<number>("notifications_unread", { serverId }),
   notificationRead: (serverId: string, notificationId: string) =>

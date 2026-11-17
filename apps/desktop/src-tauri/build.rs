@@ -48,6 +48,7 @@ const COMMANDS: &[&str] = &[
     "recommendations_discover",
     "recommendations_section",
     "taste_profile",
+    "theme_audio",
     "notifications_list",
     "notifications_unread",
     "notification_read",

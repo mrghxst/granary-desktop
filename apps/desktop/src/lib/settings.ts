@@ -9,6 +9,10 @@ export interface Settings {
   theme: "midnight-cinema" | "true-black";
   /** Quality tags (4K, HDR, audio) on poster cards. */
   posterTags: boolean;
+  /** Play a title's theme tune quietly on its page. */
+  themeMusic: boolean;
+  /** Repeat the theme tune while the page is open. */
+  themeMusicLoop: boolean;
   player: {
     /** mpv `hwdec`. */
     hwdec: "auto-safe" | "auto-copy-safe" | "no";
@@ -124,6 +128,8 @@ export const DEFAULT_SETTINGS: Settings = {
   language: "system",
   theme: "midnight-cinema",
   posterTags: false,
+  themeMusic: false,
+  themeMusicLoop: false,
   player: {
     hwdec: "auto-safe",
     autoplayNext: true,

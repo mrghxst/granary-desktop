@@ -16,6 +16,10 @@ pub struct Settings {
     pub theme: String,
     /// Quality tags (4K, HDR, audio) on poster cards.
     pub poster_tags: bool,
+    /// Play a title's theme tune quietly on its page (opt-in, as on the server).
+    pub theme_music: bool,
+    /// Repeat the theme tune while the page is open.
+    pub theme_music_loop: bool,
     pub player: PlayerSettings,
     pub display: DisplaySettings,
     pub audio: AudioSettings,
@@ -138,6 +142,8 @@ impl Default for Settings {
             language: "system".into(),
             theme: "midnight-cinema".into(),
             poster_tags: false,
+            theme_music: false,
+            theme_music_loop: false,
             player: PlayerSettings::default(),
             display: DisplaySettings::default(),
             audio: AudioSettings::default(),

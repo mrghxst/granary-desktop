@@ -27,6 +27,7 @@ import { defaultAudio, defaultChoice, defaultSubtitle, formatTime, resumePositio
 import { applyTrackPicks, rememberTracks } from "../lib/trackMemory";
 import { audioInfo, subtitleInfo, trackSummary } from "../lib/tracks";
 import { useLoad } from "../lib/useLoad";
+import { useThemeMusic } from "../lib/useThemeMusic";
 import { usePlay } from "../lib/usePlay";
 import type { LaunchArt } from "../player/context";
 
@@ -1045,6 +1046,8 @@ export function Item() {
   const { serverId = "", itemId = "" } = useParams();
   const refresh = useRefreshTick();
   const { data: item, error } = useLoad(`${serverId}/${itemId}`, () => catalog.item(serverId, itemId), refresh);
+
+  useThemeMusic(serverId, item?.themes);
 
   useEffect(() => {
     if (needsReauth(error)) goReauth(navigate, serverId, error);

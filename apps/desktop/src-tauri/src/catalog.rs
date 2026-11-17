@@ -371,6 +371,20 @@ pub async fn item_box_set(
         .await
 }
 
+/// A title's theme tune as raw audio bytes (`createThemeSongPlayback`, then the granted URL).
+#[tauri::command]
+pub async fn theme_audio(
+    state: State<'_, SiloState>,
+    server_id: String,
+    owner_id: String,
+    theme_id: String,
+) -> CmdResult<tauri::ipc::Response> {
+    let bytes = state
+        .with_session(&server_id, |s| async move { s.theme_audio(&owner_id, &theme_id).await })
+        .await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// The profile's notification inbox, newest first (`listNotifications`).
 #[tauri::command]
 pub async fn notifications_list(state: State<'_, SiloState>, server_id: String) -> CmdResult<NotificationList> {

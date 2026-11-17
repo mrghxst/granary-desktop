@@ -232,6 +232,25 @@ Read from `silo-server/contracts/api/v2/openapi.json@749db96a` and the fixtures
 is open: an unknown type is shown with a general title. Not used: preferences, channels (email, Discord, push,
 webhooks), muting series, `syncNotifications`.
 
+### 4.1g Theme music
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`createThemeSongPlayback`, schemas `ThemeSongSet`,
+`ThemePlaybackRequest`, `ThemePlayback`), `internal/apiv2/theme_songs.go@749db96a` and the web app's player
+`web/src/lib/themeMusic.ts@749db96a`.
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/catalog/items/{id}` (`getCatalogItem`) | The detail carries `themes?: {owner_id*, items*: [{id*, title?, container?, duration_seconds?}]}`. Seasons and episodes name their series as owner. |
+| `POST /api/v2/catalog/items/{owner_id}/themes/{theme_id}/playback` (`createThemeSongPlayback`) | `profile_scoped`. Body `{accepted_formats: [{container, audio_codec}]}` (absent: original audio). Answer `{url*, content_type*, delivery*, expires_at*}`; `url` is a short-lived credential (never logged or kept), relative to the server or absolute on a proxy node's origin; `delivery: converted` is progressive AAC in audio-only MP4. |
+| `GET` the grant `url` | The audio. Signed by the grant: Granary sends no bearer or profile headers, as for artwork. |
+
+Granary accepts mp3, AAC (mp4, m4a, aac), FLAC, Vorbis and Opus (ogg, opus) and PCM WAV, fetches the audio in the
+host (capped at 32 MiB, same origin rules as artwork) and decodes it with Web Audio, so the page's content security
+policy keeps `media-src 'none'`. As in the web app: volume 35 %, fades of 0.6 s, the tune carries on across the pages
+of one series and stops when playback starts. Off by default (Settings, "Theme music"), with an optional loop. Not
+used: `GET .../themes/{theme_id}/audio`, `GET /api/v2/catalog/themes/capabilities` (a refused grant simply means no
+tune).
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).
