@@ -44,6 +44,7 @@ const COMMANDS: &[&str] = &[
     "collection_get",
     "box_set_get",
     "item_box_set",
+    "calendar_week",
     "catalog_similar",
     "catalog_filters",
     "player_play",

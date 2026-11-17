@@ -239,6 +239,38 @@ export interface BoxSet {
   items: CatalogItem[];
 }
 
+/** Which titles the calendar lists (`getCalendar` `filter`). */
+export type CalendarFilter = "following" | "trending" | "everything";
+
+/** One airing or release on the calendar (`CalendarEvent`). */
+export interface CalendarEvent {
+  content_id: string;
+  /** `movie`, `episode` or `season_premiere`. */
+  type: string;
+  /** The movie or series title. */
+  title: string;
+  episode_title?: string | null;
+  series_id?: string | null;
+  season_number?: number | null;
+  episode_number?: number | null;
+  air_date: string;
+  /** Wall-clock time in the network's zone, `HH:MM`. */
+  air_time?: string | null;
+  /** The airing as an instant, when the server knows it. */
+  air_at?: string | null;
+  local_air_date: string;
+  poster_url?: string | null;
+  watched: boolean;
+  /** `series_premiere`, `season_premiere`, `finale`; on a movie `digital` or `physical`. */
+  badges: string[];
+}
+
+/** One local day with its events in airing order (`CalendarDay`). */
+export interface CalendarDay {
+  date: string;
+  items: CalendarEvent[];
+}
+
 export interface CatalogItemCollection {
   items: CatalogItem[];
   page?: PageInfo | null;
@@ -442,6 +474,9 @@ export const catalog = {
   boxSet: (serverId: string, libraryId: string, boxSetId: string) =>
     call<BoxSet>("box_set_get", { serverId, libraryId, boxSetId }),
   itemBoxSet: (serverId: string, itemId: string) => call<BoxSet | null>("item_box_set", { serverId, itemId }),
+  /** The days between two local days (`YYYY-MM-DD`, at most 31 apart) that have airings or releases. */
+  calendar: (serverId: string, start: string, end: string, filter: CalendarFilter, timezone: string) =>
+    call<CalendarDay[]>("calendar_week", { serverId, start, end, filter, timezone }),
   similar: (serverId: string, itemId: string) => call<CatalogItem[]>("catalog_similar", { serverId, itemId }),
   filters: (serverId: string, libraryId: string) => call<CatalogFilters>("catalog_filters", { serverId, libraryId }),
 };

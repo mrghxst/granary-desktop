@@ -1560,6 +1560,34 @@ impl SiloApi for MockSiloApi {
         Ok(CatalogItemBoxSet::default())
     }
 
+    /// One episode of the mock series on the first day of the window, and nothing for `trending`.
+    async fn calendar(&self, _origin: &str, auth: &Auth, query: &CalendarQuery) -> Result<Calendar> {
+        self.check(auth)?;
+        if query.filter.as_deref() == Some("trending") {
+            return Ok(Calendar::default());
+        }
+        let series = demo::series_card();
+        Ok(Calendar {
+            events: vec![CalendarDay {
+                date: query.start.clone(),
+                items: vec![CalendarEvent {
+                    content_id: "s1-1-3".into(),
+                    kind: "episode".into(),
+                    title: series.title,
+                    episode_title: Some("The Third One".into()),
+                    series_id: Some(series.content_id),
+                    season_number: Some(1),
+                    episode_number: Some(3),
+                    air_date: query.start.clone(),
+                    air_time: Some("21:00".into()),
+                    local_air_date: query.start.clone(),
+                    badges: vec!["finale".into()],
+                    ..CalendarEvent::default()
+                }],
+            }],
+        })
+    }
+
     async fn catalog_filters(&self, _origin: &str, auth: &Auth, _library_id: &str) -> Result<CatalogFilters> {
         self.check(auth)?;
         let mut genres: Vec<String> = self

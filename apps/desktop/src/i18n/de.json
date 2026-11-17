@@ -493,5 +493,40 @@
     "movies_one": "{{count}} Film",
     "movies_other": "{{count}} Filme",
     "watched": "{{played}} von {{count}} gesehen"
+  },
+  "calendar": {
+    "title": "Kalender",
+    "subtitle": {
+      "following": "Neue Folgen und Veröffentlichungen von dem, was du schaust oder gemerkt hast.",
+      "trending": "Was bei den gerade beliebten Titeln läuft.",
+      "everything": "Alles, was bei den Titeln des Servers läuft oder erscheint."
+    },
+    "show": "Anzeigen",
+    "filter": { "following": "Verfolgt", "trending": "Im Trend", "everything": "Alles" },
+    "empty": {
+      "following": "Diese Woche steht für deine verfolgten Titel nichts an.",
+      "trending": "Diese Woche steht nichts aus den Trends an.",
+      "everything": "Diese Woche steht nichts an."
+    },
+    "nothingOn": "Für {{day}} steht nichts an.",
+    "today": "Heute",
+    "thisWeek": "Diese Woche",
+    "previousWeek": "Vorherige Woche",
+    "nextWeek": "Nächste Woche",
+    "weekOf": "Woche vom {{range}}",
+    "dayLabel_zero": "{{day}}",
+    "dayLabel_one": "{{day}}, {{count}} Titel",
+    "dayLabel_other": "{{day}}, {{count}} Titel",
+    "movie": "Film",
+    "season": "Staffel {{season}}",
+    "episode": "S{{season}} · E{{episode}}",
+    "watched": "Gesehen",
+    "badge": {
+      "series_premiere": "Premiere",
+      "season_premiere": "Neue Staffel",
+      "finale": "Finale",
+      "digital": "Digital",
+      "physical": "Physisch"
+    }
   }
 }

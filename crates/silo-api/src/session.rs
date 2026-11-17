@@ -480,6 +480,13 @@ impl Session {
         }
     }
 
+    /// The days of a calendar window that have airings or releases, ascending.
+    pub async fn calendar(&self, query: &CalendarQuery) -> Result<Vec<CalendarDay>> {
+        self.call_profile(|auth| async move { self.api.calendar(&self.origin, &auth, query).await })
+            .await
+            .map(|c| c.events)
+    }
+
     pub async fn catalog_filters(&self, library_id: &str) -> Result<CatalogFilters> {
         self.call_profile(|auth| async move { self.api.catalog_filters(&self.origin, &auth, library_id).await })
             .await

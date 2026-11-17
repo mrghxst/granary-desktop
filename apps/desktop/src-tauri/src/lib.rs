@@ -294,6 +294,7 @@ pub fn run() {
             catalog::collection_get,
             catalog::box_set_get,
             catalog::item_box_set,
+            catalog::calendar_week,
             catalog::catalog_similar,
             catalog::catalog_filters,
             playback::commands::player_play,

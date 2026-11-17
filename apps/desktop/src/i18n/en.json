@@ -493,5 +493,40 @@
     "movies_one": "{{count}} film",
     "movies_other": "{{count}} films",
     "watched": "{{played}} of {{count}} watched"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "subtitle": {
+      "following": "New episodes and releases of what you watch or saved.",
+      "trending": "What is airing among the titles popular right now.",
+      "everything": "Everything airing or released among the server's titles."
+    },
+    "show": "Show",
+    "filter": { "following": "Following", "trending": "Trending", "everything": "Everything" },
+    "empty": {
+      "following": "Nothing is scheduled this week for the titles you follow.",
+      "trending": "Nothing trending is scheduled this week.",
+      "everything": "Nothing is scheduled this week."
+    },
+    "nothingOn": "Nothing scheduled for {{day}}.",
+    "today": "Today",
+    "thisWeek": "This week",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "weekOf": "Week of {{range}}",
+    "dayLabel_zero": "{{day}}",
+    "dayLabel_one": "{{day}}, {{count}} title",
+    "dayLabel_other": "{{day}}, {{count}} titles",
+    "movie": "Film",
+    "season": "Season {{season}}",
+    "episode": "S{{season}} · E{{episode}}",
+    "watched": "Watched",
+    "badge": {
+      "series_premiere": "Premiere",
+      "season_premiere": "New season",
+      "finale": "Finale",
+      "digital": "Digital",
+      "physical": "Physical"
+    }
   }
 }

@@ -162,6 +162,18 @@ A collection's titles are paged with `listCatalogItems`: `source=user_collection
 `source=library_collection&library_id=&collection_id=` for a library's. Not covered by the contract fixtures in
 `crates/silo-api/tests` yet (the OAS subset is still the one of `@6791aac`).
 
+### 4.1c Calendar
+
+`GET /api/v2/calendar` (`getCalendar`, `profile_scoped`), read from `silo-server/internal/apiv2/home.go@749db96a` and
+`silo-server/contracts/api/v2/fixtures/get_calendar_ok.json@749db96a`. Query: `start*`, `end*` (local days `YYYY-MM-DD`,
+at most 30 days apart), `filter` (`all`, `everything`, `following`, `favorites`, `watchlist`, `popular`, `trending`; absent
+is `all`), `timezone` (IANA zone, absent is UTC), `library_id`. Response `Calendar {events*: [CalendarDay {date*, items*:
+[CalendarEvent]}]}`, days ascending, days without events absent. `CalendarEvent`: `content_id*`, `type*` (`movie`,
+`episode`, `season_premiere`), `title*`, `episode_title?`, `series_id?`, `season_number?`, `episode_number?`, `air_date*`,
+`air_time?`, `air_at?`, `air_timezone?`, `local_air_date*`, `poster_url?`, `poster_thumbhash?`, `watched*`, `badges*`.
+Granary sends `following`, `trending` or `everything` with the viewer's zone for one Monday-first week, as the web app
+does (`web/src/pages/Calendar.tsx@749db96a`); it does not send `library_id`.
+
 ### 4.2 Catalog browse and search
 
 Personal lists: `source=favorites`, `source=watchlist` and `source=history` page the profile's lists as catalog cards; without `sort` the source's own order applies (newest entry first). Re-checked against `silo-server/contracts/api/v2/openapi.json@749db96a` (`listCatalogItems` parameters `source`, `type`, `sort`) and `silo-server/docs/catalog-api.md@749db96a` ("Personal-list pagination"). Granary's Watchlist, Favorites and History pages use this read; the web app does the same (`web/src/pages/Catalog.tsx@749db96a`).

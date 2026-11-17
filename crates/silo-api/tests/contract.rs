@@ -1075,3 +1075,39 @@ async fn http_client_speaks_the_detail_and_library_contract() {
         );
     }
 }
+
+/// `getCalendar` is not in the OAS subset yet, so this serves the upstream fixture
+/// (`silo-server/contracts/api/v2/fixtures/get_calendar_ok.json@749db96a`) and checks the request Granary sends.
+#[tokio::test]
+async fn http_client_reads_the_calendar() {
+    use granary_silo_api::catalog::CalendarQuery;
+    use wiremock::matchers::query_param;
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/calendar"))
+        .and(query_param("start", "2026-01-05"))
+        .and(query_param("end", "2026-01-11"))
+        .and(query_param("filter", "following"))
+        .and(query_param("timezone", "America/New_York"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(json("calendar.json", 200))
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let query = CalendarQuery {
+        start: "2026-01-05".into(),
+        end: "2026-01-11".into(),
+        filter: Some("following".into()),
+        timezone: Some("America/New_York".into()),
+        library_id: None,
+    };
+    let calendar = api
+        .calendar(&server.uri(), &auth(Some(("7", None))), &query)
+        .await
+        .unwrap();
+    let day = calendar.events.first().expect("the fixture has a day");
+    let event = day.items.first().expect("the day has an event");
+    assert_eq!(day.date, event.local_air_date);
+    assert!(!event.content_id.is_empty() && !event.title.is_empty() && !event.kind.is_empty());
+}

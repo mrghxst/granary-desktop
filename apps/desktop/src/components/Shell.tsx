@@ -1,5 +1,6 @@
 import {
   Bookmark,
+  CalendarDays,
   Clapperboard,
   Folder,
   Heart,
@@ -201,6 +202,11 @@ export function Shell() {
               to={`${base}/collections`}
               icon={<Layers className="size-[18px] shrink-0" />}
               label={t("collections.title")}
+            />
+            <Item
+              to={`${base}/calendar`}
+              icon={<CalendarDays className="size-[18px] shrink-0" />}
+              label={t("calendar.title")}
             />
           </ul>
         </div>

@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Calendar page (sidebar): what airs or is released in a week, day by day, for the titles you follow, the
+  trending ones or everything on the server; with premiere and finale badges and the airing time on your clock.
 - Collections page (sidebar): your collections, those shared with you and the server's by library; each opens
   with its titles. Collections are still made and edited in the web app.
 - Box sets: a film that belongs to one shows the other films of the set on its page, with a page for the set.

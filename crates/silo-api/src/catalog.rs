@@ -288,6 +288,61 @@ pub struct CatalogItemBoxSet {
     pub box_set: Option<BoxSet>,
 }
 
+/// The `getCalendar` query: an inclusive window of the viewer's local days, at most 31 days wide.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CalendarQuery {
+    /// First local day, `YYYY-MM-DD`.
+    pub start: String,
+    /// Last local day, `YYYY-MM-DD`.
+    pub end: String,
+    /// `following`, `trending`, `everything`, …; absent is the server's default (`all`).
+    pub filter: Option<String>,
+    /// IANA zone the days are reckoned in; absent is UTC.
+    pub timezone: Option<String>,
+    pub library_id: Option<String>,
+}
+
+/// `CalendarEvent`: one airing or release.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CalendarEvent {
+    pub content_id: String,
+    /// `movie`, `episode` or `season_premiere`.
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// The movie or series title.
+    pub title: String,
+    pub episode_title: Option<String>,
+    pub series_id: Option<String>,
+    pub season_number: Option<i64>,
+    pub episode_number: Option<i64>,
+    pub air_date: String,
+    /// Wall-clock time in the network's zone, `HH:MM`.
+    pub air_time: Option<String>,
+    /// The airing as an instant, when the network's time and zone are known.
+    pub air_at: Option<String>,
+    pub local_air_date: String,
+    pub poster_url: Option<String>,
+    pub watched: bool,
+    /// `series_premiere`, `season_premiere`, `finale`; on a movie `digital` or `physical`.
+    pub badges: Vec<String>,
+}
+
+/// `CalendarDay`: one local day with its events in airing order.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CalendarDay {
+    pub date: String,
+    pub items: Vec<CalendarEvent>,
+}
+
+/// `Calendar`: the window's days, ascending; days without events are absent.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Calendar {
+    pub events: Vec<CalendarDay>,
+}
+
 /// `CatalogItemCollection` (similar titles, collection items).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

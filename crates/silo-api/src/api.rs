@@ -172,6 +172,8 @@ pub trait SiloApi: Send + Sync {
     async fn box_set(&self, origin: &str, auth: &Auth, id: &str, library_id: &str) -> Result<BoxSet>;
     /// `getCatalogItemBoxSet`.
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet>;
+    /// `getCalendar`: airings and releases in a window of local days.
+    async fn calendar(&self, origin: &str, auth: &Auth, query: &CalendarQuery) -> Result<Calendar>;
 }
 
 /// A per-profile flag on a catalog item, each a pair of idempotent `204` operations (docs/research/silo-api.md §8.2).
@@ -612,6 +614,24 @@ impl SiloApi for HttpSiloApi {
     async fn item_box_set(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<CatalogItemBoxSet> {
         let path = format!("/api/v2/catalog/items/{}/box-set", url_segment(item_id));
         send_json(self.authed(Method::GET, origin, &path, auth)).await
+    }
+
+    async fn calendar(&self, origin: &str, auth: &Auth, query: &CalendarQuery) -> Result<Calendar> {
+        let mut params = vec![("start", query.start.as_str()), ("end", query.end.as_str())];
+        for (name, value) in [
+            ("filter", &query.filter),
+            ("timezone", &query.timezone),
+            ("library_id", &query.library_id),
+        ] {
+            if let Some(v) = value {
+                params.push((name, v.as_str()));
+            }
+        }
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/calendar", auth)
+                .query(&params),
+        )
+        .await
     }
 
     async fn catalog_filters(&self, origin: &str, auth: &Auth, library_id: &str) -> Result<CatalogFilters> {

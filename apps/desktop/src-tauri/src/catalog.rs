@@ -5,9 +5,9 @@ use crate::silo::{CommandError, SiloState};
 use granary_silo_api::api::{ImageData, raster_image_type};
 use granary_silo_api::api::{PageQuery, UserFlag};
 use granary_silo_api::catalog::{
-    BoxSet, CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection, CatalogItemDetail,
-    CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection, Season, Section,
-    WatchDetail,
+    BoxSet, CalendarDay, CalendarQuery, CatalogBrowseCollection, CatalogFilters, CatalogItem, CatalogItemCollection,
+    CatalogItemDetail, CatalogQuery, CollectionCard, CollectionsOverview, Episode, Person, PersonalCollection, Season,
+    Section, WatchDetail,
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
@@ -369,6 +369,66 @@ pub async fn item_box_set(
         .await
 }
 
+/// The calendar views the UI may ask for.
+const CALENDAR_FILTERS: &[&str] = &["following", "trending", "everything"];
+
+/// `YYYY-MM-DD`, by shape only: the server checks the date itself.
+fn is_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 10
+        && b.iter().enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 {
+                *c == b'-'
+            } else {
+                c.is_ascii_digit()
+            }
+        })
+}
+
+/// An IANA zone name such as `Europe/Zurich`, by shape only.
+fn is_zone(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 64
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '+'))
+}
+
+fn calendar_query(
+    start: String,
+    end: String,
+    filter: Option<String>,
+    timezone: Option<String>,
+    library_id: Option<String>,
+) -> Option<CalendarQuery> {
+    (is_date(&start) && is_date(&end)).then(|| CalendarQuery {
+        start,
+        end,
+        filter: filter.filter(|f| CALENDAR_FILTERS.contains(&f.as_str())),
+        timezone: timezone.filter(|z| is_zone(z)),
+        library_id: library_id.map(|l| l.trim().to_owned()).filter(|l| !l.is_empty()),
+    })
+}
+
+/// Airings and releases between two local days (`getCalendar`); days without any are absent.
+#[tauri::command]
+pub async fn calendar_week(
+    state: State<'_, SiloState>,
+    server_id: String,
+    start: String,
+    end: String,
+    filter: Option<String>,
+    timezone: Option<String>,
+    library_id: Option<String>,
+) -> CmdResult<Vec<CalendarDay>> {
+    // Dates that are not dates never reach the server: there is nothing to list for them.
+    let Some(query) = calendar_query(start, end, filter, timezone, library_id) else {
+        return Ok(Vec::new());
+    };
+    state
+        .with_session(&server_id, |s| async move { s.calendar(&query).await })
+        .await
+}
+
 /// "More like this" (`listSimilar`).
 #[tauri::command]
 pub async fn catalog_similar(
@@ -562,6 +622,34 @@ pub async fn artwork_cache_clear(app: AppHandle) -> CmdResult<()> {
 #[allow(clippy::unwrap_used)] // test code
 mod tests {
     use super::*;
+
+    #[test]
+    fn calendar_arguments_are_checked() {
+        let q = |start: &str, filter: &str, zone: &str| {
+            calendar_query(
+                start.into(),
+                "2026-11-22".into(),
+                Some(filter.into()),
+                Some(zone.into()),
+                Some(" ".into()),
+            )
+        };
+        let ok = q("2026-11-16", "trending", "Europe/Zurich");
+        assert_eq!(
+            ok,
+            Some(CalendarQuery {
+                start: "2026-11-16".into(),
+                end: "2026-11-22".into(),
+                filter: Some("trending".into()),
+                timezone: Some("Europe/Zurich".into()),
+                library_id: None,
+            })
+        );
+        // An unknown view or a zone that is no zone name is left out; a date that is none stops the call.
+        let odd = q("2026-11-16", "all&x=1", "Europe/Zurich?x");
+        assert!(odd.is_some_and(|c| c.filter.is_none() && c.timezone.is_none()));
+        assert_eq!(q("16.11.2026", "trending", "UTC"), None);
+    }
 
     #[test]
     fn filter_rules_are_allowlisted() {

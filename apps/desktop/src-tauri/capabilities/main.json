@@ -45,6 +45,7 @@
     "allow-collection-get",
     "allow-box-set-get",
     "allow-item-box-set",
+    "allow-calendar-week",
     "allow-catalog-similar",
     "allow-catalog-filters",
     "allow-player-play",
