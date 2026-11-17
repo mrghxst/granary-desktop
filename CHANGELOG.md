@@ -5,6 +5,10 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-17
+The whole feature roadmap: lists, collections, calendar, recommendations, requests, notifications, home row
+editing, theme music, player extras, Watch Together, audiobooks and a reader for ebooks and manga.
+
 ### Added
 - Reader for ebooks and manga: EPUB, PDF and CBZ books open in the app, with a contents list, text size and
   page colour for EPUB, page-by-page PDFs and comics, and right-to-left reading for manga. A manga's page lists its

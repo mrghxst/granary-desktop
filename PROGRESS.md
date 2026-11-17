@@ -15,6 +15,7 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 - [x] 10 Final verification & handoff — DONE — gate: clean clone of dd9b7a8 (pnpm install --frozen-lockfile, fetch-libmpv, verify.ps1 12 steps, release build) all exit 0 (docs/evidence/phase-10/clean-clone.txt), reviewer docs/reviews/final.md PASS WITH FINDINGS → M1 + L1–L5 resolved, security review docs/security.md (cargo audit 0 vulnerabilities, pnpm audit clean), docs complete, CI green, FINAL REPORT printed
 
 ## Current step
+0.5.0 (2026-11-17): feature roadmap R1 to R10 done and released as a public pre-release. Next: whatever the owner picks from the open items below.
 0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags, seek previews done; next for files without trickplay, README + Pages site.
 All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 adds web-app parity features, local seek previews and the website. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
@@ -134,6 +135,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-17 0.5.0: roadmap R1 to R10 complete; sidebar order as in the web app; version bump and tag v0.5.0 at the owner's request, published as a public pre-release by release.yml.
 - 2026-11-16 R2 read side: Collections page (own, shared, server by library), collection pages via `listCatalogItems` `source=user_collection|library_collection`, box-set page and the box-set row on film pages; verify.ps1 green; vitest for the filled pages. On the owner's server only the empty state could be seen (no collections, no box set for the films tried).
 - 2026-11-16 R1: Watchlist, Favorites and History pages (sidebar "Your lists"), `listCatalogItems` with `source`, mock honours the sources; verify.ps1 green; seen on the owner's server in the dev build (favorites 3, history 21, watchlist empty). History entries cannot be removed yet (`POST /api/v2/history/remove` not ported).
 - 2026-11-16 0.4.8 published as a pre-release at the owner's request; release.yml publishes tags as public pre-releases from now on (manual runs stay drafts); CLAUDE.md rule 4 updated; feature roadmap R1 to R10 recorded.
