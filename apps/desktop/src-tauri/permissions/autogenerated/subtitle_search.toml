@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-subtitle-search"
+description = "Enables the subtitle_search command without any pre-configured scope."
+commands.allow = ["subtitle_search"]
+
+[[permission]]
+identifier = "deny-subtitle-search"
+description = "Denies the subtitle_search command without any pre-configured scope."
+commands.deny = ["subtitle_search"]

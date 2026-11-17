@@ -60,6 +60,8 @@ export interface PlanSubtitle {
   hearing_impaired: boolean;
   url?: string | null;
   stream_index?: number | null;
+  /** The stored subtitle row of a downloaded, uploaded or generated track. */
+  stored_subtitle_id?: number | null;
 }
 
 /** Mirrors `PlanInfo` in controller.rs. */
@@ -136,6 +138,8 @@ let previewSeq = 0;
 export const player = {
   stop: () => call<null>("player_stop"),
   /** The profile's subtitle appearance (a stored JSON value) for this file and the next ones. */
+  /** A subtitle was added on the server: refresh the playing plan's subtitle list. */
+  subtitlesRefresh: () => call<PlanSubtitle[]>("player_subtitles_refresh"),
   subtitleStyle: (value: string) => call<null>("player_subtitle_style", { value }),
   pause: (paused?: boolean) => call<null>("player_pause", { paused: paused ?? null }),
   seek: (seconds: number, relative = false) => call<null>("player_seek", { seconds, relative }),

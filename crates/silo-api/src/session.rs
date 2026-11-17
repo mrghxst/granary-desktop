@@ -325,6 +325,24 @@ impl Session {
         self.call(f).await
     }
 
+    /// A `non_retryable` operation (a provider download, an AI job): sent once. A 401 refreshes the session for the
+    /// next request but is not replayed, as `silo-server/docs/subtitles-api.md@749db96a` asks.
+    async fn call_profile_once<T, F, Fut>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(Auth) -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        if self.profile().is_none() {
+            return Err(ApiError::ProfileRequired);
+        }
+        let (auth, generation) = self.current(true).await?;
+        let result = f(auth).await;
+        if let Err(ApiError::Http { status: 401, .. }) = &result {
+            let _ = self.refresh(generation).await;
+        }
+        result
+    }
+
     pub async fn home_sections(&self) -> Result<Vec<Section>> {
         self.call_profile(|auth| async move { self.api.home_sections(&self.origin, &auth).await })
             .await
@@ -488,6 +506,51 @@ impl Session {
             .await?;
         let url = crate::api::resolve_artwork_url(&self.origin, &grant.url)?;
         self.api.fetch_audio(&url).await
+    }
+
+    /// Provider search and AI translation, each as the server reports it; a refused read counts as unavailable.
+    pub async fn subtitle_features(&self) -> Result<SubtitleFeatures> {
+        let search = self
+            .call_profile(|auth| async move { self.api.subtitle_provider_status(&self.origin, &auth).await })
+            .await;
+        let translate = self
+            .call_profile(|auth| async move { self.api.subtitle_ai_status(&self.origin, &auth).await })
+            .await;
+        // Both refused: a session problem (signed out, no profile) the caller has to see.
+        match (search, translate) {
+            (Err(e), Err(_)) => Err(e),
+            (search, translate) => Ok(SubtitleFeatures {
+                search: search.unwrap_or_default(),
+                translate: translate.unwrap_or_default(),
+            }),
+        }
+    }
+
+    pub async fn subtitle_search(&self, media_file_id: &str, languages: &[String]) -> Result<SubtitleSearchResults> {
+        self.call_profile(|auth| async move {
+            self.api
+                .subtitle_search(&self.origin, &auth, media_file_id, languages)
+                .await
+        })
+        .await
+    }
+
+    pub async fn subtitle_download(&self, body: &SubtitleDownload) -> Result<StoredSubtitle> {
+        self.call_profile_once(|auth| async move { self.api.subtitle_download(&self.origin, &auth, body).await })
+            .await
+            .map(|r| r.subtitle)
+    }
+
+    pub async fn subtitle_translate(&self, body: &SubtitleTranslate) -> Result<SubtitleAiJob> {
+        self.call_profile_once(|auth| async move { self.api.subtitle_translate(&self.origin, &auth, body).await })
+            .await
+            .map(|r| r.job)
+    }
+
+    pub async fn subtitle_ai_job(&self, job_id: &str) -> Result<SubtitleAiJob> {
+        self.call_profile(|auth| async move { self.api.subtitle_ai_job(&self.origin, &auth, job_id).await })
+            .await
+            .map(|r| r.job)
     }
 
     pub async fn subtitle_appearance(&self) -> Result<SubtitleAppearanceSetting> {

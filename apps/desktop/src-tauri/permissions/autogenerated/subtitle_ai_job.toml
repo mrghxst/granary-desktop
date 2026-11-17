@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-subtitle-ai-job"
+description = "Enables the subtitle_ai_job command without any pre-configured scope."
+commands.allow = ["subtitle_ai_job"]
+
+[[permission]]
+identifier = "deny-subtitle-ai-job"
+description = "Denies the subtitle_ai_job command without any pre-configured scope."
+commands.deny = ["subtitle_ai_job"]

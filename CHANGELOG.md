@@ -6,6 +6,9 @@ follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Find subtitles in the player (Subtitles menu): search the server's subtitle providers in a language and add one,
+  or have the server translate the subtitles you are watching into another language. The new track is switched on
+  when it is ready.
 - Subtitle style in the player (Subtitles menu): size, text colour, background and position, saved on the server
   for this computer and shared with the profile's other apps. Text subtitles follow the profile's style from the
   first frame; styled (ASS) subtitles keep their own look.

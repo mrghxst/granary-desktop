@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-subtitle-download"
+description = "Enables the subtitle_download command without any pre-configured scope."
+commands.allow = ["subtitle_download"]
+
+[[permission]]
+identifier = "deny-subtitle-download"
+description = "Denies the subtitle_download command without any pre-configured scope."
+commands.deny = ["subtitle_download"]

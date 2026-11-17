@@ -197,6 +197,8 @@ pub enum Cmd {
         choice: SubtitleChoice,
         reply: oneshot::Sender<Result<(), String>>,
     },
+    /// A subtitle was added on the server: refresh the plan's subtitle list.
+    RefreshSubtitles(oneshot::Sender<Result<Vec<granary_silo_api::playback::SubtitleInventoryItem>, String>>),
     Stats(oneshot::Sender<serde_json::Value>),
     /// The stream a seek-preview handle may open, if any (ADR-0009).
     PreviewSource(oneshot::Sender<Option<String>>),
@@ -444,6 +446,13 @@ impl Runner {
             Cmd::Subtitle { choice, reply } => {
                 let r = match self.controller.as_mut() {
                     Some(c) => c.select_subtitle(&choice).await.map_err(|e| e.to_string()),
+                    None => Err("nothing is playing".into()),
+                };
+                let _ = reply.send(r);
+            }
+            Cmd::RefreshSubtitles(reply) => {
+                let r = match self.controller.as_mut() {
+                    Some(c) => c.refresh_subtitles().await.map_err(|e| e.to_string()),
                     None => Err("nothing is playing".into()),
                 };
                 let _ = reply.send(r);

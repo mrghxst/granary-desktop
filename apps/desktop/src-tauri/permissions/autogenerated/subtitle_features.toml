@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-subtitle-features"
+description = "Enables the subtitle_features command without any pre-configured scope."
+commands.allow = ["subtitle_features"]
+
+[[permission]]
+identifier = "deny-subtitle-features"
+description = "Denies the subtitle_features command without any pre-configured scope."
+commands.deny = ["subtitle_features"]

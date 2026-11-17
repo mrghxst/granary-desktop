@@ -165,6 +165,8 @@ pub struct Controller {
     session_id: String,
     plan: PlaybackPlan,
     stream_url: String,
+    /// The stream goes through the loopback relay.
+    relayed: bool,
     state: PlayerState,
     sequence: i64,
     last_progress: Option<Instant>,
@@ -322,6 +324,7 @@ impl Controller {
             session_id: String::new(),
             plan: PlaybackPlan::default(),
             stream_url: String::new(),
+            relayed: false,
             state: PlayerState::default(),
             sequence: 0,
             last_progress: None,
@@ -452,6 +455,7 @@ impl Controller {
             tracing::warn!(count = self.plan.stream.headers.len(), "plan stream headers ignored");
         }
         self.stream_url = url;
+        self.relayed = relayed;
         self.tracks_applied = false;
         self.resume_after_switch = false;
         self.sync_check = None;
@@ -789,6 +793,37 @@ impl Controller {
             }
         }
         Ok(())
+    }
+
+    /// A subtitle was added on the server (a download, a translation): ask for the plan again with the same tracks, so
+    /// the inventory lists it (`silo-server/docs/subtitles-api.md@749db96a`, "Announcing an added subtitle"). Direct
+    /// play keeps the running stream when the new plan streams the same file; anything else loads the new plan.
+    pub async fn refresh_subtitles(&mut self) -> Result<Vec<SubtitleInventoryItem>, ControllerError> {
+        let position = self.source_position();
+        let body = self.replan_body("track_change", position);
+        let decision = self.session.replan_playback(&self.session_id, &body).await?;
+        let Some((_, plan)) = decision.playable() else {
+            return Err(ControllerError::NotPlayable(decision.outcome));
+        };
+        if self.plan.is_direct() && plan.is_direct() && plan.stream.url == self.plan.stream.url {
+            self.plan = plan.clone();
+            tracing::info!(
+                subtitles = self.plan.subtitle.inventory.len(),
+                "subtitle list refreshed"
+            );
+            self.sink.notice(Notice::Plan(Box::new(self.plan_info(self.relayed))));
+            return Ok(self.plan.subtitle.inventory.clone());
+        }
+        tracing::info!(
+            position = format!("{position:.1}"),
+            "subtitle list refreshed; reloading"
+        );
+        self.plan = plan.clone();
+        self.args.subtitle_index = self.plan.selected_tracks.subtitle.as_ref().and_then(|t| t.index);
+        self.last_source_position = position.max(0.0);
+        self.started_reported = false;
+        self.load_plan()?;
+        Ok(self.plan.subtitle.inventory.clone())
     }
 
     /// UI audio menu: direct play carries every track of the original file, so mpv switches locally; other plans
@@ -1893,6 +1928,31 @@ mod tests {
                 .is_err()
         );
         assert_eq!(r.api.playback_log().replans.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn refreshing_subtitles_keeps_a_direct_stream_and_reloads_otherwise() {
+        let mut r = rig(args()).await;
+        let loads = |r: &Rig| {
+            r.backend
+                .calls()
+                .iter()
+                .filter(|c| c.starts_with("cmd loadfile"))
+                .count()
+        };
+        let before = loads(&r);
+        r.controller.refresh_subtitles().await.unwrap();
+        let log = r.api.playback_log();
+        assert_eq!(log.replans.last().map(|b| b.operation.as_str()), Some("track_change"));
+        assert_eq!(loads(&r), before, "direct play of the same stream keeps playing");
+        assert!(
+            matches!(r.notices.all().last(), Some(Notice::Plan(_))),
+            "the UI gets the new list"
+        );
+        // Anything but direct play of the same stream loads the new plan.
+        r.controller.plan.delivery = "server_transcode_hls".into();
+        r.controller.refresh_subtitles().await.unwrap();
+        assert_eq!(loads(&r), before + 1);
     }
 
     #[tokio::test]

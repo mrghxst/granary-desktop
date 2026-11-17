@@ -470,6 +470,17 @@ pub async fn player_subtitle(host: State<'_, PlayerHost>, choice: SubtitleChoice
         .map_err(host_error)
 }
 
+/// A subtitle was added on the server (download, translation): refresh the playing plan's subtitle list.
+#[tauri::command]
+pub async fn player_subtitles_refresh(
+    host: State<'_, PlayerHost>,
+) -> CmdResult<Vec<granary_silo_api::playback::SubtitleInventoryItem>> {
+    host.ask(Cmd::RefreshSubtitles)
+        .await
+        .unwrap_or_else(|| Err("player host stopped".into()))
+        .map_err(host_error)
+}
+
 #[tauri::command]
 pub async fn player_stats(
     host: State<'_, PlayerHost>,

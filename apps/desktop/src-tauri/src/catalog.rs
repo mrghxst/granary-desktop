@@ -12,6 +12,9 @@ use granary_silo_api::catalog::{
     TitleRequest, TitleRequestCreate, WatchDetail,
 };
 use granary_silo_api::catalog::{HomeRowOverrideWrite, HomeRows, SubtitleAppearanceSetting};
+use granary_silo_api::catalog::{
+    StoredSubtitle, SubtitleAiJob, SubtitleDownload, SubtitleFeatures, SubtitleSearchResults, SubtitleTranslate,
+};
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -476,6 +479,107 @@ pub async fn home_rows_save(
 pub async fn home_rows_reset(state: State<'_, SiloState>, server_id: String) -> CmdResult<()> {
     state
         .with_session(&server_id, |s| async move { s.home_rows_reset().await })
+        .await
+}
+
+/// A language tag as the subtitle operations take it: BCP 47 letters, digits and hyphens.
+fn is_language(tag: &str) -> bool {
+    (2..=35).contains(&tag.len())
+        && tag.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        && tag.as_bytes()[0].is_ascii_alphabetic()
+}
+
+/// An opaque id the server gave out.
+fn is_opaque_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 128 && !id.chars().any(char::is_control)
+}
+
+/// Whether subtitle search and AI translation are available to this profile (`getSubtitleProviderStatus`,
+/// `getSubtitleAIStatus`).
+#[tauri::command]
+pub async fn subtitle_features(state: State<'_, SiloState>, server_id: String) -> CmdResult<SubtitleFeatures> {
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_features().await })
+        .await
+}
+
+/// Search the server's subtitle providers for one media file (`searchSubtitles`).
+#[tauri::command]
+pub async fn subtitle_search(
+    state: State<'_, SiloState>,
+    server_id: String,
+    media_file_id: String,
+    languages: Vec<String>,
+) -> CmdResult<SubtitleSearchResults> {
+    if !is_opaque_id(&media_file_id) || languages.is_empty() || languages.len() > 10 {
+        return Err(CommandError::invalid(
+            "subtitle search: a file and 1 to 10 languages".into(),
+        ));
+    }
+    if !languages.iter().all(|l| is_language(l)) {
+        return Err(CommandError::invalid("subtitle search: language tag".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move {
+            s.subtitle_search(&media_file_id, &languages).await
+        })
+        .await
+}
+
+/// Download one search result to the server for the file (`downloadSubtitle`, sent once).
+#[tauri::command]
+pub async fn subtitle_download(
+    state: State<'_, SiloState>,
+    server_id: String,
+    download: SubtitleDownload,
+) -> CmdResult<StoredSubtitle> {
+    let ok = is_opaque_id(&download.media_file_id)
+        && is_opaque_id(&download.subtitle_id)
+        && is_opaque_id(&download.provider)
+        && is_language(&download.language)
+        && download.release_name.len() <= 4096
+        && download.score.is_finite();
+    if !ok {
+        return Err(CommandError::invalid("subtitle download: result".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_download(&download).await })
+        .await
+}
+
+/// Start translating a subtitle track of the file (`createSubtitleAIJob`, `kind: translate`, sent once).
+#[tauri::command]
+pub async fn subtitle_translate(
+    state: State<'_, SiloState>,
+    server_id: String,
+    translate: SubtitleTranslate,
+) -> CmdResult<SubtitleAiJob> {
+    let ok = is_opaque_id(&translate.media_file_id)
+        && translate.source_index >= 0
+        && (translate.source_language.is_empty() || is_language(&translate.source_language))
+        && is_language(&translate.target_language)
+        && translate.start_position.is_finite()
+        && translate.start_position >= 0.0;
+    if !ok {
+        return Err(CommandError::invalid("subtitle translation: request".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_translate(&translate).await })
+        .await
+}
+
+/// One subtitle AI job (`getSubtitleAIJob`).
+#[tauri::command]
+pub async fn subtitle_ai_job(
+    state: State<'_, SiloState>,
+    server_id: String,
+    job_id: String,
+) -> CmdResult<SubtitleAiJob> {
+    if !is_opaque_id(&job_id) {
+        return Err(CommandError::invalid("subtitle job id".into()));
+    }
+    state
+        .with_session(&server_id, |s| async move { s.subtitle_ai_job(&job_id).await })
         .await
 }
 
@@ -1079,6 +1183,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(v.subtitle_index, Some(3));
+    }
+
+    #[test]
+    fn subtitle_inputs_are_checked() {
+        assert!(is_language("en") && is_language("pt-BR") && is_language("zh_Hant"));
+        assert!(!is_language("") && !is_language("e") && !is_language("1en") && !is_language("en;drop"));
+        assert!(is_opaque_id("9007199254740993") && !is_opaque_id("") && !is_opaque_id("a\nb"));
     }
 
     #[test]

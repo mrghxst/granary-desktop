@@ -23,7 +23,14 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ContextMenu, type MenuAction } from "../components/ContextMenu";
-import { artwork, catalog, type SubtitleAppearanceSetting } from "../lib/catalog";
+import {
+  artwork,
+  catalog,
+  type SubtitleAiJob,
+  type SubtitleAppearanceSetting,
+  type SubtitleFeatures,
+  type SubtitleSearchResults,
+} from "../lib/catalog";
 import { errorMessage } from "../lib/errors";
 import { formatTime } from "../lib/play";
 import {
@@ -37,7 +44,7 @@ import {
 } from "../lib/subtitleAppearance";
 import { SLEEP_MINUTES, SLEEP_OFF, sleepCountdown } from "../lib/sleepTimer";
 import { rememberTracks } from "../lib/trackMemory";
-import { audioInfo, subtitleInfo, trackSummary, type TrackInfo } from "../lib/tracks";
+import { audioInfo, languageName, subtitleInfo, trackSummary, type TrackInfo } from "../lib/tracks";
 import {
   ASPECTS,
   KEYMAP,
@@ -59,6 +66,7 @@ import {
   isFinalCredits,
   UP_NEXT_SECONDS,
   type PlayerAction,
+  type PlanSubtitle,
   type SubtitleChoice,
 } from "../lib/player";
 import { enabledSources, providerTile, resolvePreviewProvider, seekr, type PreviewProvider } from "../lib/previews";
@@ -76,7 +84,7 @@ const PROMPT_POP_MS = 8000;
 const HIDE_PAUSED_MS = 30000;
 /** A paused picture dims the controls first. */
 const DIM_PAUSED_MS = 8000;
-type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep" | "subStyle";
+type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep" | "subStyle" | "subFind";
 
 interface SubtitleOption {
   key: string;
@@ -183,6 +191,244 @@ function Choice({ selected, onSelect, children }: { selected: boolean; onSelect:
       <Check className={`size-4 shrink-0 transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
       {children}
     </button>
+  );
+}
+
+/** Languages offered for subtitle search and translation (the app's language comes first). */
+const SUBTITLE_LANGUAGES = [
+  "en",
+  "de",
+  "fr",
+  "es",
+  "it",
+  "pt",
+  "nl",
+  "sv",
+  "da",
+  "nb",
+  "fi",
+  "pl",
+  "cs",
+  "ru",
+  "tr",
+  "ja",
+  "ko",
+  "zh",
+  "ar",
+];
+
+const JOB_POLL_MS = 3000;
+const JOB_DONE = new Set(["completed", "failed", "cancelled"]);
+
+/**
+ * Find subtitles on the server: search its providers in one language and download a result, or have the current
+ * subtitle track translated by the server's AI. Either way the new track is stored for the file; `onStored` gets its
+ * id, and the caller refreshes the plan and selects it.
+ */
+function FindSubtitlesMenu({
+  serverId,
+  fileId,
+  position,
+  source,
+  onStored,
+  onClose,
+}: {
+  serverId: string;
+  fileId: string;
+  position: number;
+  /** The subtitle track playing now, which a translation starts from. */
+  source: PlanSubtitle | null;
+  onStored: (storedId: string) => void;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const appLanguage = (i18n.language || "en").split("-")[0] ?? "en";
+  const languages = [appLanguage, ...SUBTITLE_LANGUAGES.filter((l) => l !== appLanguage)];
+  const [features, setFeatures] = useState<SubtitleFeatures | null>(null);
+  const [language, setLanguage] = useState(appLanguage);
+  const [found, setFound] = useState<SubtitleSearchResults | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [job, setJob] = useState<SubtitleAiJob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fail = (e: unknown) => {
+    setError(errorMessage(t, e));
+    setBusy(false);
+  };
+  useEffect(() => {
+    let alive = true;
+    catalog
+      .subtitleFeatures(serverId)
+      .then((f) => {
+        if (alive) setFeatures(f);
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(errorMessage(t, e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [serverId, t]);
+  // A translation runs on the server: ask how far it is until it is done.
+  const jobId = job && !JOB_DONE.has(job.status) ? job.id : null;
+  useEffect(() => {
+    if (!jobId) return;
+    const id = setInterval(() => {
+      catalog
+        .subtitleAiJob(serverId, jobId)
+        .then((j) => {
+          setJob(j);
+          if (j.status === "completed" && j.result_subtitle_id) onStored(j.result_subtitle_id);
+          if (j.status === "failed") setError(j.error_message || t("player.translateFailed"));
+        })
+        .catch((e: unknown) => {
+          setError(errorMessage(t, e));
+        });
+    }, JOB_POLL_MS);
+    return () => {
+      clearInterval(id);
+    };
+  }, [jobId, serverId, onStored, t]);
+
+  const canSearch = features?.search.allowed === true && features.search.state === "available";
+  const canTranslate = features?.translate.allowed === true && features.translate.state === "available";
+  const search = () => {
+    setBusy(true);
+    setError(null);
+    catalog
+      .subtitleSearch(serverId, fileId, [language])
+      .then((r) => {
+        setFound(r);
+        setBusy(false);
+      })
+      .catch(fail);
+  };
+  const languageSelect = (
+    <select
+      aria-label={t("player.findLanguage")}
+      value={language}
+      onChange={(e) => {
+        setLanguage(e.target.value);
+      }}
+      className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/60 px-2 py-1.5 text-sm"
+    >
+      {languages.map((l) => (
+        <option key={l} value={l}>
+          {languageName(l, i18n.language) || l}
+        </option>
+      ))}
+    </select>
+  );
+  return (
+    <Popover title={t("player.findSubtitles")} onClose={onClose}>
+      {error ? <div className="px-3 py-2 text-red-300">{error}</div> : null}
+      {features === null && !error ? <div className="px-3 py-2 text-white/60">{t("status.loading")}</div> : null}
+      {features !== null && !canSearch && !canTranslate ? (
+        <div className="px-3 py-2 text-white/70">{t("player.findUnavailable")}</div>
+      ) : null}
+      {features !== null && (canSearch || canTranslate) ? (
+        <div className="flex items-center gap-2 px-3 py-2">{languageSelect}</div>
+      ) : null}
+      {canSearch ? (
+        <>
+          <MenuHeading>{t("player.findSearch")}</MenuHeading>
+          <div className="px-3 pb-2">
+            <button
+              type="button"
+              disabled={busy}
+              className="w-full rounded-lg bg-white/15 px-3 py-2 font-medium hover:bg-white/20 disabled:opacity-50"
+              onClick={search}
+            >
+              {busy ? t("status.loading") : t("player.findSearchButton")}
+            </button>
+          </div>
+          {found?.warnings.length ? (
+            <div className="px-3 pb-1 text-xs text-amber-300">{found.warnings.join(" ")}</div>
+          ) : null}
+          {found && found.results.length === 0 ? (
+            <div className="px-3 pb-2 text-white/60">{t("player.findNone")}</div>
+          ) : null}
+          {found?.results.map((r) => (
+            <button
+              key={`${r.provider}/${r.id}`}
+              type="button"
+              disabled={busy}
+              className="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left hover:bg-white/[0.07] disabled:opacity-50"
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                catalog
+                  .subtitleDownload(serverId, fileId, r)
+                  .then((s) => {
+                    setBusy(false);
+                    onStored(s.id);
+                  })
+                  .catch(fail);
+              }}
+            >
+              <span className="w-full truncate font-medium">
+                {r.release_name || languageName(r.language, i18n.language)}
+              </span>
+              <span className="text-xs text-white/60">
+                {[
+                  languageName(r.language, i18n.language) || r.language,
+                  r.provider,
+                  r.format.toUpperCase(),
+                  r.hearing_impaired ? "SDH" : null,
+                  r.downloads > 0 ? t("player.findDownloads", { count: r.downloads }) : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </button>
+          ))}
+        </>
+      ) : null}
+      {canTranslate ? (
+        <>
+          <MenuHeading>{t("player.translate")}</MenuHeading>
+          {source ? (
+            <div className="px-3 pb-2">
+              <button
+                type="button"
+                disabled={busy || jobId !== null}
+                className="w-full rounded-lg bg-white/15 px-3 py-2 font-medium hover:bg-white/20 disabled:opacity-50"
+                onClick={() => {
+                  setBusy(true);
+                  setError(null);
+                  catalog
+                    .subtitleTranslate(serverId, {
+                      media_file_id: fileId,
+                      source_index: source.combined_index,
+                      source_language: source.language ?? "",
+                      target_language: language,
+                      start_position: Math.max(0, position),
+                    })
+                    .then((j) => {
+                      setBusy(false);
+                      setJob(j);
+                      if (j.status === "completed" && j.result_subtitle_id) onStored(j.result_subtitle_id);
+                    })
+                    .catch(fail);
+                }}
+              >
+                {t("player.translateButton", { language: languageName(language, i18n.language) || language })}
+              </button>
+              {job ? (
+                <div className="pt-2 text-xs text-white/70">
+                  {job.status === "completed"
+                    ? t("player.translateDone")
+                    : job.status === "failed" || job.status === "cancelled"
+                      ? t("player.translateFailed")
+                      : t("player.translateRunning", { percent: Math.round(job.progress * 100) })}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="px-3 pb-2 text-white/60">{t("player.translateNeedsTrack")}</div>
+          )}
+        </>
+      ) : null}
+    </Popover>
   );
 }
 
@@ -854,6 +1100,38 @@ function PlayerControls() {
     },
     [p, ctx, fail],
   );
+
+  // A subtitle just stored on the server (download, translation): refresh the plan's list and switch to it.
+  const pickStored = useCallback(
+    (storedId: string) => {
+      showToast(t("player.subtitleAdded"));
+      void player
+        .subtitlesRefresh()
+        .then((list) => {
+          const item = list.find((s) => s.stored_subtitle_id != null && String(s.stored_subtitle_id) === storedId);
+          if (!item) return;
+          selectSubtitle(
+            item.source === "embedded" && item.stream_index != null
+              ? {
+                  key: `e${String(item.stream_index)}`,
+                  info: { headline: item.label ?? "", detail: null, badges: [] },
+                  choice: { kind: "embedded", stream_index: item.stream_index },
+                }
+              : {
+                  key: `x${item.track_id}`,
+                  info: { headline: item.label ?? "", detail: null, badges: [] },
+                  choice: { kind: "external", track_id: item.track_id },
+                },
+          );
+        })
+        .catch(fail);
+    },
+    [fail, showToast, t, selectSubtitle],
+  );
+  const currentPlanSubtitle =
+    plan?.subtitles.find(
+      (s) => currentSub === `x${s.track_id}` || (s.stream_index != null && currentSub === `e${String(s.stream_index)}`),
+    ) ?? null;
 
   const selectAudio = useCallback(
     (i: number) => {
@@ -1548,6 +1826,18 @@ function PlayerControls() {
               type="button"
               className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left font-medium text-white/85 hover:bg-white/[0.07] hover:text-white"
               onClick={() => {
+                setMenu("subFind");
+              }}
+            >
+              {t("player.findSubtitles")}
+              <span aria-hidden="true">›</span>
+            </button>
+          ) : null}
+          {ctx ? (
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left font-medium text-white/85 hover:bg-white/[0.07] hover:text-white"
+              onClick={() => {
                 setMenu("subStyle");
               }}
             >
@@ -1556,6 +1846,19 @@ function PlayerControls() {
             </button>
           ) : null}
         </Popover>
+      ) : null}
+
+      {menu === "subFind" && ctx ? (
+        <FindSubtitlesMenu
+          serverId={ctx.serverId}
+          fileId={ctx.version.file_id}
+          position={position}
+          source={currentPlanSubtitle}
+          onStored={pickStored}
+          onClose={() => {
+            setMenu(null);
+          }}
+        />
       ) : null}
 
       {menu === "subStyle" && ctx ? (

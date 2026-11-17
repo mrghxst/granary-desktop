@@ -687,6 +687,29 @@ start and maps it to mpv options (`sub-font-size` from the web's sizes at a 720-
 `sub-align-y`/`sub-pos`); text subtitles follow it, ASS keeps its own styles (`sub-ass-override=scale`). The
 player's "Subtitle style" menu writes this device's override. Not used: the profile-wide value (settings values API).
 
+### 7.2 Subtitle search, download and AI translation
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`getSubtitleProviderStatus`, `searchSubtitles`,
+`downloadSubtitle`, `getSubtitleAIStatus`, `createSubtitleAIJob`, `getSubtitleAIJob`), `docs/subtitles-api.md@749db96a`
+and the fixtures `contracts/api/v2/fixtures/{subtitles_search_partial,subtitle_download,subtitle_ai_create,subtitle_ai_job_opaque_id,subtitle_providers_disabled,subtitle_ai_disabled}.json@749db96a`.
+All are `profile_scoped`.
+
+| Operation | Notes |
+| --- | --- |
+| `GET /api/v2/subtitles/providers/status` | `{state* (available, disabled, not_configured, unsupported), allowed*, enabled*, providers*, revision*, schema_version*}` |
+| `POST /api/v2/subtitles/search` | Body `{media_file_id*, languages*}` (up to 100 tags). `{results*: [{id*, provider*, language*, release_name*, format*, score*, downloads*, hearing_impaired*, upload_date?}], warnings*}`; a provider that could not finish adds a warning, not an error. |
+| `POST /api/v2/subtitles/download` | Body: the chosen result as returned (`media_file_id*, provider*, subtitle_id*, language*, release_name*, score*, hearing_impaired*`). `{subtitle*: StoredSubtitle}`. `non_retryable`: sent once, no authentication replay. |
+| `GET /api/v2/subtitles/ai/status` | `{state*, allowed*, enabled*, transcribe_enabled*, revision*}` |
+| `POST /api/v2/subtitles/ai/translate` | Body `{media_file_id*, kind* (translate), source_index* (combined subtitle ordinal), source_language* (empty: detect), target_language*, start_position*, session_id?}`. `202 {job*, live_delivery_attached*}`; `non_retryable`. |
+| `GET /api/v2/subtitles/ai/jobs/{job_id}` | `{job*}`: `status` from `pending` to `completed`, `failed` or `cancelled`; `progress` 0 to 1; `result_subtitle_id` once completed. |
+
+A stored subtitle reaches a playing session through its plan: Granary replans with `track_change` and the current
+`selected_tracks` (`subtitles-api.md`, "Announcing an added subtitle") and finds the track by the inventory's
+`stored_subtitle_id` (`SubtitleInventoryItemV3`), then selects it like any external track. Direct play keeps the
+running stream when the new plan streams the same URL. Granary polls a translation every 3 s rather than listening
+for the playback socket's `subtitle_ready` event. Not used: upload, language detection, sync and timing, stored
+subtitle deletion, transcription, quotas, live AI cues.
+
 ## 8. Progress and watch state
 
 ### 8.1 During playback

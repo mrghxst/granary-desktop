@@ -327,6 +327,8 @@ pub struct SubtitleInventoryItem {
     pub stream_index: Option<i64>,
     pub container_track_id: Option<String>,
     pub native_selectable: Option<bool>,
+    /// The stored subtitle row of a downloaded, uploaded or generated track (`subtitles-api.md`).
+    pub stored_subtitle_id: Option<i64>,
 }
 
 /// `SubtitleArtifactV3`: a sidecar file for the selected subtitle.

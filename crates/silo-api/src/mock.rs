@@ -71,6 +71,8 @@ pub struct MockSiloApi {
     home_overrides: Mutex<Vec<HomeRowOverrideWrite>>,
     /// This device's subtitle appearance override, if any.
     subtitle_device: Mutex<Option<String>>,
+    /// Polls of the mock translation job so far (it completes on the second).
+    ai_polls: Mutex<u32>,
 }
 
 /// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
@@ -172,6 +174,7 @@ impl MockSiloApi {
             inbox: Mutex::new(demo::inbox()),
             home_overrides: Mutex::new(Vec::new()),
             subtitle_device: Mutex::new(None),
+            ai_polls: Mutex::new(0),
         }
     }
 
@@ -1722,6 +1725,112 @@ impl SiloApi for MockSiloApi {
             .map_err(|_| problem(500, "internal"))?
             .clear();
         Ok(())
+    }
+
+    async fn subtitle_provider_status(&self, _origin: &str, auth: &Auth) -> Result<SubtitleFeatureStatus> {
+        self.check(auth)?;
+        Ok(SubtitleFeatureStatus {
+            state: "available".into(),
+            allowed: true,
+            enabled: true,
+            providers: vec!["example".into()],
+        })
+    }
+
+    async fn subtitle_ai_status(&self, _origin: &str, auth: &Auth) -> Result<SubtitleFeatureStatus> {
+        self.check(auth)?;
+        Ok(SubtitleFeatureStatus {
+            state: "available".into(),
+            allowed: true,
+            enabled: true,
+            providers: Vec::new(),
+        })
+    }
+
+    async fn subtitle_search(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        _media_file_id: &str,
+        languages: &[String],
+    ) -> Result<SubtitleSearchResults> {
+        self.check(auth)?;
+        let results = languages
+            .iter()
+            .map(|l| SubtitleSearchResult {
+                id: format!("res-{l}"),
+                provider: "example".into(),
+                language: l.clone(),
+                release_name: format!("Mock.Release.{l}"),
+                format: "srt".into(),
+                score: 9.5,
+                downloads: 120,
+                ..SubtitleSearchResult::default()
+            })
+            .collect();
+        Ok(SubtitleSearchResults {
+            results,
+            warnings: Vec::new(),
+        })
+    }
+
+    async fn subtitle_download(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        body: &SubtitleDownload,
+    ) -> Result<SubtitleDownloadResult> {
+        self.check(auth)?;
+        Ok(SubtitleDownloadResult {
+            subtitle: StoredSubtitle {
+                id: "501".into(),
+                media_file_id: body.media_file_id.clone(),
+                provider: body.provider.clone(),
+                language: body.language.clone(),
+                format: "srt".into(),
+                release_name: body.release_name.clone(),
+                hearing_impaired: body.hearing_impaired,
+            },
+        })
+    }
+
+    async fn subtitle_translate(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        body: &SubtitleTranslate,
+    ) -> Result<SubtitleAiJobEnvelope> {
+        self.check(auth)?;
+        *self.ai_polls.lock().map_err(|_| problem(500, "internal"))? = 0;
+        Ok(SubtitleAiJobEnvelope {
+            job: SubtitleAiJob {
+                id: "job-1".into(),
+                kind: "translate".into(),
+                status: "pending".into(),
+                target_language: body.target_language.clone(),
+                ..SubtitleAiJob::default()
+            },
+        })
+    }
+
+    async fn subtitle_ai_job(&self, _origin: &str, auth: &Auth, job_id: &str) -> Result<SubtitleAiJobEnvelope> {
+        self.check(auth)?;
+        if job_id != "job-1" {
+            return Err(problem(404, "not_found"));
+        }
+        let mut polls = self.ai_polls.lock().map_err(|_| problem(500, "internal"))?;
+        *polls += 1;
+        let done = *polls >= 2;
+        Ok(SubtitleAiJobEnvelope {
+            job: SubtitleAiJob {
+                id: job_id.into(),
+                kind: "translate".into(),
+                status: if done { "completed" } else { "processing" }.into(),
+                progress: if done { 1.0 } else { 0.5 },
+                result_subtitle_id: done.then(|| "502".into()),
+                ..SubtitleAiJob::default()
+            },
+        })
     }
 
     async fn subtitle_appearance(&self, _origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting> {

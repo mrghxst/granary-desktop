@@ -934,6 +934,115 @@ pub struct SubtitleAppearanceSetting {
     pub has_device_override: bool,
 }
 
+/// `SubtitleProviderStatus` / `SubtitleAIStatus`: whether the viewer may search providers or start AI jobs.
+/// `state` is `available | disabled | not_configured | unsupported`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleFeatureStatus {
+    pub state: String,
+    pub allowed: bool,
+    pub enabled: bool,
+    /// Provider names (provider status only).
+    pub providers: Vec<String>,
+}
+
+/// What the player may offer for finding subtitles on the server.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct SubtitleFeatures {
+    pub search: SubtitleFeatureStatus,
+    pub translate: SubtitleFeatureStatus,
+}
+
+/// `SubtitleSearchResult`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleSearchResult {
+    pub id: String,
+    pub provider: String,
+    pub language: String,
+    pub release_name: String,
+    pub format: String,
+    pub score: f64,
+    pub downloads: i64,
+    pub hearing_impaired: bool,
+    pub upload_date: Option<String>,
+}
+
+/// `SubtitleSearchResults`: `warnings` names providers that could not finish.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleSearchResults {
+    pub results: Vec<SubtitleSearchResult>,
+    pub warnings: Vec<String>,
+}
+
+/// `StoredSubtitle`: a subtitle kept on the server for one media file.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct StoredSubtitle {
+    pub id: String,
+    pub media_file_id: String,
+    pub provider: String,
+    pub language: String,
+    pub format: String,
+    pub release_name: String,
+    pub hearing_impaired: bool,
+}
+
+/// `SubtitleDownloadResult`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleDownloadResult {
+    pub subtitle: StoredSubtitle,
+}
+
+/// `SubtitleDownloadBody`: the chosen search result, as `searchSubtitles` returned it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubtitleDownload {
+    pub media_file_id: String,
+    pub provider: String,
+    pub subtitle_id: String,
+    pub language: String,
+    pub release_name: String,
+    pub score: f64,
+    pub hearing_impaired: bool,
+}
+
+/// `SubtitleAICreateBody` for a translation (`kind: translate`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubtitleTranslate {
+    pub media_file_id: String,
+    /// The combined subtitle ordinal of the track to translate (`combined_index` in the plan's inventory).
+    pub source_index: i64,
+    /// Empty: the server detects it.
+    pub source_language: String,
+    pub target_language: String,
+    pub start_position: f64,
+}
+
+/// `SubtitleAIJob`: `status` is `pending`, then running states, then `completed | failed | cancelled`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleAiJob {
+    pub id: String,
+    pub kind: String,
+    pub status: String,
+    pub progress: f64,
+    pub progress_message: String,
+    pub error_message: Option<String>,
+    pub result_subtitle_id: Option<String>,
+    pub target_language: String,
+}
+
+/// `SubtitleAIJobOutputBody` / `SubtitleAICreateOutputBody`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SubtitleAiJobEnvelope {
+    pub job: SubtitleAiJob,
+}
+
 /// The home page's rows as the profile sees them and the overrides it saved, read together for editing.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct HomeRows {

@@ -427,7 +427,22 @@
       "top": "Oben"
     },
     "subStyleHint": "Für diesen Computer auf dem Server gespeichert. Gilt für einfache Text-Untertitel; gestaltete (ASS-)Untertitel behalten ihr eigenes Aussehen.",
-    "subStyleReset": "Stil des Profils verwenden"
+    "subStyleReset": "Stil des Profils verwenden",
+    "findSubtitles": "Untertitel suchen",
+    "findLanguage": "Sprache",
+    "findUnavailable": "Auf diesem Server ist für dich keine Untertitelsuche oder Übersetzung eingerichtet.",
+    "findSearch": "Bei den Anbietern des Servers suchen",
+    "findSearchButton": "Suchen",
+    "findNone": "In dieser Sprache nichts gefunden.",
+    "findDownloads_one": "{{count}} Download",
+    "findDownloads_other": "{{count}} Downloads",
+    "translate": "Aktuelle Untertitel übersetzen",
+    "translateButton": "Ins {{language}} übersetzen",
+    "translateRunning": "Wird übersetzt … {{percent}} %",
+    "translateDone": "Übersetzt.",
+    "translateFailed": "Die Übersetzung ist fehlgeschlagen.",
+    "translateNeedsTrack": "Schalte zuerst eine Untertitelspur ein; sie wird übersetzt.",
+    "subtitleAdded": "Untertitel hinzugefügt; wird eingeschaltet."
   },
   "errors": {
     "unknown": "Etwas ist schiefgelaufen.",

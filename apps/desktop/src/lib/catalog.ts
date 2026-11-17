@@ -449,6 +449,57 @@ export interface HomeRowOverrideWrite {
   user_config?: unknown;
 }
 
+/** `SubtitleProviderStatus` / `SubtitleAIStatus`. */
+export interface SubtitleFeatureStatus {
+  state: string;
+  allowed: boolean;
+  enabled: boolean;
+  providers: string[];
+}
+
+export interface SubtitleFeatures {
+  search: SubtitleFeatureStatus;
+  translate: SubtitleFeatureStatus;
+}
+
+export interface SubtitleSearchResult {
+  id: string;
+  provider: string;
+  language: string;
+  release_name: string;
+  format: string;
+  score: number;
+  downloads: number;
+  hearing_impaired: boolean;
+  upload_date?: string | null;
+}
+
+export interface SubtitleSearchResults {
+  results: SubtitleSearchResult[];
+  warnings: string[];
+}
+
+export interface StoredSubtitle {
+  id: string;
+  media_file_id: string;
+  provider: string;
+  language: string;
+  format: string;
+  release_name: string;
+  hearing_impaired: boolean;
+}
+
+export interface SubtitleAiJob {
+  id: string;
+  kind: string;
+  status: string;
+  progress: number;
+  progress_message: string;
+  error_message?: string | null;
+  result_subtitle_id?: string | null;
+  target_language: string;
+}
+
 /** `EffectiveSubtitleAppearance`: JSON documents, empty when unset. */
 export interface SubtitleAppearanceSetting {
   effective_value: string;
@@ -663,6 +714,33 @@ export const catalog = {
   /** A theme tune as encoded audio bytes (mp3, AAC, FLAC, …), fetched by the host. */
   themeAudio: (serverId: string, ownerId: string, themeId: string) =>
     call<ArrayBuffer>("theme_audio", { serverId, ownerId, themeId }),
+  subtitleFeatures: (serverId: string) => call<SubtitleFeatures>("subtitle_features", { serverId }),
+  subtitleSearch: (serverId: string, mediaFileId: string, languages: string[]) =>
+    call<SubtitleSearchResults>("subtitle_search", { serverId, mediaFileId, languages }),
+  subtitleDownload: (serverId: string, mediaFileId: string, r: SubtitleSearchResult) =>
+    call<StoredSubtitle>("subtitle_download", {
+      serverId,
+      download: {
+        media_file_id: mediaFileId,
+        provider: r.provider,
+        subtitle_id: r.id,
+        language: r.language,
+        release_name: r.release_name,
+        score: r.score,
+        hearing_impaired: r.hearing_impaired,
+      },
+    }),
+  subtitleTranslate: (
+    serverId: string,
+    t: {
+      media_file_id: string;
+      source_index: number;
+      source_language: string;
+      target_language: string;
+      start_position: number;
+    },
+  ) => call<SubtitleAiJob>("subtitle_translate", { serverId, translate: t }),
+  subtitleAiJob: (serverId: string, jobId: string) => call<SubtitleAiJob>("subtitle_ai_job", { serverId, jobId }),
   subtitleAppearance: (serverId: string) => call<SubtitleAppearanceSetting>("subtitle_appearance", { serverId }),
   subtitleAppearanceSet: (serverId: string, value: string) =>
     call<SubtitleAppearanceSetting>("subtitle_appearance_set", { serverId, value }),

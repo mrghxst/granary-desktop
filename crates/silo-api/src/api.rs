@@ -198,6 +198,34 @@ pub trait SiloApi: Send + Sync {
     async fn home_rows_replace(&self, origin: &str, auth: &Auth, overrides: &[HomeRowOverrideWrite]) -> Result<()>;
     /// `resetProfileSectionOverrides` for the home page (`204`): back to the administrator's layout.
     async fn home_rows_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
+    /// `getSubtitleProviderStatus`.
+    async fn subtitle_provider_status(&self, origin: &str, auth: &Auth) -> Result<SubtitleFeatureStatus>;
+    /// `getSubtitleAIStatus`.
+    async fn subtitle_ai_status(&self, origin: &str, auth: &Auth) -> Result<SubtitleFeatureStatus>;
+    /// `searchSubtitles` for one media file.
+    async fn subtitle_search(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        media_file_id: &str,
+        languages: &[String],
+    ) -> Result<SubtitleSearchResults>;
+    /// `downloadSubtitle` (`non_retryable`: sent once).
+    async fn subtitle_download(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        body: &SubtitleDownload,
+    ) -> Result<SubtitleDownloadResult>;
+    /// `createSubtitleAIJob` with `kind: translate` (`non_retryable`: sent once).
+    async fn subtitle_translate(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        body: &SubtitleTranslate,
+    ) -> Result<SubtitleAiJobEnvelope>;
+    /// `getSubtitleAIJob`.
+    async fn subtitle_ai_job(&self, origin: &str, auth: &Auth, job_id: &str) -> Result<SubtitleAiJobEnvelope>;
     /// `getEffectiveSubtitleAppearance` (device headers name this computer).
     async fn subtitle_appearance(&self, origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting>;
     /// `updateSubtitleAppearanceDeviceOverride`: `value` is the appearance as a JSON document.
@@ -762,6 +790,62 @@ impl SiloApi for HttpSiloApi {
         )
         .await
         .map(drop)
+    }
+
+    async fn subtitle_provider_status(&self, origin: &str, auth: &Auth) -> Result<SubtitleFeatureStatus> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/subtitles/providers/status", auth)).await
+    }
+
+    async fn subtitle_ai_status(&self, origin: &str, auth: &Auth) -> Result<SubtitleFeatureStatus> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/subtitles/ai/status", auth)).await
+    }
+
+    async fn subtitle_search(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        media_file_id: &str,
+        languages: &[String],
+    ) -> Result<SubtitleSearchResults> {
+        let body = serde_json::json!({ "media_file_id": media_file_id, "languages": languages });
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/subtitles/search", auth)
+                .json(&body),
+        )
+        .await
+    }
+
+    async fn subtitle_download(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        body: &SubtitleDownload,
+    ) -> Result<SubtitleDownloadResult> {
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/subtitles/download", auth)
+                .json(body),
+        )
+        .await
+    }
+
+    async fn subtitle_translate(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        body: &SubtitleTranslate,
+    ) -> Result<SubtitleAiJobEnvelope> {
+        let mut json = serde_json::to_value(body).map_err(|e| ApiError::Internal(e.to_string()))?;
+        json["kind"] = serde_json::Value::from("translate");
+        send_json(
+            self.authed(Method::POST, origin, "/api/v2/subtitles/ai/translate", auth)
+                .json(&json),
+        )
+        .await
+    }
+
+    async fn subtitle_ai_job(&self, origin: &str, auth: &Auth, job_id: &str) -> Result<SubtitleAiJobEnvelope> {
+        let path = format!("/api/v2/subtitles/ai/jobs/{}", url_segment(job_id));
+        send_json(self.authed(Method::GET, origin, &path, auth)).await
     }
 
     async fn subtitle_appearance(&self, origin: &str, auth: &Auth) -> Result<SubtitleAppearanceSetting> {

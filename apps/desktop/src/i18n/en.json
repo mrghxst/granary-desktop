@@ -427,7 +427,22 @@
       "top": "Top"
     },
     "subStyleHint": "Saved for this computer on the server. Applies to plain text subtitles; styled (ASS) subtitles keep their own look.",
-    "subStyleReset": "Use the profile’s style"
+    "subStyleReset": "Use the profile’s style",
+    "findSubtitles": "Find subtitles",
+    "findLanguage": "Language",
+    "findUnavailable": "This server has no subtitle search or translation set up for you.",
+    "findSearch": "Search the server’s providers",
+    "findSearchButton": "Search",
+    "findNone": "Nothing found in this language.",
+    "findDownloads_one": "{{count}} download",
+    "findDownloads_other": "{{count}} downloads",
+    "translate": "Translate the current subtitles",
+    "translateButton": "Translate into {{language}}",
+    "translateRunning": "Translating… {{percent}} %",
+    "translateDone": "Translated.",
+    "translateFailed": "The translation failed.",
+    "translateNeedsTrack": "Turn on a subtitle track first; it is the one translated.",
+    "subtitleAdded": "Subtitle added; switching to it."
   },
   "errors": {
     "unknown": "Something went wrong.",

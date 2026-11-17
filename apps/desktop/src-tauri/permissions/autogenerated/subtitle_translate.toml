@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-subtitle-translate"
+description = "Enables the subtitle_translate command without any pre-configured scope."
+commands.allow = ["subtitle_translate"]
+
+[[permission]]
+identifier = "deny-subtitle-translate"
+description = "Denies the subtitle_translate command without any pre-configured scope."
+commands.deny = ["subtitle_translate"]

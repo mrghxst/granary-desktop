@@ -1382,3 +1382,114 @@ async fn http_client_speaks_the_subtitle_appearance_contract() {
     assert_eq!(saved.device_value.as_deref(), Some(r#"{"fontSize":"xxlarge"}"#));
     api.subtitle_appearance_reset(&server.uri(), &auth).await.unwrap();
 }
+
+/// Subtitle search, download and AI translation, against the upstream fixtures
+/// (`silo-server/contracts/api/v2/fixtures/{subtitles_search_partial,subtitle_download,subtitle_ai_create,subtitle_ai_job_opaque_id,subtitle_providers_disabled,subtitle_ai_disabled}.json@749db96a`).
+#[tokio::test]
+async fn http_client_speaks_the_subtitle_search_contract() {
+    use granary_silo_api::catalog::{SubtitleDownload, SubtitleTranslate};
+    use wiremock::matchers::body_json;
+
+    let server = MockServer::start().await;
+    for (verb, at, fixture, status) in [
+        (
+            "GET",
+            "/api/v2/subtitles/providers/status",
+            "subtitle_providers_disabled.json",
+            200,
+        ),
+        ("GET", "/api/v2/subtitles/ai/status", "subtitle_ai_disabled.json", 200),
+        (
+            "GET",
+            "/api/v2/subtitles/ai/jobs/9007199254740993",
+            "subtitle_ai_job_opaque_id.json",
+            200,
+        ),
+    ] {
+        Mock::given(method(verb))
+            .and(path(at))
+            .and(header("X-Profile-Id", "7"))
+            .respond_with(json(fixture, status))
+            .mount(&server)
+            .await;
+    }
+    Mock::given(method("POST"))
+        .and(path("/api/v2/subtitles/search"))
+        .and(body_json(
+            serde_json::json!({"media_file_id": "42", "languages": ["en"]}),
+        ))
+        .respond_with(json("subtitles_search_partial.json", 200))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/subtitles/download"))
+        .and(body_json(
+            serde_json::json!({"media_file_id": "42", "provider": "example",
+            "subtitle_id": "opaque-result", "language": "en", "release_name": "", "score": 0.0,
+            "hearing_impaired": false}),
+        ))
+        .respond_with(json("subtitle_download.json", 200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v2/subtitles/ai/translate"))
+        .and(body_json(
+            serde_json::json!({"media_file_id": "42", "kind": "translate", "source_index": 3,
+            "source_language": "en", "target_language": "fr", "start_position": 0.0}),
+        ))
+        .respond_with(json("subtitle_ai_create.json", 202))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let auth = auth(Some(("7", None)));
+
+    let providers = api.subtitle_provider_status(&server.uri(), &auth).await.unwrap();
+    assert_eq!((providers.state.as_str(), providers.allowed), ("not_configured", false));
+    let ai = api.subtitle_ai_status(&server.uri(), &auth).await.unwrap();
+    assert!(!ai.enabled);
+    let found = api
+        .subtitle_search(&server.uri(), &auth, "42", &["en".to_owned()])
+        .await
+        .unwrap();
+    let hit = found.results.first().expect("one result");
+    assert_eq!((hit.id.as_str(), found.warnings.len()), ("opaque-result", 1));
+    let stored = api
+        .subtitle_download(
+            &server.uri(),
+            &auth,
+            &SubtitleDownload {
+                media_file_id: "42".into(),
+                provider: hit.provider.clone(),
+                subtitle_id: hit.id.clone(),
+                language: hit.language.clone(),
+                release_name: hit.release_name.clone(),
+                score: hit.score,
+                hearing_impaired: hit.hearing_impaired,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(stored.subtitle.id, "9007199254740993");
+    let job = api
+        .subtitle_translate(
+            &server.uri(),
+            &auth,
+            &SubtitleTranslate {
+                media_file_id: "42".into(),
+                source_index: 3,
+                source_language: "en".into(),
+                target_language: "fr".into(),
+                start_position: 0.0,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        (job.job.status.as_str(), job.job.result_subtitle_id.as_deref()),
+        ("pending", None)
+    );
+    let polled = api.subtitle_ai_job(&server.uri(), &auth, &job.job.id).await.unwrap();
+    assert_eq!(polled.job.id, job.job.id);
+}
