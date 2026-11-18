@@ -9,6 +9,15 @@ follow [Semantic Versioning](https://semver.org/).
 - Calendar: the week bar stays pinned as a clean band at the top instead of sliding against the window edge.
 - Playback starts faster (episode neighbours, settings and subtitle style load together), and episodes show the series backdrop on the launch screen.
 - The seek bar is equally round at both ends.
+- Audiobooks made of MP3 parts (for example Towers of Midnight) play again: the parts now play directly instead of
+  through a server remux that failed at once and made the player skip through every part.
+- A stream that stops long before its end is retried and then reported as an error, instead of counting as finished
+  and starting the next episode or part.
+- The launch screen shows the title's backdrop also with Windows animation effects turned off.
+
+### Changed
+- The sidebar has the web app's three groups: Libraries, Discover (For You, Requests, Calendar, Notifications) and
+  Your stuff (Favorites, Watchlist, Watch Party, Collections, History).
 
 ## [0.6.0] - 2026-11-18
 Streaming quality with a clear Direct Play, Direct Stream or Transcoding indicator, and web-style audiobook pages.

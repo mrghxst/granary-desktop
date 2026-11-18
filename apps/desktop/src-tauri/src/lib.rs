@@ -226,8 +226,11 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default();
     // Must be the first plugin: a second launch focuses the running window and exits during plugin setup, before
-    // `setup` (display repair) runs. A mock-mode dev build skips it so it can run beside the installed app.
-    if !mock_mode() {
+    // `setup` (display repair) runs. A mock-mode dev build skips it so it can run beside the installed app; a debug
+    // build may also opt out with GRANARY_DEV_SECOND_INSTANCE=1 to test a real server while the installed app stays
+    // open (never in release builds).
+    let second = cfg!(debug_assertions) && std::env::var_os("GRANARY_DEV_SECOND_INSTANCE").is_some();
+    if !mock_mode() && !second {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.unminimize();

@@ -74,7 +74,8 @@
     "retry": "Erneut versuchen"
   },
   "shell": {
-    "yours": "Deine Listen",
+    "yours": "Deine Sachen",
+    "discover": "Entdecken",
     "skip": "Zum Inhalt springen",
     "nav": "Hauptnavigation",
     "home": "Start",

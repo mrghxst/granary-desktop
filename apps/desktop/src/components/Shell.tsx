@@ -1,18 +1,18 @@
 import {
   Bell,
   BookOpen,
-  Bookmark,
   CalendarDays,
   Clapperboard,
   Folder,
+  FolderOpen,
   Headphones,
   Heart,
   History,
   Home,
-  Inbox,
   Info,
-  Layers,
+  List as ListIcon,
   Search,
+  Send,
   Server,
   Settings,
   Sparkles,
@@ -226,9 +226,10 @@ export function Shell() {
             </ul>
           </div>
         ) : null}
+        {/* The web app's three groups: Libraries, Discover, Your stuff, in its order. */}
         <div className="flex flex-col gap-1">
           <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
-            {t("shell.yours")}
+            {t("shell.discover")}
           </p>
           <ul className="flex flex-col gap-0.5">
             <Item
@@ -237,24 +238,9 @@ export function Shell() {
               label={t("recommendations.title")}
             />
             <Item
-              to={`${base}/list/watchlist`}
-              icon={<Bookmark className="size-[18px] shrink-0" />}
-              label={t("lists.watchlist.title")}
-            />
-            <Item
-              to={`${base}/list/favorites`}
-              icon={<Heart className="size-[18px] shrink-0" />}
-              label={t("lists.favorites.title")}
-            />
-            <Item
-              to={`${base}/list/history`}
-              icon={<History className="size-[18px] shrink-0" />}
-              label={t("lists.history.title")}
-            />
-            <Item
-              to={`${base}/collections`}
-              icon={<Layers className="size-[18px] shrink-0" />}
-              label={t("collections.title")}
+              to={`${base}/requests`}
+              icon={<Send className="size-[18px] shrink-0" />}
+              label={t("requests.title")}
             />
             <Item
               to={`${base}/calendar`}
@@ -262,20 +248,42 @@ export function Shell() {
               label={t("calendar.title")}
             />
             <Item
+              to={`${base}/notifications`}
+              icon={<Bell className="size-[18px] shrink-0" />}
+              label={t("notifications.title")}
+              badge={unread ?? 0}
+            />
+          </ul>
+        </div>
+        <div className="flex flex-col gap-1">
+          <p className="hidden px-3 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase lg:block">
+            {t("shell.yours")}
+          </p>
+          <ul className="flex flex-col gap-0.5">
+            <Item
+              to={`${base}/list/favorites`}
+              icon={<Heart className="size-[18px] shrink-0" />}
+              label={t("lists.favorites.title")}
+            />
+            <Item
+              to={`${base}/list/watchlist`}
+              icon={<ListIcon className="size-[18px] shrink-0" />}
+              label={t("lists.watchlist.title")}
+            />
+            <Item
               to={`${base}/watch-party`}
               icon={<Users className="size-[18px] shrink-0" />}
               label={t("together.title")}
             />
             <Item
-              to={`${base}/requests`}
-              icon={<Inbox className="size-[18px] shrink-0" />}
-              label={t("requests.title")}
+              to={`${base}/collections`}
+              icon={<FolderOpen className="size-[18px] shrink-0" />}
+              label={t("collections.title")}
             />
             <Item
-              to={`${base}/notifications`}
-              icon={<Bell className="size-[18px] shrink-0" />}
-              label={t("notifications.title")}
-              badge={unread ?? 0}
+              to={`${base}/list/history`}
+              icon={<History className="size-[18px] shrink-0" />}
+              label={t("lists.history.title")}
             />
           </ul>
         </div>

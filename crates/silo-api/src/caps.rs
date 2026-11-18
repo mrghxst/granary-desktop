@@ -59,9 +59,13 @@ pub const AUDIO_CODECS: &[&str] = &[
     "aac_latm",
 ];
 
-/// Containers the server's scanner reports that FFmpeg demuxes.
+/// Containers the server's scanner reports that FFmpeg demuxes. The audio-only ones (`mp3`, `flac`, `wav`, `aac`) are
+/// what `detectContainer` falls back to for audiobook parts (`scanner/probe.go@749db96a` L1516-1543,
+/// `mediacontainer/mediacontainer.go@749db96a` L31-50): without them `planAudioOnly`
+/// (`playback/candidate_planner_v3.go@749db96a` L259-280) remuxes every MP3 part into a progressive MP4 that cannot be
+/// read without seeking back, and the part fails at once.
 pub const CONTAINERS: &[&str] = &[
-    "mkv", "webm", "mp4", "mov", "avi", "ts", "m2ts", "flv", "ogg", "wmv", "mpeg",
+    "mkv", "webm", "mp4", "mov", "avi", "ts", "m2ts", "flv", "ogg", "wmv", "mpeg", "mp3", "flac", "wav", "aac",
 ];
 
 /// Subtitle codecs mpv renders from inside a container, selected by FFmpeg stream index.

@@ -329,6 +329,12 @@ Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`CatalogItemDeta
   `chapters`. The book position runs across the parts. The owner's server has books split into up to 61 parts with
   one chapter each (read 2026-11-17).
 - Each part plays through an ordinary playback session (the file's own position), as the web player does.
+- Audiobook parts are often MP3 (or FLAC, WAV, AAC) files, whose container the scanner reports by FFmpeg demuxer name
+  (`scanner/probe.go@749db96a` `detectContainer` fallback; `mediacontainer/mediacontainer.go@749db96a` L31-50). The
+  audio-only planner direct-plays only when the container is in `capabilities.containers`
+  (`playback/candidate_planner_v3.go@749db96a` L259-280); otherwise it remuxes to a progressive MP4 that mpv cannot read
+  without seeking back (seen on the owner's server 2026-11-18: every part of a 63-part MP3 book failed within a second).
+  Granary therefore declares `mp3`, `flac`, `wav` and `aac` as containers.
 - `POST /api/v2/sync/progress` (`syncProgress`, `profile_scoped`, `non_retryable`): body `{items*: [{media_item_id*,
   position_ms*, duration_ms*, force_overwrite?, client_ref?, updated_at?}]}` (1 to 100), answer `{items*: [{index*,
   media_item_id*, status* (success, failure), failure?}], summary*}`. Granary saves the book position here with

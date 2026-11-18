@@ -27,6 +27,8 @@ pub const PROGRESS_INTERVAL: Duration = Duration::from_secs(10);
 pub const PAUSED_HEARTBEAT: Duration = Duration::from_secs(5 * 60);
 /// Reloads of the same session after a dropped connection before a new attempt is negotiated.
 const RELOADS_PER_SESSION: u32 = 2;
+/// An EOF this many seconds or more before the source's length is a failed stream, not the end (`finish_eof`).
+const EARLY_EOF_SECONDS: f64 = 60.0;
 /// New attempts after the reloads are exhausted.
 const RENEGOTIATIONS: u32 = 1;
 /// How long `stop` waits for the server stop before the UI moves on; delivery continues in the background with the
@@ -1404,6 +1406,27 @@ impl Controller {
         if self.stopped {
             return;
         }
+        // A stream the demuxer gave up on also ends as EOF (mpv: "treating it as fatal error"). Ending a minute or
+        // more before the source's length is a failure, not the end: retry, and after the retries report an error,
+        // instead of "ended", which would start the next episode or audiobook part and cascade through all of them.
+        let at = self.source_position();
+        // mpv's own length of the file first (what actually plays); the plan's source length when mpv has none.
+        if let Some(length) = self
+            .state
+            .duration
+            .filter(|d| d.is_finite() && *d > 0.0)
+            .or(self.plan.source.duration_seconds)
+            .filter(|d| d.is_finite() && *d > 0.0)
+            && length - at > EARLY_EOF_SECONDS
+        {
+            tracing::warn!(
+                position = format!("{at:.1}"),
+                length = format!("{length:.1}"),
+                "stream ended early"
+            );
+            self.schedule_recovery("the stream ended early");
+            return;
+        }
         tracing::info!("played to the end");
         self.stop().await;
         self.sink.notice(Notice::Ended);
@@ -1702,6 +1725,7 @@ mod tests {
         let c = &mut r.controller;
         c.on_event(&MpvEvent::FileLoaded).await;
         c.on_event(&MpvEvent::PlaybackRestart).await;
+        c.on_event(&prop("duration", PropValue::Double(10.0))).await;
         play_to(c, 9.96).await;
         c.on_event(&prop("eof-reached", PropValue::Flag(true))).await;
         assert!(c.is_finished());
@@ -1710,6 +1734,29 @@ mod tests {
         assert!((stops[0].1.position.unwrap() - 9.96).abs() < 1e-9);
         let n = r.notices.all();
         assert!(matches!(n[n.len() - 2], Notice::Stopped { .. }) && n[n.len() - 1] == Notice::Ended);
+    }
+
+    #[tokio::test]
+    async fn eof_long_before_the_end_retries_instead_of_reporting_ended() {
+        let mut r = rig(StartArgs {
+            start_seconds: 0.0,
+            ..args()
+        })
+        .await;
+        let c = &mut r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&prop("duration", PropValue::Double(1800.0))).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        play_to(c, 0.7).await;
+        c.on_event(&MpvEvent::EndFile { reason: EndReason::Eof }).await;
+        assert!(!c.is_finished(), "a failed stream is retried");
+        let notices = r.notices.all();
+        assert!(!notices.contains(&Notice::Ended), "{notices:?}");
+        assert!(
+            notices
+                .iter()
+                .any(|n| matches!(n, Notice::Error { code, fatal: false, .. } if code == "reconnecting"))
+        );
     }
 
     #[tokio::test]

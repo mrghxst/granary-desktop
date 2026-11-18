@@ -204,6 +204,10 @@ export function Calendar() {
       {/* Pinned as a full-width band from the window's top edge: nothing scrolls visibly above or beside the week
           card, and it gets the same breathing room at the top as at rest. */}
       <div className="sticky top-0 z-10 -mx-4 bg-background px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 xl:-mx-12 xl:px-12">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-background to-transparent"
+        />
         <nav
           aria-label={t("calendar.weekOf", { range })}
           className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-3"

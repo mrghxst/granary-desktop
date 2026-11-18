@@ -74,7 +74,8 @@
     "retry": "Retry"
   },
   "shell": {
-    "yours": "Your lists",
+    "yours": "Your stuff",
+    "discover": "Discover",
     "skip": "Skip to content",
     "nav": "Main navigation",
     "home": "Home",

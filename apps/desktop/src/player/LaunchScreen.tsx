@@ -52,7 +52,9 @@ export function LaunchScreen({ launch }: { launch: Launch | null }) {
           key={fill}
           src={fill}
           alt=""
-          className={`absolute inset-0 size-full animate-[launch-drift_14s_ease-out_forwards] object-cover opacity-0 ${
+          // With Windows animation effects off (reduced motion) the fade-in is removed, so the resting opacity is set
+          // directly instead of staying at the animation's starting 0 (a black launch screen).
+          className={`absolute inset-0 size-full animate-[launch-drift_14s_ease-out_forwards] object-cover opacity-0 motion-reduce:opacity-[0.55] ${
             backdrop ? "" : "scale-110 blur-2xl"
           }`}
         />
