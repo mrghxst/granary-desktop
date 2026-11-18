@@ -25,6 +25,9 @@ tauri-build = { version = "2.7.4", features = [] }
 tauri = { version = "2.12.5", features = [] }
 tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-window-state = "2.5.0"
+# No TLS feature of its own: reqwest is already built with rustls (aws-lc-rs) for the whole app; the plugin's
+# `rustls-tls` would add the `ring` provider next to it and break rustls' automatic provider choice.
+tauri-plugin-updater = { version = "2.14.1", default-features = false }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

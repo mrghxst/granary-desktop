@@ -20,6 +20,7 @@ pub mod seekr;
 pub mod settings;
 pub mod silo;
 pub mod together;
+pub mod update;
 
 use commands::{AppInfo, LibmpvStatus};
 use tauri::{Manager, RunEvent};
@@ -81,7 +82,7 @@ fn probe_libmpv() -> Result<u64, String> {
 /// Debug builds only: `GRANARY_MOCK_SERVER=1` swaps in the in-process mock server and an in-memory credential store
 /// (UI development and end-to-end tests without a Silo server; user `alice` / `pw`, Kids PIN `1234`).
 /// Debug build with `GRANARY_MOCK_SERVER=1`.
-fn mock_mode() -> bool {
+pub(crate) fn mock_mode() -> bool {
     cfg!(debug_assertions) && std::env::var("GRANARY_MOCK_SERVER").is_ok_and(|v| v == "1")
 }
 
@@ -155,6 +156,8 @@ fn setup(app: &mut tauri::App, libmpv: LibmpvStatus) -> Result<(), Box<dyn std::
     app.manage(artcache::ArtCache::default());
     app.manage(seekr::SeekrState::default());
     app.manage(catalog::PreviewSheets::default());
+    app.manage(update::UpdateState::default());
+    update::spawn_automatic(app.handle().clone());
 
     let main = app
         .config()
@@ -248,6 +251,8 @@ pub fn run() {
         )
         // Artwork for the WebView: fetched by the host without credentials (ADR-0004 amendment 3), so the CSP can
         // forbid every remote image origin.
+        // In-app updates (ADR-0015); checks, downloads and installs run through `update.rs`, not from the WebView.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .register_asynchronous_uri_scheme_protocol(catalog::IMAGE_SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
             let uri = request.uri().to_string();
@@ -382,6 +387,9 @@ pub fn run() {
             playback::events::events_disconnect,
             settings::settings_get,
             settings::settings_set,
+            update::update_status,
+            update::update_check,
+            update::update_install,
         ])
         .build(tauri::generate_context!());
     match app {

@@ -33,7 +33,7 @@ pin bump (ADR-0005) and every change of bundled components.
 ## Application frameworks and libraries
 
 Rust crates (see `Cargo.lock` for exact versions; licences MIT and/or Apache-2.0 unless noted):
-Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-window-state`), `windows`
+Tauri 2 (`tauri`, `tauri-build`, `tauri-plugin-single-instance`, `tauri-plugin-window-state`, `tauri-plugin-updater`), `windows`
 (Microsoft), `libmpv2-sys` (LGPL-2.1), `serde`, `serde_json`, `thiserror`, `tracing`, `tracing-subscriber`,
 `tracing-appender`, `tokio`, `reqwest` (with `rustls`, `rustls-platform-verifier`, `aws-lc-rs`: Apache-2.0 / ISC / MIT;
 `aws-lc-sys` also OpenSSL-style licences), `keyring-core` and `windows-native-keyring-store`, `url`, `uuid`,

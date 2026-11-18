@@ -58,6 +58,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
 - [ADR-0011](docs/adr/0011-seekr-previews.md) Seek-preview source chain server → Seekr → local (reorderable, each switchable); Seekr key in Credential Manager, sheets proxied by the host.
 - [ADR-0012](docs/adr/0012-rendering-quality-and-gpu-video-processing.md) Per-title rendering options: quality levels (auto = balanced on UMA GPUs, high = mpv as configured, max = high-quality profile), opt-in d3d11vpp RTX/Intel VSR and RTX HDR for SDR, Dolby Vision switch (P7/P8 base layer).
 - [ADR-0013](docs/adr/0013-reader.md) Ebook and manga reader.
+- [ADR-0015](docs/adr/0015-in-app-updates.md) In-app updates: tauri-plugin-updater, minisign key outside the repo, feed on GitHub Pages from the newest release's latest.json, Restart to update.
 - [ADR-0014](docs/adr/0014-streaming-quality-and-buffering.md) Streaming quality: play-method chip and explained quality menu, settings at `profile_device`, buffering controller in the UI (66 conformance vectors), host keeps the step-down estimate.
 - pnpm 12.18.0 via corepack shim installed to `%APPDATA%\npm` (corepack enable into Program Files needs admin).
 - Toolchain (Phase 0): git 2.53.0, node v24.18.0, pnpm 12.18.0, rustc 1.99.1 (host x86_64-pc-windows-msvc),
@@ -69,6 +70,8 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
   (code-review, security-review, simplify, run) are used instead.
 
 ## Blocked / needs human
+- In-app updates (ADR-0015): add the GitHub secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (contents of `.secrets/updater.key` and `.secrets/updater.key.password`, local only) and back the key up; without them releases have no update feed entry.
+- Code signing: owner applies to the SignPath Foundation (docs/signing.md); nothing configured yet.
 - No `.env.local` present: no live Silo server credentials, no TEST_MEDIA_DIR, no DISPLAY_NOTES. Live tests will be
   skipped/mocked; synthetic ffmpeg fixtures used instead. Gate 4 live login/library listing is therefore recorded as
   blocked, with mocked coverage (contract tests against the OAS subset, wiremock HTTP tests, MockSiloApi session and
@@ -138,6 +141,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-18 In-app updates (ADR-0015): updater plugin, Restart to update in the sidebar and About, setting, release workflow signs and attaches latest.json, pages serves the feed; dev build against a local signed test feed found, downloaded and verified 9.9.9 (install step not run on this PC to keep the owner's installed app); verify.ps1 green. Needs the owner: GitHub secrets TAURI_SIGNING_PRIVATE_KEY(_PASSWORD) from .secrets/ and a backup of the key. Signing guide rewritten (docs/signing.md).
 - 2026-11-18 0.6.1: MP3 audiobook parts direct-play (caps containers), early-EOF guard, launch backdrop with reduced motion, calendar band, seek bar ends, parallel start, sidebar groups; tested on the owner's server (Towers of Midnight parts 1-2 direct play, part change, progress restored); tag v0.6.1 at the owner's request.
 - 2026-11-18 0.6.0: streaming quality and audiobook pages; version bump and tag v0.6.0 at the owner's request.
 - 2026-11-18 Streaming quality (ADR-0014) and audiobook pages: verify.ps1 green; play-method chip, quality menu, pick, buffering lowering (19 Mbps file over an 8 Mbps throttled mock link: lowered to a 720p transcode with Undo), settings and learned-limit reset checked in mock mode; audiobook library cards and book page checked in mock mode. Not checked against the owner's server: playing writes progress there (needs the owner's go-ahead); settings reads there are covered by the contract test only.

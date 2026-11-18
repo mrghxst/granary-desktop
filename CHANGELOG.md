@@ -5,10 +5,23 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- In-app updates: Granary checks for new versions in the background, downloads and verifies them, and installs with
+  one click on **Restart to update** (sidebar and About → Updates). Playback stops properly first and Granary opens
+  again by itself; afterwards a notice links to what's new. Settings → General → "Download updates automatically".
+  The first version with the updater still has to be installed by hand once.
+
+### Changed
+
+- docs/signing.md is now a step-by-step guide to code signing (SignPath Foundation, Certum, Azure).
+
 ## [0.6.1] - 2026-11-18
+
 Fixes: MP3 audiobooks, calendar week bar, launch screen backdrop, seek bar ends, faster start, sidebar groups.
 
 ### Fixed
+
 - Calendar: the week bar stays pinned as a clean band at the top instead of sliding against the window edge.
 - Playback starts faster (episode neighbours, settings and subtitle style load together), and episodes show the series backdrop on the launch screen.
 - The seek bar is equally round at both ends.
@@ -19,13 +32,16 @@ Fixes: MP3 audiobooks, calendar week bar, launch screen backdrop, seek bar ends,
 - The launch screen shows the title's backdrop also with Windows animation effects turned off.
 
 ### Changed
+
 - The sidebar has the web app's three groups: Libraries, Discover (For You, Requests, Calendar, Notifications) and
   Your stuff (Favorites, Watchlist, Watch Party, Collections, History).
 
 ## [0.6.0] - 2026-11-18
+
 Streaming quality with a clear Direct Play, Direct Stream or Transcoding indicator, and web-style audiobook pages.
 
 ### Added
+
 - Streaming quality: the player always shows how a title plays, as a coloured chip in the top bar: green Direct
   Play, blue Direct Stream, amber Transcoding, with the resolution and bitrate you receive. The quality menu explains
   why (your choice, your maximum bitrate, the connection, the device, the subtitles, the HDR format) and what the
@@ -38,15 +54,18 @@ Streaming quality with a clear Direct Play, Direct Stream or Transcoding indicat
   quality (or offers to), and Restore quality brings the original back.
 
 ### Changed
+
 - Audiobooks look like the web app's: square covers with the author and time left on cards, and a book page with the
   cover and Listen beside the series, author, narrator, length, chapters, publisher, the chapter list and rails of
   the series, the author's other books and similar ones.
 
 ## [0.5.0] - 2026-11-17
+
 The whole feature roadmap: lists, collections, calendar, recommendations, requests, notifications, home row
 editing, theme music, player extras, Watch Together, audiobooks and a reader for ebooks and manga.
 
 ### Added
+
 - Reader for ebooks and manga: EPUB, PDF and CBZ books open in the app, with a contents list, text size and
   page colour for EPUB, page-by-page PDFs and comics, and right-to-left reading for manga. A manga's page lists its
   chapters by volume and opens the next one. Your place is saved on the server and shared with the web reader.
@@ -89,21 +108,26 @@ editing, theme music, player extras, Watch Together, audiobooks and a reader for
   newest entry first, with tabs for movies and series.
 
 ### Changed
+
 - The sidebar lists the libraries right after Home and Search, with "Your lists" below them, as the web app does.
 
 ### Fixed
+
 - The subtitle size from Settings now applies when a video starts; before, only the player's reset used it.
 - Dragging a row with the mouse trailed one frame behind the hand: the row now moves in the same frame as the
   mouse.
 
 ### Removed
+
 - The line at the bottom of the seek preview tile. It showed that a frame was loading, not how far, and read as a
   progress bar stuck in one place.
 
 ## [0.4.8] - 2026-11-16
+
 Seek previews that keep up with the pointer on slow links, smoother rows, and one hover look.
 
 ### Fixed
+
 - Seek previews stopped appearing under a resting pointer: the player controls (and with them the preview) hid after
   2.5 s although the pointer was on the seek bar. They now stay while the pointer rests on the bar.
 - Seek previews on links that are slow to answer: downloads for spots the pointer had already left kept every
@@ -115,6 +139,7 @@ Seek previews that keep up with the pointer on slow links, smoother rows, and on
   the pointer while the row is dragged.
 
 ### Changed
+
 - Seek previews ask the server for less: at most two downloads at a time, nothing for spots the pointer only
   passes, and a keyframe download ends as soon as the keyframe is complete.
 - A thin line on the preview tile shows that the exact frame for the spot is still loading.
@@ -122,11 +147,12 @@ Seek previews that keep up with the pointer on slow links, smoother rows, and on
   lines whatever the shape of the title art.
 - Cards, episodes, collections and trailers share one hover look and one play badge.
 
-
 ## [0.4.7] - 2026-11-11
+
 Seek previews of large 4K files: keyframes with several slices are decoded side by side.
 
 ### Changed
+
 - Seek previews of 4K HEVC files whose keyframes have several slices (disc remuxes): the slices are decoded side by
   side instead of one after the other. On a disc-like 2160p test clip a keyframe takes 65 to 140 ms instead of 155
   to 520 ms. The first such keyframe of a file is checked against the picture decoded whole; if they differ, the
@@ -135,20 +161,24 @@ Seek previews of large 4K files: keyframes with several slices are decoded side 
   from the file's byte rate).
 
 ### Added
+
 - Stats overlay: how seek previews are made for the playing file, and what the last keyframe download and the last
   decode cost.
 
 ## [0.4.6] - 2026-11-11
+
 Posters on the movie and series pages, the app opens where you left it, and seek previews that are quicker on a
 sweep and step back when playback needs the connection.
 
 ### Added
+
 - Movie and series pages show the poster beside the title on wide windows. Narrow windows and episode pages keep
   the previous layout.
 - The app opens the server and profile used last. A profile with a PIN is preselected and only asks for the PIN.
   The server list is still reachable from inside a server.
 
 ### Changed
+
 - Seek previews decoded from the file: a second decoder helps while the pointer sweeps the bar (it is created at
   the first sweep and idle otherwise). Playback comes first: while the player has less than 4 s buffered, or is
   loading, seeking or stalled, previews fetch one keyframe at a time and nothing ahead.
@@ -157,10 +187,12 @@ sweep and step back when playback needs the connection.
   tried again after 15 s.
 
 ## [0.4.5] - 2026-11-11
+
 A speed and health pass: seek previews that answer small pointer moves from memory, a Home page that is there at
 once when you come back to it, and a tidier interface.
 
 ### Changed
+
 - Seek previews decoded from the file: once the frame under the pointer is up, the frames next to it are fetched
   ahead (in the direction of travel first), so small pointer moves are answered from memory. 4K HEVC frames decode
   about a fifth faster (105 → 85 ms median on the test file; slice threads). The preview box keeps its size while the
@@ -171,16 +203,19 @@ once when you come back to it, and a tidier interface.
   buttons, a hairline instead of the heavy shadow on posters, a smaller hover lift.
 
 ### Fixed
+
 - The page kept every preview frame it ever received; it now keeps the newest 300.
 - The host kept working on a preview spot the pointer had left when the new spot was already known to the page.
 - The preview decoder, its threads and its frames stayed in memory after playback stopped until the next hover; they
   are released at stop.
 
 ## [0.4.4] - 2026-11-09
+
 Fixes for 0.4.3: fast, reliable starts again, quicker seek previews on large files, no desktop showing through the
 player, and skip prompts that appear by themselves.
 
 ### Fixed
+
 - Starting playback was slow, and large files sometimes failed or disconnected (0.4.3). Granary downloaded every
   subtitle track in advance, including embedded ones, which the server extracts from the whole video file. That
   competed with the video stream. Now only separate subtitle files are downloaded in advance, and only after the
@@ -197,10 +232,12 @@ player, and skip prompts that appear by themselves.
   even with the controls hidden. The up-next countdown stays visible while it runs.
 
 ## [0.4.3] - 2026-11-09
+
 Seek previews that keep up with the pointer, a rendering quality setting, opt-in RTX and Intel Video Super
 Resolution, a Dolby Vision switch, and instant external subtitles.
 
 ### Added
+
 - **Rendering quality** (Settings → Player): Automatic, Fast, Balanced, High or Maximum. Automatic is a little
   lighter on integrated GPUs: no debanding and cheaper HDR peak detection. Elsewhere it is High, as before. Maximum
   uses mpv's high-quality profile. With your own `mpv.conf`, Automatic leaves the rendering to it.
@@ -211,6 +248,7 @@ Resolution, a Dolby Vision switch, and instant external subtitles.
 - The stats overlay shows the rendering level and any GPU video processing in use.
 
 ### Changed
+
 - Local seek previews follow the pointer. Every spot you move over is asked for at once; the newest request always
   goes first, and each frame appears as soon as it is decoded, so a sweep no longer waits until the pointer stops.
   Most keyframes now take a single download, sized from the ones before.
@@ -220,9 +258,11 @@ Resolution, a Dolby Vision switch, and instant external subtitles.
 - The stream cache follows the installed memory: a sixteenth of it, 384 MiB to 1 GiB ahead.
 
 ## [0.4.2] - 2026-11-08
+
 Instant subtitle switches, gapless audio switches, much faster local seek previews, no leftover files on disk, and steadier streams.
 
 ### Changed
+
 - Local seek previews are about six times faster to decode (about 0.1 s for a 4K HDR keyframe instead of 0.9 s) and
   never touch the disk: keyframes are decoded in memory in software and encoded to JPEG in the app. Several hovered
   spots download at once while one decodes, so moving along the bar no longer queues behind one slow request.
@@ -235,6 +275,7 @@ Instant subtitle switches, gapless audio switches, much faster local seek previe
   waiting for the server.
 
 ### Fixed
+
 - Playback rides out short server hiccups (a reverse proxy restarting, a rate limit, a gateway timeout): the stream
   retries in place and keeps what it has buffered, instead of reloading.
 - Turning on or switching to an embedded subtitle shows the current line right away; before, it often appeared only
@@ -243,9 +284,11 @@ Instant subtitle switches, gapless audio switches, much faster local seek previe
   did not end cleanly are removed at the next start, and the list of kept artwork is capped.
 
 ## [0.4.1] - 2026-11-08
+
 Fixes and polish: a working right-click menu with more actions, Seekr seek previews, an artwork cache, the right subtitles at start and steadier audio switches.
 
 ### Added
+
 - Right-click menu on every poster card (home rows, libraries, search, detail pages): Play, Play from beginning, Mark
   watched / unwatched and Remove from Continue Watching / Next Up, each shown only where it applies.
 - Seek previews from Seekr (seekr.tv) with your own API key. Previews now come from a chain you can reorder and switch
@@ -262,12 +305,14 @@ Fixes and polish: a working right-click menu with more actions, Seekr seek previ
   keyframe for that spot a moment later.
 
 ### Changed
+
 - Seek previews always have the same size (sheets of any tile size are scaled to it) and stay inside the bar at both
   ends instead of shrinking or going off-screen.
 - The loading spinner stays visible while the controls are hidden, so a stalled picture always shows that it is
   loading.
 
 ### Fixed
+
 - Right-clicking a card in a home row or a library no longer breaks the page. The menu was positioned relative to
   the hovered card and clipped by the row.
 - The right subtitle starts with the video. The player sent the catalog's track number where the server expects
@@ -280,9 +325,11 @@ Fixes and polish: a working right-click menu with more actions, Seekr seek previ
   resyncs on its own if it did not (no more seeking by hand to get sound back).
 
 ## [0.4.0] - 2026-11-08
+
 First public beta: finer seek previews, a cleaner detail page and steadier playback.
 
 ### Changed
+
 - Detail pages have a cleaner, more consistent banner: the artwork fills the frame (a blurred poster when there is no
   backdrop), the logo sits in a fixed-height slot, facts and quality tags share one line, credits are aligned, and the
   small poster beside the title is gone. Episodes show the show (logo or name) and season/episode above their title.
@@ -296,14 +343,17 @@ First public beta: finer seek previews, a cleaner detail page and steadier playb
   matches instead of filling the whole panel.
 
 ### Fixed
+
 - Switching audio tracks during playback no longer speeds up or breaks audio: the player pauses, switches and
   resyncs at the same spot, then continues.
 - Picking the same external subtitle again reuses it instead of downloading another copy.
 
 ## [0.3.0] - 2026-11-08
+
 Fixes from the 0.2 test round: filters, navigation, a calmer player and lighter seek previews.
 
 ### Added
+
 - Audio and subtitle picks carry over to the next episodes of a series (matched by language and track type, so a
   different track order does not matter).
 - Credits with an epilogue after them get Skip credits and Next episode buttons; the up-next countdown waits for the
@@ -315,6 +365,7 @@ Fixes from the 0.2 test round: filters, navigation, a calmer player and lighter 
 - A new app icon (play mark centred on the grain).
 
 ### Changed
+
 - Scrollbars and the A–Z rail follow the theme (thin rounded thumb, rail docked to the right edge); cards lift and
   zoom slightly on hover.
 - Player menus are cleaner and close after you pick an audio track, subtitle or speed.
@@ -324,13 +375,16 @@ Fixes from the 0.2 test round: filters, navigation, a calmer player and lighter 
 - The launch screen shows the poster and stays until the picture is actually moving, without the see-through flash.
 
 ### Fixed
+
 - The poster is back on movie and series pages; audio and subtitle menus open above the cast row.
 - Switching audio tracks no longer leaves audio muted or out of sync on direct-played files.
 
 ## [0.2.0] - 2026-11-08
+
 Closer to the web app, still minimal: richer detail pages, library tabs, local seek previews, a website.
 
 ### Added
+
 - Detail page redesign (banner stays inside its box): logo or title, chips for year, rating, runtime and the best
   file's quality (4K, HDR, audio), TMDB score, a Play button whose fill shows how far you got, Mark watched, favourite,
   a 1–5 star rating and a menu with watchlist and not interested.
@@ -351,21 +405,26 @@ Closer to the web app, still minimal: richer detail pages, library tabs, local s
   `pages` workflow.
 
 ### Changed
+
 - Monochrome app icon (black and white) instead of the yellow one.
 - README rewritten: screenshots, feature overview, install, build, architecture and how the app was built.
 
 ## [0.1.1] - 2026-11-08
+
 Bug-fix release.
 
 ### Fixed
+
 - The movie disappeared while the player controls were shown, and the window showed the desktop behind it; it came
   back only when the controls hid. The video window is no longer clipped by the overlay (ADR-0003 Amendment 1).
   The playback evidence run now checks the composed screen pixels with the controls shown and hidden.
 
 ## [0.1.0] - 2026-11-07
+
 First private test release (unsigned, per-user installer).
 
 ### Added
+
 - Connect to a self-hosted Silo server (compatible with Silo, not affiliated): address check, sign-in, profiles with
   PIN, refresh tokens in Windows Credential Manager.
 - Browsing in the Silo web-app look: home rows, libraries with filters, search, movie, series, season and episode pages.
@@ -382,6 +441,7 @@ First private test release (unsigned, per-user installer).
 - Security review (`docs/security.md`), architecture overview (`docs/ARCHITECTURE.md`), `CONTRIBUTING.md`.
 
 ### Security
+
 - Loopback relay route tokens are masked in logs, and error messages shown in the UI get the same redaction as logs.
 - Artwork references on foreign hosts may no longer name `localhost` or a loopback/private/link-local address.
 - mpv never auto-loads scripts or starts `yt-dlp` (`load-scripts=no`, `ytdl=no` forced).

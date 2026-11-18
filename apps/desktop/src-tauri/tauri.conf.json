@@ -44,14 +44,21 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "Granary contributors",
     "license": "AGPL-3.0-or-later",
     "licenseFile": "../../../LICENSE",
     "category": "Video",
     "shortDescription": "Desktop media client",
     "copyright": "Copyright (C) Granary contributors. Licensed under AGPL-3.0-or-later.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "resources": {
       "../../../vendor-bin/libmpv/libmpv-2.dll": "libmpv-2.dll",
       "../../../crates/player/mpv.conf": "mpv.conf",
@@ -60,8 +67,24 @@
       "../../../LICENSE": "LICENSE.txt"
     },
     "windows": {
-      "nsis": { "installMode": "currentUser", "installerHooks": "./windows/hooks.nsh" },
-      "webviewInstallMode": { "type": "downloadBootstrapper" }
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "./windows/hooks.nsh"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVBOEE2RDZGRjY0NzFBQjQKUldTMEdrZjJiMjJLV3VPZlRmSVdlT0daS2RDWllFcWJIUGlVTng1WU1wbDU5SnpvLzB6cHEyVzUK",
+      "endpoints": [
+        "https://mrghxst.github.io/granary-desktop/updates/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

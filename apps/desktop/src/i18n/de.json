@@ -315,7 +315,9 @@
     "stillWatchingCount_one": "Nach {{count}} Folge",
     "stillWatchingCount_other": "Nach {{count}} Folgen",
     "ambientLetterbox": "Leuchtende Balken",
-    "ambientLetterboxHint": "Solange die Steuerung sichtbar ist, nehmen die schwarzen Balken breiter Filme einen sanften Schein des Bildes an. Nutzt die Vorschaubilder der aktuellen Szene."
+    "ambientLetterboxHint": "Solange die Steuerung sichtbar ist, nehmen die schwarzen Balken breiter Filme einen sanften Schein des Bildes an. Nutzt die Vorschaubilder der aktuellen Szene.",
+    "autoUpdate": "Updates automatisch laden",
+    "autoUpdateHint": "Granary sucht nach neuen Versionen und lädt sie im Hintergrund. Installiert wird erst, wenn du «Neu starten und aktualisieren» wählst."
   },
   "player": {
     "handoff": "Wiedergabe wird gestartet …",
@@ -508,7 +510,6 @@
     "checkUpdates": "Nach Updates suchen",
     "source": "Quellcode",
     "licenseText": "Lizenztext",
-    "updatesHint": "Öffnet die Release-Seite im Browser. Granary aktualisiert sich nie selbst.",
     "logs": "Protokolle",
     "logsHint": "Protokolle bleiben auf diesem PC. Tokens, Passwörter und signierte URLs werden vor dem Schreiben und erneut beim Anzeigen oder Exportieren entfernt.",
     "showLogs": "Aktuelles Protokoll anzeigen",
@@ -919,5 +920,25 @@
       "noLearned": "Keine Grenze gelernt",
       "resetLearned": "Zurücksetzen"
     }
+  },
+  "update": {
+    "title": "Updates",
+    "idle": "Granary sucht im Hintergrund nach neuen Versionen.",
+    "unavailable": "Dies ist ein Entwicklungs-Build: Updates kommen mit dem Installer.",
+    "checking": "Suche nach einer neuen Version …",
+    "upToDate": "Granary ist auf dem neuesten Stand.",
+    "downloading": "Version {{version}} wird geladen",
+    "ready": "Version {{version}} ist bereit. Starte Granary neu, um das Update abzuschließen.",
+    "restart": "Neu starten und aktualisieren",
+    "restarting": "Wird neu gestartet …",
+    "restartHint": "Granary schließt sich, installiert Version {{version}} und öffnet sich wieder.",
+    "version": "Version {{version}}",
+    "failed": "Das Update hat nicht geklappt: {{message}}",
+    "failedShort": "Hat nicht geklappt, nochmals versuchen",
+    "releaseNotes": "Versionshinweise",
+    "hint": "Neue Versionen werden im Hintergrund geladen und mit dem Signaturschlüssel von Granary geprüft. Installiert wird erst, wenn du «Neu starten und aktualisieren» wählst; die Wiedergabe stoppt vorher und Granary öffnet sich von selbst wieder.",
+    "updated": "Granary wurde auf {{version}} aktualisiert",
+    "whatsNew": "Neuerungen ansehen",
+    "dismiss": "Schließen"
   }
 }

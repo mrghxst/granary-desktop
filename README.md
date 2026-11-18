@@ -49,6 +49,7 @@ a receiver. Granary keeps the calm look of the server's web app and hands playba
 <td width="50%" valign="top">
 
 **Browse**
+
 - Home rows from the server, with a fullscreen launch screen while it loads.
 - Libraries with Recommended, Library and Collections tabs, infinite scroll, an A–Z rail, filters and sorting.
 - Optional quality tags (4K, HDR10, Dolby Vision, Atmos) on posters.
@@ -60,6 +61,7 @@ a receiver. Granary keeps the calm look of the server's web app and hands playba
 <td width="50%" valign="top">
 
 **Play**
+
 - `gpu-next` on D3D11 with d3d11va hardware decoding.
 - Direct play, remux or transcode, decided by the server.
 - Resume points and progress reporting, next episode across seasons.
@@ -74,6 +76,7 @@ a receiver. Granary keeps the calm look of the server's web app and hands playba
 <td valign="top">
 
 **Display and audio**
+
 - Per-monitor HDR policy, peak and black level.
 - Refresh-rate matching, skipped on VRR monitors.
 - Output device, channel layout, exclusive mode, passthrough.
@@ -82,6 +85,7 @@ a receiver. Granary keeps the calm look of the server's web app and hands playba
 <td valign="top">
 
 **Everything else**
+
 - Sign-ins in Windows Credential Manager; the UI never sees a token.
 - English and German, full keyboard control, layout-aware shortcuts.
 - Redacted logs, an offline banner with automatic reload, optional power-user `mpv.conf`.
@@ -112,10 +116,14 @@ and the WebView2 runtime (ships with Windows 11; the installer fetches it if mis
    ([`docs/signing.md`](docs/signing.md)), so SmartScreen asks: choose **More info → Run anyway**.
 3. Start Granary, add your server address and sign in.
 
+From then on Granary updates itself: new versions download in the background, are checked against Granary's signing
+key, and install with one click on **Restart to update** (sidebar or About). Turn this off in Settings → General.
+Versions up to 0.6.1 have no updater and need the next installer once.
+
 Uninstall through **Settings → Apps → Granary**; tick "Delete the application data" to remove settings, logs and the
 shader cache too.
 
-> **Status: 0.4 public beta, unsigned** (Windows SmartScreen may warn on first run). Automated tests ran on a laptop with an HDR panel, synthetic clips and a
+> **Status: public beta, unsigned** (Windows SmartScreen may warn on first run). Automated tests ran on a laptop with an HDR panel, synthetic clips and a
 > mock server. Dolby Vision remuxes, OLED desktop monitors, VRR, receivers and real servers still need hands-on checks:
 > see [`MANUAL_TEST_CHECKLIST.md`](MANUAL_TEST_CHECKLIST.md). Reports are welcome.
 
@@ -123,14 +131,14 @@ shader cache too.
 
 mpv-like defaults; press `?` or F1 while playing for the full list.
 
-| Keys | Action | Keys | Action |
-| --- | --- | --- | --- |
-| Space, k | Play / pause | f, double-click | Fullscreen |
-| ← / → | Seek | ↓ / ↑ | Large seek |
-| PageDown / PageUp | Chapter | 9 / 0 | Volume |
-| a / v | Audio track / subtitles | i | Statistics |
-| N / P | Next / previous episode | T | Mini player |
-| q | Stop | Esc | Leave fullscreen / close menus |
+| Keys              | Action                  | Keys            | Action                         |
+| ----------------- | ----------------------- | --------------- | ------------------------------ |
+| Space, k          | Play / pause            | f, double-click | Fullscreen                     |
+| ← / →             | Seek                    | ↓ / ↑           | Large seek                     |
+| PageDown / PageUp | Chapter                 | 9 / 0           | Volume                         |
+| a / v             | Audio track / subtitles | i               | Statistics                     |
+| N / P             | Next / previous episode | T               | Mini player                    |
+| q                 | Stop                    | Esc             | Leave fullscreen / close menus |
 
 All shortcuts are in the [docs](https://mrghxst.github.io/granary-desktop/docs/shortcuts/).
 
@@ -177,13 +185,13 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow and rules.
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Path | What |
-| --- | --- |
-| [`apps/desktop`](apps/desktop) | Tauri app: React UI (`src/`) and Rust host (`src-tauri/`) |
-| [`crates/player`](crates/player) | libmpv wrapper, option layering, state machine, seek previews |
-| [`crates/display`](crates/display) | HDR, SDR white, refresh rate, DXGI luminance, restore marker |
+| Path                                 | What                                                              |
+| ------------------------------------ | ----------------------------------------------------------------- |
+| [`apps/desktop`](apps/desktop)       | Tauri app: React UI (`src/`) and Rust host (`src-tauri/`)         |
+| [`crates/player`](crates/player)     | libmpv wrapper, option layering, state machine, seek previews     |
+| [`crates/display`](crates/display)   | HDR, SDR white, refresh rate, DXGI luminance, restore marker      |
 | [`crates/silo-api`](crates/silo-api) | Typed server client, credential store, events socket, mock server |
-| [`site`](site) | Website and documentation |
+| [`site`](site)                       | Website and documentation                                         |
 
 More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the decision records in [`docs/adr/`](docs/adr). Granary
 never guesses an endpoint: every server call is listed with its upstream source in

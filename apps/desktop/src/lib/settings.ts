@@ -13,6 +13,8 @@ export interface Settings {
   themeMusic: boolean;
   /** Repeat the theme tune while the page is open. */
   themeMusicLoop: boolean;
+  /** Check for new versions and download them in the background (ADR-0015). */
+  autoUpdate: boolean;
   player: {
     /** mpv `hwdec`. */
     hwdec: "auto-safe" | "auto-copy-safe" | "no";
@@ -133,6 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   posterTags: false,
   themeMusic: false,
   themeMusicLoop: false,
+  autoUpdate: true,
   player: {
     hwdec: "auto-safe",
     autoplayNext: true,

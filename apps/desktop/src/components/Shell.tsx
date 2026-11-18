@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { NavigationType, NavLink, Outlet, useLocation, useNavigate, useNavigationType, useParams } from "react-router";
 import { goReauth, needsReauth } from "../lib/nav";
 import { BackButton } from "./ui";
+import { UpdateButton, UpdatedNotice } from "./UpdateButton";
 import { catalog } from "../lib/catalog";
 import { bumpRefresh, serverEvents, useRefreshTick } from "../lib/events";
 import { useLoad } from "../lib/useLoad";
@@ -190,6 +191,7 @@ export function Shell() {
 
   return (
     <div className="flex h-full">
+      <UpdatedNotice />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-background focus:px-4 focus:py-2"
@@ -287,20 +289,23 @@ export function Shell() {
             />
           </ul>
         </div>
-        <ul className="mt-auto flex flex-col gap-0.5">
-          <Item
-            to={`${base}/profiles`}
-            icon={<UserRound className="size-[18px] shrink-0" />}
-            label={t("shell.profile")}
-          />
-          <Item to="/" icon={<Server className="size-[18px] shrink-0" />} label={t("shell.servers")} end />
-          <Item
-            to={`${base}/settings`}
-            icon={<Settings className="size-[18px] shrink-0" />}
-            label={t("shell.settings")}
-          />
-          <Item to={`${base}/about`} icon={<Info className="size-[18px] shrink-0" />} label={t("shell.about")} />
-        </ul>
+        <div className="mt-auto flex flex-col gap-2">
+          <UpdateButton />
+          <ul className="flex flex-col gap-0.5">
+            <Item
+              to={`${base}/profiles`}
+              icon={<UserRound className="size-[18px] shrink-0" />}
+              label={t("shell.profile")}
+            />
+            <Item to="/" icon={<Server className="size-[18px] shrink-0" />} label={t("shell.servers")} end />
+            <Item
+              to={`${base}/settings`}
+              icon={<Settings className="size-[18px] shrink-0" />}
+              label={t("shell.settings")}
+            />
+            <Item to={`${base}/about`} icon={<Info className="size-[18px] shrink-0" />} label={t("shell.about")} />
+          </ul>
+        </div>
       </nav>
       <main ref={mainRef} id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto focus:outline-none">
         <div ref={contentRef} className="mx-auto w-full max-w-[2400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-12">

@@ -25,3 +25,6 @@ apps/desktop/src-tauri/gen/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Local signing material (updater key); never committed
+/.secrets/

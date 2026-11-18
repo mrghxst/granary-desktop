@@ -20,6 +20,8 @@ pub struct Settings {
     pub theme_music: bool,
     /// Repeat the theme tune while the page is open.
     pub theme_music_loop: bool,
+    /// Check for new versions and download them in the background; installing waits for "Restart to update".
+    pub auto_update: bool,
     pub player: PlayerSettings,
     pub display: DisplaySettings,
     pub audio: AudioSettings,
@@ -148,6 +150,7 @@ impl Default for Settings {
             poster_tags: false,
             theme_music: false,
             theme_music_loop: false,
+            auto_update: true,
             player: PlayerSettings::default(),
             display: DisplaySettings::default(),
             audio: AudioSettings::default(),

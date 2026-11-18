@@ -117,6 +117,9 @@
     "allow-events-disconnect",
     "allow-settings-get",
     "allow-settings-set",
+    "allow-update-status",
+    "allow-update-check",
+    "allow-update-install",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

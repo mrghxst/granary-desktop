@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Card } from "../components/ui";
 import { errorMessage } from "../lib/errors";
+import { downloadShare, updates, useUpdateStatus, type UpdateStatus } from "../lib/update";
 import { aboutInfo, appInfo, exportLogs, openLink, tailLogs, type AboutInfo, type AppInfo } from "../lib/host";
 
-/** About: version, licence and source offer (AGPL), update check (ADR-0005), third-party notices and the log viewer. */
+/** About: version, licence and source offer (AGPL), updates (ADR-0015), third-party notices and the log viewer. */
 export function About() {
   const { t } = useTranslation();
   const [about, setAbout] = useState<AboutInfo | null>(null);
@@ -79,13 +80,6 @@ export function About() {
         <p className="text-sm text-muted-foreground">{t("about.sourceOffer")}</p>
         <div className="flex flex-wrap gap-2">
           <Button
-            onClick={() => {
-              open("releases");
-            }}
-          >
-            {t("about.checkUpdates")}
-          </Button>
-          <Button
             variant="secondary"
             onClick={() => {
               open("source");
@@ -102,8 +96,13 @@ export function About() {
             {t("about.licenseText")}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">{t("about.updatesHint")}</p>
       </Card>
+
+      <UpdatesCard
+        onReleases={() => {
+          open("releases");
+        }}
+      />
 
       <Card className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">{t("about.logs")}</h2>
@@ -165,5 +164,78 @@ export function About() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/** Updates (ADR-0015): what the background updater is doing, Check now, and Restart to update once one is ready. */
+function UpdatesCard({ onReleases }: { onReleases: () => void }) {
+  const { t } = useTranslation();
+  const status = useUpdateStatus();
+  const [checked, setChecked] = useState<UpdateStatus | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
+  // The live status, except that a manual check's own answer shows until the next event replaces it.
+  const s = checked && status.phase === "idle" ? checked : status;
+  const busy = s.phase === "checking" || s.phase === "downloading" || s.phase === "installing";
+  const share = downloadShare(s);
+
+  const line = (() => {
+    switch (s.phase) {
+      case "unavailable":
+        return t("update.unavailable");
+      case "checking":
+        return t("update.checking");
+      case "upToDate":
+        return t("update.upToDate");
+      case "downloading":
+        return `${t("update.downloading", { version: s.version })}${share !== null ? ` · ${String(Math.round(share * 100))}%` : ""}`;
+      case "ready":
+        return t("update.ready", { version: s.version });
+      case "installing":
+        return t("update.restarting");
+      case "failed":
+        return t("update.failed", { message: s.message });
+      default:
+        return t("update.idle");
+    }
+  })();
+
+  return (
+    <Card className="flex flex-col gap-3" data-testid="updates">
+      <h2 className="text-lg font-semibold">{t("update.title")}</h2>
+      <p className="text-sm" role="status">
+        {line}
+      </p>
+      {installError ? <Alert tone="error">{installError}</Alert> : null}
+      <div className="flex flex-wrap gap-2">
+        {s.phase === "ready" ? (
+          <Button
+            onClick={() => {
+              setInstallError(null);
+              updates.install().catch((e: unknown) => {
+                setInstallError(errorMessage(t, e));
+              });
+            }}
+          >
+            {t("update.restart")}
+          </Button>
+        ) : (
+          <Button
+            disabled={busy || s.phase === "unavailable"}
+            onClick={() => {
+              void updates
+                .check()
+                .then(setChecked)
+                .catch(() => undefined);
+            }}
+          >
+            {t("about.checkUpdates")}
+          </Button>
+        )}
+        <Button variant="secondary" onClick={onReleases}>
+          {t("update.releaseNotes")}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{t("update.hint")}</p>
+    </Card>
   );
 }

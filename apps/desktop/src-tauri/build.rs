@@ -116,6 +116,9 @@ const COMMANDS: &[&str] = &[
     "events_disconnect",
     "settings_get",
     "settings_set",
+    "update_status",
+    "update_check",
+    "update_install",
 ];
 
 fn main() {

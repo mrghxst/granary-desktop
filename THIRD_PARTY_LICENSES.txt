@@ -1199,7 +1199,7 @@ if necessary.  Here is a sample; alter the names:
 That's all there is to it!
 
 ====================================================================================================
-Rust crates linked into granary.exe (297)
+Rust crates linked into granary.exe (300)
 ====================================================================================================
 
 Used by:
@@ -1865,6 +1865,7 @@ Used by:
   - stable_deref_trait 1.2.1 (MIT OR Apache-2.0; LICENSE-APACHE)
   - string_cache 0.9.0 (MIT OR Apache-2.0; LICENSE-APACHE)
   - symlink 0.1.0 (MIT/Apache-2.0; LICENSE-APACHE)
+  - tempfile 3.27.0 (MIT OR Apache-2.0; LICENSE-APACHE)
   - tendril 0.5.1 (MIT OR Apache-2.0; LICENSE-APACHE)
   - thread_local 1.1.10 (MIT OR Apache-2.0; LICENSE-APACHE)
   - tray-icon 0.25.1 (MIT OR Apache-2.0; LICENSE-APACHE)
@@ -6509,6 +6510,7 @@ Used by:
   - tauri 2.12.5 (Apache-2.0 OR MIT; LICENSE-APACHE-2.0)
   - tauri-codegen 2.7.4 (Apache-2.0 OR MIT; LICENSE-APACHE-2.0)
   - tauri-plugin-single-instance 2.5.5 (Apache-2.0 OR MIT; LICENSE_APACHE-2.0)
+  - tauri-plugin-updater 2.14.1 (Apache-2.0 OR MIT; LICENSE_APACHE-2.0)
   - tauri-plugin-window-state 2.5.0 (Apache-2.0 OR MIT; LICENSE_APACHE-2.0)
   - tauri-runtime 2.12.2 (Apache-2.0 OR MIT; LICENSE-APACHE-2.0)
   - tauri-runtime-wry 2.12.3 (Apache-2.0 OR MIT; LICENSE-APACHE-2.0)
@@ -9878,6 +9880,71 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+----------------------------------------------------------------------------------------------------
+
+Used by:
+  - minisign-verify 0.3.0 (MIT; LICENSE)
+
+Copyright (c) 2019-2025 Frank Denis
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+--
+
+Code in the src/crypto folder is derived from the rust-crypto project:
+https://github.com/DaGenix/rust-crypto
+
+Original ISC license follows:
+
+Copyright (c) 2006-2009 Graydon Hoare
+Copyright (c) 2009-2013 Mozilla Foundation
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -13362,6 +13429,7 @@ Creator: Person: Daniel Thompson-Yvetot
 Used by:
   - tauri 2.12.5 (Apache-2.0 OR MIT; LICENSE-MIT)
   - tauri-codegen 2.7.4 (Apache-2.0 OR MIT; LICENSE-MIT)
+  - tauri-plugin-updater 2.14.1 (Apache-2.0 OR MIT; LICENSE_MIT)
   - tauri-plugin-window-state 2.5.0 (Apache-2.0 OR MIT; LICENSE_MIT)
   - tauri-runtime 2.12.2 (Apache-2.0 OR MIT; LICENSE-MIT)
   - tauri-runtime-wry 2.12.3 (Apache-2.0 OR MIT; LICENSE-MIT)
@@ -13420,6 +13488,7 @@ SOFTWARE.
 
 Used by:
   - tauri-plugin-single-instance 2.5.5 (Apache-2.0 OR MIT; LICENSE.spdx)
+  - tauri-plugin-updater 2.14.1 (Apache-2.0 OR MIT; LICENSE.spdx)
   - tauri-plugin-window-state 2.5.0 (Apache-2.0 OR MIT; LICENSE.spdx)
 
 SPDXVersion: SPDX-2.1
@@ -13442,6 +13511,37 @@ PackageDownloadLocation: git://github.com/tauri-apps/tauri
 PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
+
+----------------------------------------------------------------------------------------------------
+
+Used by:
+  - tempfile 3.27.0 (MIT OR Apache-2.0; LICENSE-MIT)
+
+Copyright (c) 2015 Steven Allen
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 
 ----------------------------------------------------------------------------------------------------
 

@@ -315,7 +315,9 @@
     "stillWatchingCount_one": "After {{count}} episode",
     "stillWatchingCount_other": "After {{count}} episodes",
     "ambientLetterbox": "Ambient letterbox",
-    "ambientLetterboxHint": "While the controls show, the black bars of wide films take a soft glow of the picture. Uses the seek previews of the current scene."
+    "ambientLetterboxHint": "While the controls show, the black bars of wide films take a soft glow of the picture. Uses the seek previews of the current scene.",
+    "autoUpdate": "Download updates automatically",
+    "autoUpdateHint": "Granary checks for new versions and downloads them in the background. Installing waits until you choose Restart to update."
   },
   "player": {
     "handoff": "Starting playback…",
@@ -508,7 +510,6 @@
     "checkUpdates": "Check for updates",
     "source": "Source code",
     "licenseText": "Licence text",
-    "updatesHint": "Opens the releases page in your browser. Granary never updates itself.",
     "logs": "Logs",
     "logsHint": "Logs stay on this PC. Tokens, passwords and signed URLs are removed before they are written and again when shown or exported.",
     "showLogs": "Show recent log",
@@ -919,5 +920,25 @@
       "noLearned": "No limit learned",
       "resetLearned": "Reset"
     }
+  },
+  "update": {
+    "title": "Updates",
+    "idle": "Granary looks for new versions in the background.",
+    "unavailable": "This is a development build: updates come with the installer.",
+    "checking": "Checking for a new version…",
+    "upToDate": "Granary is up to date.",
+    "downloading": "Downloading version {{version}}",
+    "ready": "Version {{version}} is ready. Restart Granary to finish updating.",
+    "restart": "Restart to update",
+    "restarting": "Restarting to update…",
+    "restartHint": "Granary closes, installs version {{version}} and opens again.",
+    "version": "Version {{version}}",
+    "failed": "The update did not work: {{message}}",
+    "failedShort": "Did not work, try again",
+    "releaseNotes": "Release notes",
+    "hint": "New versions download in the background and are checked against Granary's signing key. Nothing is installed until you choose Restart to update; playback stops first and Granary reopens by itself.",
+    "updated": "Granary was updated to {{version}}",
+    "whatsNew": "See what's new",
+    "dismiss": "Dismiss"
   }
 }

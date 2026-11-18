@@ -493,6 +493,14 @@ export function Settings() {
             }}
           />
         ) : null}
+        <Toggle
+          label={t("settings.autoUpdate")}
+          hint={t("settings.autoUpdateHint")}
+          checked={s.autoUpdate}
+          onChange={(autoUpdate) => {
+            set((d) => ({ ...d, autoUpdate }));
+          }}
+        />
       </Section>
 
       <Section id="s-servers" title={t("settings.servers")}>

@@ -7,6 +7,10 @@ on:
     paths:
       - "site/**"
       - ".github/workflows/pages.yml"
+  # A published release changes the update feed (ADR-0015).
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -45,6 +49,11 @@ jobs:
         run: |
           pnpm build
           touch out/.nojekyll
+
+      - name: Update feed (newest published release with latest.json)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node site/scripts/update-feed.mjs "${{ github.repository }}" site/out/updates/latest.json
 
       - uses: actions/upload-pages-artifact@v5
         with:

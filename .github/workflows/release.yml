@@ -129,3 +129,35 @@ jobs:
             exit 1
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Updater signature and feed entry
+        # The in-app updater (ADR-0015) installs only installers signed with the updater key; the pages workflow
+        # publishes the newest release's latest.json as the update feed. Only the pinned Tauri CLI runs with the key,
+        # in this job without a checkout. Without the key secret the release stays installable by hand.
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            Write-Warning "TAURI_SIGNING_PRIVATE_KEY is not set: no updater signature, installed apps will not offer this version"
+            exit 0
+          }
+          $tag = $env:GITHUB_REF_NAME
+          $exe = Get-Item dist/*-setup.exe
+          npx --yes @tauri-apps/cli@2.12.4 signer sign $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sig = (Get-Content -Raw "$($exe.FullName).sig").Trim()
+          $entry = @{ signature = $sig; url = "https://github.com/$env:GH_REPO/releases/download/$tag/$($exe.Name)" }
+          $feed = [ordered]@{
+            version  = $tag.TrimStart('v')
+            notes    = "https://github.com/$env:GH_REPO/blob/$tag/CHANGELOG.md"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{ 'windows-x86_64' = $entry; 'windows-x86_64-nsis' = $entry }
+          }
+          $feed | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8NoBOM dist/latest.json
+          gh release upload $tag "$($exe.FullName).sig" dist/latest.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
