@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-18
+In-app updates with Restart to update, and the complete source of the bundled player libraries.
+
 ### Added
 
 - In-app updates: Granary checks for new versions in the background, downloads and verifies them, and installs with
@@ -15,6 +18,10 @@ follow [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - docs/signing.md is now a step-by-step guide to code signing (SignPath Foundation, Certum, Azure).
+
+### Fixed
+- Licensing: the complete source of every library inside the bundled libmpv build is published as the release
+  `libmpv-source-20261106` and linked from the third-party notices.
 
 ## [0.6.1] - 2026-11-18
 
