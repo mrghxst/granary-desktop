@@ -87,20 +87,39 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }
         : l,
     );
-    let episodes: Episode[] = [];
-    if (w.series_id && w.season_number != null) {
+    // An episode usually has no backdrop of its own: the series' one fills the launch screen instead of black.
+    if (!w.backdrop_url && w.series_id) {
       const seriesId = w.series_id;
-      episodes = await episodesAround(
-        w.content_id,
-        w.season_number,
-        async () =>
-          (await catalog.seasons(serverId, seriesId))
-            .filter((x) => !x.is_specials)
-            .map((x) => x.season_number)
-            .sort((a, b) => a - b),
-        (season) => catalog.episodes(serverId, seriesId, season),
-      );
+      void catalog
+        .item(serverId, seriesId)
+        .then((d) => {
+          setLaunch((l) => (l?.serverId === serverId && !l.backdrop ? { ...l, backdrop: d.backdrop_url ?? null } : l));
+        })
+        .catch(() => undefined);
     }
+    // Neighbouring episodes, settings and the subtitle appearance are independent: fetched together, not in turn.
+    const seriesId = w.series_id;
+    const seasonNumber = w.season_number;
+    const [episodes, s, appearance] = await Promise.all([
+      seriesId && seasonNumber != null
+        ? episodesAround(
+            w.content_id,
+            seasonNumber,
+            async () =>
+              (await catalog.seasons(serverId, seriesId))
+                .filter((x) => !x.is_specials)
+                .map((x) => x.season_number)
+                .sort((a, b) => a - b),
+            (season) => catalog.episodes(serverId, seriesId, season),
+          )
+        : Promise.resolve<Episode[]>([]),
+      loadSettings().catch(() => settingsRef.current),
+      // The profile's subtitle appearance on this computer; without it the contract's default applies.
+      catalog
+        .subtitleAppearance(serverId)
+        .then((a) => a.effective_value)
+        .catch(() => ""),
+    ]);
     const next: PlaybackContext = {
       serverId,
       watch: w,
@@ -110,12 +129,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       episodes,
     };
     const near = neighbours(next);
-    const s = await loadSettings().catch(() => settingsRef.current);
-    // The profile's subtitle appearance on this computer; without it the contract's default applies.
-    const appearance = await catalog
-      .subtitleAppearance(serverId)
-      .then((a) => a.effective_value)
-      .catch(() => "");
     await player.subtitleStyle(appearance).catch(() => undefined);
     setSettings(s);
     autoplayCancelled.current = false;

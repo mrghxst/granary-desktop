@@ -201,84 +201,90 @@ export function Calendar() {
         </div>
       </div>
 
-      <nav
-        aria-label={t("calendar.weekOf", { range })}
-        className="sticky top-0 z-10 -mx-2 flex flex-col gap-2 rounded-2xl border border-border/70 bg-card/95 p-3 backdrop-blur"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
+      {/* Pinned as a full-width band from the window's top edge: nothing scrolls visibly above or beside the week
+          card, and it gets the same breathing room at the top as at rest. */}
+      <div className="sticky top-0 z-10 -mx-4 bg-background px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 xl:-mx-12 xl:px-12">
+        <nav
+          aria-label={t("calendar.weekOf", { range })}
+          className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className={round}
+                aria-label={t("calendar.previousWeek")}
+                onClick={() => {
+                  goWeek(addDays(week, -7));
+                }}
+              >
+                <ChevronLeft className="size-5" />
+              </button>
+              <p className="min-w-40 text-center text-sm font-semibold tabular-nums">{range}</p>
+              <button
+                type="button"
+                className={round}
+                aria-label={t("calendar.nextWeek")}
+                onClick={() => {
+                  goWeek(addDays(week, 7));
+                }}
+              >
+                <ChevronRight className="size-5" />
+              </button>
+            </div>
             <button
               type="button"
-              className={round}
-              aria-label={t("calendar.previousWeek")}
+              className="rounded-full border border-border px-3 py-1 text-xs font-semibold transition hover:bg-surface-hover"
               onClick={() => {
-                goWeek(addDays(week, -7));
+                goWeek(weekStart(new Date()));
+                setPicked(null);
               }}
             >
-              <ChevronLeft className="size-5" />
-            </button>
-            <p className="min-w-40 text-center text-sm font-semibold tabular-nums">{range}</p>
-            <button
-              type="button"
-              className={round}
-              aria-label={t("calendar.nextWeek")}
-              onClick={() => {
-                goWeek(addDays(week, 7));
-              }}
-            >
-              <ChevronRight className="size-5" />
+              {t("calendar.thisWeek")}
             </button>
           </div>
-          <button
-            type="button"
-            className="rounded-full border border-border px-3 py-1 text-xs font-semibold transition hover:bg-surface-hover"
-            onClick={() => {
-              goWeek(weekStart(new Date()));
-              setPicked(null);
-            }}
-          >
-            {t("calendar.thisWeek")}
-          </button>
-        </div>
-        <div className="grid grid-cols-7 gap-1.5">
-          {days.map((day) => {
-            const d = parseDay(day);
-            const count = byDay.get(day)?.items.length ?? 0;
-            const on = selected === day;
-            return (
-              <button
-                key={day}
-                type="button"
-                aria-pressed={on}
-                aria-current={day === today ? "date" : undefined}
-                aria-label={t("calendar.dayLabel", {
-                  count,
-                  day: d.toLocaleDateString(i18n.language, { weekday: "long", day: "numeric", month: "long" }),
-                })}
-                onClick={() => {
-                  pick(day);
-                }}
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition focus-visible:outline-2 focus-visible:outline-ring ${
-                  on
-                    ? "bg-foreground text-background"
-                    : day === today
-                      ? "bg-surface-hover text-foreground ring-1 ring-border"
-                      : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
-                }`}
-              >
-                <span className="text-[0.6875rem] font-medium tracking-wide uppercase">
-                  {d.toLocaleDateString(i18n.language, { weekday: "short" })}
-                </span>
-                <span className={`text-base font-bold tabular-nums ${on ? "" : "text-foreground"}`}>{d.getDate()}</span>
-                <span
-                  aria-hidden
-                  className={`size-1 rounded-full ${count > 0 ? (on ? "bg-background" : "bg-muted-foreground") : "opacity-0"}`}
-                />
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+          <div className="grid grid-cols-7 gap-1.5">
+            {days.map((day) => {
+              const d = parseDay(day);
+              const count = byDay.get(day)?.items.length ?? 0;
+              const on = selected === day;
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  aria-pressed={on}
+                  aria-current={day === today ? "date" : undefined}
+                  aria-label={t("calendar.dayLabel", {
+                    count,
+                    day: d.toLocaleDateString(i18n.language, { weekday: "long", day: "numeric", month: "long" }),
+                  })}
+                  onClick={() => {
+                    pick(day);
+                  }}
+                  className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition focus-visible:outline-2 focus-visible:outline-ring ${
+                    on
+                      ? "bg-foreground text-background"
+                      : day === today
+                        ? "bg-surface-hover text-foreground ring-1 ring-border"
+                        : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                  }`}
+                >
+                  <span className="text-[0.6875rem] font-medium tracking-wide uppercase">
+                    {d.toLocaleDateString(i18n.language, { weekday: "short" })}
+                  </span>
+                  <span className={`text-base font-bold tabular-nums ${on ? "" : "text-foreground"}`}>
+                    {d.getDate()}
+                  </span>
+                  <span
+                    aria-hidden
+                    className={`size-1 rounded-full ${count > 0 ? (on ? "bg-background" : "bg-muted-foreground") : "opacity-0"}`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
 
       {error ? <Alert onRetry={retryLoads}>{errorMessage(t, error)}</Alert> : null}
       {!data && !error ? <div className="h-72 animate-pulse rounded-2xl bg-card" /> : null}

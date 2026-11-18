@@ -753,23 +753,27 @@ function SeekBar({
           onSeek(s);
         }}
       >
-        {markers.map((m) => (
-          <div
-            key={`${m.kind}-${String(m.start_seconds)}`}
-            className="absolute inset-y-0 bg-primary/45"
-            style={{ left: pct(m.start_seconds), width: pct(m.end_seconds - m.start_seconds) }}
-          />
-        ))}
-        <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: pct(shown) }} />
-        {chapters
-          .filter((c) => c.start_seconds > 0)
-          .map((c) => (
+        {/* Markers, progress and chapter ticks are clipped to the track so both ends stay equally round (an
+            end-credits marker used to square off the right end); the thumb sits outside the clip. */}
+        <div className="absolute inset-0 overflow-hidden rounded-full">
+          {markers.map((m) => (
             <div
-              key={c.index}
-              className="absolute inset-y-0 w-0.5 bg-black/70"
-              style={{ left: pct(c.start_seconds) }}
+              key={`${m.kind}-${String(m.start_seconds)}`}
+              className="absolute inset-y-0 bg-primary/45"
+              style={{ left: pct(m.start_seconds), width: pct(m.end_seconds - m.start_seconds) }}
             />
           ))}
+          <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: pct(shown) }} />
+          {chapters
+            .filter((c) => c.start_seconds > 0)
+            .map((c) => (
+              <div
+                key={c.index}
+                className="absolute inset-y-0 w-0.5 bg-black/70"
+                style={{ left: pct(c.start_seconds) }}
+              />
+            ))}
+        </div>
         <div
           className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow group-hover:opacity-100"
           style={{ left: pct(shown) }}

@@ -5,6 +5,11 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Calendar: the week bar stays pinned as a clean band at the top instead of sliding against the window edge.
+- Playback starts faster (episode neighbours, settings and subtitle style load together), and episodes show the series backdrop on the launch screen.
+- The seek bar is equally round at both ends.
+
 ## [0.6.0] - 2026-11-18
 Streaming quality with a clear Direct Play, Direct Stream or Transcoding indicator, and web-style audiobook pages.
 
