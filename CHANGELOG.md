@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-18
+Fixes: MP3 audiobooks, calendar week bar, launch screen backdrop, seek bar ends, faster start, sidebar groups.
+
 ### Fixed
 - Calendar: the week bar stays pinned as a clean band at the top instead of sliding against the window edge.
 - Playback starts faster (episode neighbours, settings and subtitle style load together), and episodes show the series backdrop on the launch screen.
