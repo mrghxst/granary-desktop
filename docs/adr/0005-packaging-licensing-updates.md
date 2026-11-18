@@ -5,6 +5,7 @@
 - Inputs: [packaging-and-licensing.md](../research/packaging-and-licensing.md) (R5)
 
 ## Context
+
 - Granary is AGPL-3.0-or-later, Windows 11 x64 only, hosted in a **private** GitHub repo.
 - libmpv source per prompt CONFIG: shinchiro/mpv-winbuild-cmake `mpv-dev-x86_64-v3-*.7z`. These builds are GPLv3
   (`--enable-gpl --enable-version3`), x86-64-v3 (AVX2), contain `libmpv-2.dll` + headers + `libmpv.dll.a` but **no
@@ -15,6 +16,7 @@
 - Private-repo CI is billed from a monthly dollar budget (~1,200 Windows minutes on Free).
 
 ## Options
+
 - libmpv: (1) shinchiro v3 (CONFIG); (2) shinchiro baseline x86_64; (3) official mpv v0.42.0 LGPL zip (new since
   2026-11-05, not covered by the owner's download approval).
 - Linking: generated import lib (`lib /def`) vs runtime `LoadLibrary`.
@@ -22,6 +24,7 @@
 - Updates: Tauri updater vs manual check vs none.
 
 ## Decision
+
 - **libmpv**: shinchiro `mpv-dev-x86_64-v3-20261106-git-9028187538.7z`, SHA-256
   `a778b3444b0b8b6d93cb00ca49f2acf62a02d0b61249229fc9944672f80683bb`, pinned in `scripts/libmpv.pin.json` and
   fetched/verified by `scripts/fetch-libmpv.ps1`. R5 recommended the baseline `x86_64` build (Windows 11 does not
@@ -39,7 +42,7 @@
   order: local copy → private mirror (via `gh release download` with the caller's/CI `GITHUB_TOKEN`) → shinchiro
   URL; the SHA-256 is verified on every path and a mismatch is fatal. Bumping the pin is always an explicit, reviewed
   commit that also updates THIRD_PARTY_NOTICES; a failed fetch never silently changes mpv/FFmpeg.
-- **Corresponding Source** (M6): the binary archive is *not* Corresponding Source. For each release, `THIRD_PARTY_NOTICES.md`
+- **Corresponding Source** (M6): the binary archive is _not_ Corresponding Source. For each release, `THIRD_PARTY_NOTICES.md`
   records the source bundle: mpv commit `9028187538` (v0.42.0-3), FFmpeg commit `9f690c6a4` (from `ffmpeg-version`
   `N-128504-g9f690c6a4`), the libplacebo version reported by the DLL, the shinchiro recipe commit
   `bda10a2816ce9908d419b3f4b564227330457e76` and workflow run `42133553972` (`mpv_clang.yml`), with source links.
@@ -47,6 +50,14 @@
   run's logs. While distribution stays private to the owner this is acceptable; before any distribution to third
   parties, either archive the complete dependency source set from that run or build libmpv ourselves (recorded under
   "Blocked / needs human" in PROGRESS.md).
+  **Amendment 2026-11-18 (gap closed):** `scripts/libmpv-sources.json` lists every package of the mpv target's
+  dependency closure in the pinned recipe with its exact commit: from the recipe (`GIT_RESET`, release tarballs with
+  hashes) or from the nightly build logs, which print the new head of every repository that changed (77 consecutive
+  runs read, 2026-08-21 to 2026-11-06; 21 of 23 commits printed in the build's own log were re-derived independently as
+  a check). `.github/workflows/libmpv-source.yml` packs those sources and publishes them as the release
+  `libmpv-source-<date>`, linked from THIRD_PARTY_NOTICES. The only commit that cannot be recovered is curl's (never
+  updated by the recipe, cached before the oldest log); the bundle carries the last matching `8.22.0-DEV` commit and
+  says so. A libmpv pin bump must regenerate the manifest; building libmpv ourselves would remove the curl caveat.
 - **Installer**: Tauri NSIS only, `installMode: "currentUser"` (no admin, `%LOCALAPPDATA%\Granary`), WebView2
   `downloadBootstrapper` (no-op on Windows 11), `libmpv-2.dll`, default `mpv.conf`, `LICENSE`,
   `THIRD_PARTY_NOTICES.md` bundled via `bundle.resources` so the DLL lands next to `granary.exe`. Original icon.
@@ -60,11 +71,13 @@
 - **Signing**: not configured; options documented in `docs/signing.md`.
 
 ## Consequences
+
 - The installer is unsigned: SmartScreen/Smart App Control warnings are expected (documented).
 - Users on pre-Haswell / Atom-class CPUs cannot run the v3 build (documented in README requirements).
 - THIRD_PARTY_NOTICES must be updated on every pin bump.
 
 ## Amendment 1 (2026-11-07, Phase 9): install folder and app data
+
 - Tauri's per-user NSIS installer always installs to `%LOCALAPPDATA%\<productName>`, which is `%LOCALAPPDATA%\Granary`,
   the folder Granary already uses for logs, the shader cache and the display restore marker. We keep both in one
   folder rather than moving user data. The uninstaller deletes only the files it installed and removes the folder only
@@ -87,6 +100,7 @@
   `scripts/gen-licenses.mjs` generates it from `cargo metadata` (normal dependencies of `granary` for
   `x86_64-pc-windows-msvc`, without proc-macros) and `node_modules`. `verify.ps1` (step `licenses`) fails when it is
   out of date.
+
 - A real uninstall (not an update) also removes `HKCU\Software\Granary contributors\Granary`. Tauri's template writes
   that key with the install folder and keeps it unless app data is deleted (phase-9 review M2). `install-test.ps1`
   checks that no key is left.

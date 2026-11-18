@@ -1,0 +1,550 @@
+{
+  "libmpv": {
+    "asset": "mpv-dev-x86_64-v3-20261106-git-9028187538.7z",
+    "sha256": "a778b3444b0b8b6d93cb00ca49f2acf62a02d0b61249229fc9944672f80683bb"
+  },
+  "recipe": {
+    "repo": "https://github.com/shinchiro/mpv-winbuild-cmake",
+    "commit": "bda10a2816ce9908d419b3f4b564227330457e76",
+    "note": "build scripts and the patches applied to the packages below"
+  },
+  "build": {
+    "run": "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/42133553972",
+    "job": "Building mpv (x86_64_v3)",
+    "updated": "2026-11-06T00:02:01Z",
+    "method": "Packages and dependencies from the recipe (closure of the mpv target). Commits from the nightly build logs: each run prints the new head of every repository that changed; the newest such line at or before this build is the commit, since the cached checkout is unchanged until the next one. Logs of 77 consecutive runs (2026-08-21 to 2026-11-06) were read; repositories without a change in that time use their branch head before 2026-08-21."
+  },
+  "packages": [
+    {
+      "name": "amf-headers",
+      "repo": "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git",
+      "commit": "8c648005e07d4309033282bfd9947df2c7e76104",
+      "how": "build log of run 36648083864 (2026-09-30), unchanged since",
+      "paths": ["amf/public/include"]
+    },
+    {
+      "name": "angle-headers",
+      "repo": "https://github.com/google/angle.git",
+      "commit": "e94607f60209dbd480fd3329511ff8839d15300c",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since",
+      "paths": ["include/EGL", "include/KHR"]
+    },
+    {
+      "name": "aom",
+      "repo": "https://aomedia.googlesource.com/aom",
+      "commit": "2896b3e1f8dec127d14cf607d1da0ba556ff409c",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "avisynth-headers",
+      "repo": "https://github.com/AviSynth/AviSynthPlus.git",
+      "commit": "21fdc997f9724b994896ba5520ddf64d677976b3",
+      "how": "pinned in the recipe (GIT_RESET)"
+    },
+    {
+      "name": "brotli",
+      "repo": "https://github.com/google/brotli.git",
+      "commit": "d89c4b1c52e25ddafe047bc78bbee5c1e24b1809",
+      "how": "build log of run 40791115986 (2026-10-29), unchanged since"
+    },
+    {
+      "name": "bzip2",
+      "repo": "https://gitlab.com/bzip2/bzip2.git",
+      "commit": "66c46b8c9436613fd81bc5d03f63a61933a4dcc3",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "c-ares",
+      "repo": "https://github.com/c-ares/c-ares.git",
+      "commit": "46266f4ae2d309ce52009d85fc6198b5f0db6225",
+      "how": "build log of run 41364798085 (2026-11-02), unchanged since"
+    },
+    {
+      "name": "curl",
+      "repo": "https://github.com/curl/curl.git",
+      "commit": "2ba2fe354026aa4d60ab06fbc9b6ac1e56d1b92f",
+      "how": "NOT EXACT: the recipe never updates curl; the DLL reports 8.22.0-DEV, so it is a master commit between curl-8_21_0 (2026-06-24) and 2026-08-21 (the oldest retained build log, which already had it cached). This is the last commit of that window.",
+      "exact": false
+    },
+    {
+      "name": "dav1d",
+      "repo": "https://code.videolan.org/videolan/dav1d.git",
+      "commit": "e5af12796d46cd7788e5f5349da1a27c5f7a8f1a",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "davs2",
+      "repo": "https://github.com/saindriches/davs2.git",
+      "commit": "f50435051b72c168c2b566c544e27fcff71ba61a",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "fast_float",
+      "repo": "https://github.com/fastfloat/fast_float.git",
+      "commit": "dbeabeeb3e6791cb96994c2a7a084c36e62ccfb2",
+      "how": "build log of run 41254798351 (2026-11-01), unchanged since"
+    },
+    {
+      "name": "ffmpeg",
+      "repo": "https://github.com/FFmpeg/FFmpeg.git",
+      "commit": "9f690c6a4c124b9fc60588860ac66ae3fc808525",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "fontconfig",
+      "repo": "https://gitlab.freedesktop.org/fontconfig/fontconfig.git",
+      "commit": "cbf1db7f1bd01e641968ca0818e05b0819ce6c74",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "freetype2",
+      "repo": "https://github.com/freetype/freetype.git",
+      "commit": "c4a3c188e82bc5b457390a87630ac782316421a1",
+      "how": "build log of run 41743495736 (2026-11-04), unchanged since"
+    },
+    {
+      "name": "fribidi",
+      "repo": "https://github.com/fribidi/fribidi.git",
+      "commit": "15393e4937aa95bcf865d92143735746aeb654fa",
+      "how": "build log of run 40976824247 (2026-10-30), unchanged since"
+    },
+    {
+      "name": "glad",
+      "repo": "https://github.com/Dav1dde/glad.git",
+      "commit": "0a7cf1af9e25e02821587bd4095807fc90b6426a",
+      "how": "build log of run 36500873646 (2026-09-29), unchanged since"
+    },
+    {
+      "name": "glslang",
+      "repo": "https://github.com/KhronosGroup/glslang.git",
+      "commit": "83f75db6ada23801a65eed1cde4763a0a5bfbda6",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "graphengine",
+      "repo": "https://github.com/sekrit-twc/graphengine.git",
+      "commit": "91c6af4c795c5396d8b974f24b4d2e2ecca04e2d",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "harfbuzz",
+      "repo": "https://github.com/harfbuzz/harfbuzz.git",
+      "commit": "316e8022228475d7cf35c2b08f6acd5ebf93da57",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "highway",
+      "repo": "https://github.com/google/highway.git",
+      "commit": "3e6d4b35afb2559ef066bc8ea9de852bdc772254",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "lame",
+      "repo": "https://gitlab.com/shinchiro/lame.git",
+      "commit": "9a5b35c430a2e6d150d65a96c7d7acdd64962a8f",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "lcms2",
+      "repo": "https://github.com/mm2/Little-CMS.git",
+      "commit": "689a84bcae6dc0173f3f45b55ffb8dea721c3d6b",
+      "how": "build log of run 41549600510 (2026-11-03), unchanged since"
+    },
+    {
+      "name": "libarchive",
+      "repo": "https://github.com/libarchive/libarchive.git",
+      "commit": "eb57ffefe20e98eb7ba05829ee1c23b90e589a71",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libaribcaption",
+      "repo": "https://github.com/xqq/libaribcaption.git",
+      "commit": "da5ae9b1479168c9560161a916e12e6159f116b4",
+      "how": "build log of run 41549600510 (2026-11-03), unchanged since"
+    },
+    {
+      "name": "libass",
+      "repo": "https://github.com/libass/libass.git",
+      "commit": "2a8a5673dc1edec79edd2e309a66a09c1e7d26ec",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libbluray",
+      "repo": "https://code.videolan.org/videolan/libbluray.git",
+      "commit": "f33a738fd7bb8b5e1148b0a5424778db7342450b",
+      "how": "build log of run 39875367443 (2026-10-23), unchanged since"
+    },
+    {
+      "name": "libbs2b",
+      "repo": "https://github.com/alexmarsev/libbs2b.git",
+      "commit": "5ca2d59888df047f1e4b028e3a2fd5be8b5a7277",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "libdvdcss",
+      "repo": "https://code.videolan.org/videolan/libdvdcss.git",
+      "commit": "811ce97a1d4d1c9d936f4b2707f533a9ef768251",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "libdvdnav",
+      "repo": "https://code.videolan.org/videolan/libdvdnav.git",
+      "commit": "8147ccd35e5aae4afdd21171cf7b6b4d8f179d28",
+      "how": "build log of run 32538857493 (2026-08-22), unchanged since"
+    },
+    {
+      "name": "libdvdread",
+      "repo": "https://code.videolan.org/videolan/libdvdread.git",
+      "commit": "0f30df53125b564ef45903714403ce0a1e6c5e9e",
+      "how": "build log of run 32538857493 (2026-08-22), unchanged since"
+    },
+    {
+      "name": "libjpeg",
+      "repo": "https://github.com/libjpeg-turbo/libjpeg-turbo.git",
+      "commit": "29e4d9b0178f08158fc72c6068f086c5ba27b772",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "libjxl",
+      "repo": "https://github.com/libjxl/libjxl.git",
+      "commit": "ad8388a71ae4eee96e8c147f0c19974d4b6f54de",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libmodplug",
+      "repo": "https://github.com/Konstanty/libmodplug.git",
+      "commit": "6b3937da975eff2627fa8f73fa093b7769c1bff5",
+      "how": "build log of run 41549600510 (2026-11-03), unchanged since"
+    },
+    {
+      "name": "libmysofa",
+      "repo": "https://github.com/hoene/libmysofa.git",
+      "commit": "648eed03472e6720a1ea45d1a1f86c4efb569ff9",
+      "how": "build log of run 34293082577 (2026-09-09), unchanged since"
+    },
+    {
+      "name": "libplacebo",
+      "repo": "https://github.com/haasn/libplacebo.git",
+      "commit": "9fabf6d5057c40089afb020017c6347002b07308",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libpng",
+      "repo": "https://github.com/glennrp/libpng.git",
+      "commit": "a70313dbb68987be6834879f449d527687ec659a",
+      "how": "build log of run 40791115986 (2026-10-29), unchanged since"
+    },
+    {
+      "name": "libpsl",
+      "repo": "https://github.com/rockdaboot/libpsl.git",
+      "commit": "aa3a80e18f25caf3916636c8668dcc0fff7c016d",
+      "how": "pinned in the recipe (GIT_RESET)"
+    },
+    {
+      "name": "libsamplerate",
+      "repo": "https://github.com/libsndfile/libsamplerate.git",
+      "commit": "0844c208f683527c08ea8a80acc13b398aa9c8bf",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "libsdl2",
+      "repo": "https://github.com/libsdl-org/SDL.git",
+      "commit": "cee83f2d9a916e9de30c5712e798541fdc134b06",
+      "how": "build log of run 41254798351 (2026-11-01), unchanged since"
+    },
+    {
+      "name": "libsixel",
+      "repo": "https://github.com/saitoha/libsixel.git",
+      "commit": "af12e5bc6f3f69ad83479da85ddb371420da9b17",
+      "how": "pinned in the recipe (GIT_RESET)"
+    },
+    {
+      "name": "libsoxr",
+      "repo": "https://gitlab.com/shinchiro/soxr.git",
+      "commit": "945b592b70470e29f917f4de89b4281fbbd540c0",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "libsrt",
+      "repo": "https://github.com/Haivision/srt.git",
+      "commit": "5c8272843d9d098a5049cbafdb7b513a8eb4bb24",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libssh",
+      "repo": "https://gitlab.com/libssh/libssh-mirror.git",
+      "commit": "4064a8b16e5706bd047dfef9cf3dfe7f3fbeffff",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libudfread",
+      "repo": "https://code.videolan.org/videolan/libudfread.git",
+      "commit": "b0bc6957e7e07d5f35391f210596d9eb71cffdd9",
+      "how": "build log of run 33343257132 (2026-08-31), unchanged since"
+    },
+    {
+      "name": "libunibreak",
+      "repo": "https://github.com/adah1972/libunibreak.git",
+      "commit": "32555542453f59101356ecbb8686f5e198f92b62",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "libva",
+      "repo": "https://github.com/intel/libva.git",
+      "commit": "f052e984e0c8bf10784198cc311b23c567b1367f",
+      "how": "build log of run 40042711022 (2026-10-24), unchanged since"
+    },
+    {
+      "name": "libvpl",
+      "repo": "https://github.com/intel/libvpl.git",
+      "commit": "412c5cffe3022d5ebb8a955c3b30afe7bd2e3929",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "libvpx",
+      "repo": "https://chromium.googlesource.com/webm/libvpx.git",
+      "commit": "035e29b4fc38295670ed44722ea1be13485fb544",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "libwebp",
+      "repo": "https://chromium.googlesource.com/webm/libwebp.git",
+      "commit": "d19a90a30e9b2cc5aa66e5fe71d2f2d9d61588c4",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "libxml2",
+      "repo": "https://github.com/GNOME/libxml2.git",
+      "commit": "febeb5c91fffeca92b84162d57a1832fe5a60b09",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "libzimg",
+      "repo": "https://github.com/sekrit-twc/zimg.git",
+      "commit": "67e0603271c080e22c8429856dd4a8a56587e61e",
+      "how": "build log of run 33931486622 (2026-09-05), unchanged since"
+    },
+    {
+      "name": "libzvbi",
+      "repo": "https://github.com/zapping-vbi/zvbi.git",
+      "commit": "34bb6f660c5c1bacd4a66cc7b22311e4ca3c1ab5",
+      "how": "build log of run 39875367443 (2026-10-23), unchanged since"
+    },
+    {
+      "name": "luajit",
+      "repo": "https://github.com/openresty/luajit2.git",
+      "commit": "5d8d0a27bfa4595b24b8ed36123555fcd2bb2f8c",
+      "how": "build log of run 40042711022 (2026-10-24), unchanged since"
+    },
+    {
+      "name": "mpv",
+      "repo": "https://github.com/mpv-player/mpv.git",
+      "commit": "902818753849d9ad8f0096fad6ca5aeaa37113b9",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "mujs",
+      "repo": "https://codeberg.org/ccxvii/mujs.git",
+      "commit": "01a75ff4324ae8a54cae91a26edd38029424edaa",
+      "how": "build log of run 40042711022 (2026-10-24), unchanged since"
+    },
+    {
+      "name": "nghttp2",
+      "repo": "https://github.com/nghttp2/nghttp2.git",
+      "commit": "f4c8edff3aa9f3e24f4906495313f783752b3492",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "nghttp3",
+      "repo": "https://github.com/ngtcp2/nghttp3.git",
+      "commit": "4364fb1bd3ebeb3951df961a43ff22225aae0878",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since",
+      "submodules": [
+        {
+          "path": "lib/sfparse",
+          "repo": "https://github.com/ngtcp2/sfparse",
+          "commit": "4b313cfd2e1b389ae632b36dcd50402307289af2"
+        }
+      ]
+    },
+    {
+      "name": "ngtcp2",
+      "repo": "https://github.com/ngtcp2/ngtcp2.git",
+      "commit": "e82176c8105490eeedb1ee1c805578d9ea867672",
+      "how": "build log of run 41743495736 (2026-11-04), unchanged since"
+    },
+    {
+      "name": "nvcodec-headers",
+      "repo": "https://github.com/FFmpeg/nv-codec-headers.git",
+      "commit": "f2053071ea93137255b6dcf42e9b4c9e0965a44e",
+      "how": "build log of run 40144950902 (2026-10-25), unchanged since"
+    },
+    {
+      "name": "ogg",
+      "repo": "https://github.com/xiph/ogg.git",
+      "commit": "06a5e0262cdc28aa4ae6797627a783b5010440f0",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "openal-soft",
+      "repo": "https://github.com/kcat/openal-soft.git",
+      "commit": "3f81767d4180881c8b14582df601f68f6878688e",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "openssl",
+      "repo": "https://github.com/openssl/openssl.git",
+      "commit": "d8bf6cdd4849925c30e4f1911c7acb49cb34b702",
+      "how": "pinned in the recipe (GIT_RESET)"
+    },
+    {
+      "name": "opus",
+      "repo": "https://github.com/xiph/opus.git",
+      "commit": "677070ed0c35fc52a634f4be845aa426ea3a1689",
+      "how": "build log of run 41364798085 (2026-11-02), unchanged since"
+    },
+    {
+      "name": "rubberband",
+      "repo": "https://github.com/breakfastquay/rubberband.git",
+      "commit": "e4296ac80b1170018a110bc326fd0d45a0eb27d6",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "shaderc",
+      "repo": "https://github.com/google/shaderc.git",
+      "commit": "4f0683ab2419ecbb9e18c9edfd4ffd70c2ba8cc6",
+      "how": "build log of run 40791115986 (2026-10-29), unchanged since"
+    },
+    {
+      "name": "speex",
+      "repo": "https://github.com/xiph/speex.git",
+      "commit": "09b569d1b437e5edccf3406a38714ad795e46d38",
+      "how": "build log of run 41364798085 (2026-11-02), unchanged since"
+    },
+    {
+      "name": "spirv-cross",
+      "repo": "https://github.com/KhronosGroup/SPIRV-Cross.git",
+      "commit": "57e4efcc84112abcd426dc5ec248b5339bee04f2",
+      "how": "build log of run 40791115986 (2026-10-29), unchanged since"
+    },
+    {
+      "name": "spirv-headers",
+      "repo": "https://github.com/KhronosGroup/SPIRV-Headers.git",
+      "commit": "6efe5ae6b7c6ad29da3f2cc3f164b9c3d72b78b1",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "spirv-tools",
+      "repo": "https://github.com/KhronosGroup/SPIRV-Tools.git",
+      "commit": "b570f00a782a7bf4006964e8284dd8c10c4c549b",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "subrandr",
+      "repo": "https://github.com/afishhh/subrandr.git",
+      "commit": "a41311bb5e382abcc47ef141e2ea1098d22a8d58",
+      "how": "build log of run 41743495736 (2026-11-04), unchanged since"
+    },
+    {
+      "name": "svtav1",
+      "repo": "https://gitlab.com/AOMediaCodec/SVT-AV1.git",
+      "commit": "e3d63405f9ba8219913a7276c2c47d10e5d022fe",
+      "how": "build log of run 41549600510 (2026-11-03), unchanged since"
+    },
+    {
+      "name": "uavs3d",
+      "repo": "https://github.com/uavs3/uavs3d.git",
+      "commit": "0e20d2c291853f196c68922a264bcd8471d75b68",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "uchardet",
+      "repo": "https://gitlab.freedesktop.org/uchardet/uchardet.git",
+      "commit": "06029ec3340cdf6bf9a6a537dafb3f39eda0560e",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "vapoursynth",
+      "repo": "https://github.com/vapoursynth/vapoursynth.git",
+      "commit": "e46204429041e95a881b61eedddd46c08f9a307c",
+      "how": "pinned in the recipe (GIT_RESET)",
+      "paths": ["include"]
+    },
+    {
+      "name": "vorbis",
+      "repo": "https://github.com/xiph/vorbis.git",
+      "commit": "1b75110b5a2754ba1931d82dd83cb822b266a21d",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "vulkan",
+      "repo": "https://github.com/KhronosGroup/Vulkan-Loader.git",
+      "commit": "385c80c6f64ef4608ce5e2c2067d1765ab503c98",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "vulkan-header",
+      "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+      "commit": "cde2207d8bc426cfd201ffd67031e7b135a01df7",
+      "how": "build log of run 40791115986 (2026-10-29), unchanged since"
+    },
+    {
+      "name": "x264",
+      "repo": "https://code.videolan.org/videolan/x264.git",
+      "commit": "0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee",
+      "how": "unchanged in all 77 nightly logs since 2026-08-21; branch head then"
+    },
+    {
+      "name": "x265",
+      "repo": "https://github.com/Multicorewareinc/x265.git",
+      "commit": "1836f70c17cde142ac023da71a96ba9cc49c9213",
+      "how": "build log of run 41938005205 (2026-11-05), unchanged since"
+    },
+    {
+      "name": "xxhash",
+      "repo": "https://github.com/Cyan4973/xxHash.git",
+      "commit": "2ec67caeb18ec15ae60c0853174331089acddfc0",
+      "how": "build log of run 40976824247 (2026-10-30), unchanged since"
+    },
+    {
+      "name": "xz",
+      "repo": "https://github.com/tukaani-project/xz.git",
+      "commit": "3d078b52adbff566ccfc51067dfbf742ecf3ef86",
+      "how": "pinned in the recipe (GIT_RESET)"
+    },
+    {
+      "name": "zlib",
+      "repo": "https://github.com/zlib-ng/zlib-ng.git",
+      "commit": "482249d1af0a38f48a09214c09109ee994511b97",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    },
+    {
+      "name": "zstd",
+      "repo": "https://github.com/facebook/zstd.git",
+      "commit": "49bf1d14c8ffc6a25c32667ce878c4148f43ac4f",
+      "how": "build log of run 42133553972 (2026-11-06), unchanged since"
+    }
+  ],
+  "tarballs": [
+    {
+      "name": "libiconv",
+      "url": "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.18.tar.gz",
+      "sha256": "3b08f5f4f9b4eb82f151a7040bfd6fe6c6fb922efe4b1659c66ea933276965e8"
+    },
+    {
+      "name": "libopenmpt",
+      "url": "https://lib.openmpt.org/files/libopenmpt/src/libopenmpt-0.7.12+release.autotools.tar.gz",
+      "sha256": "79ab3ce3672601e525b5cc944f026c80c03032f37d39caa84c8ca3fdd75e0c98"
+    },
+    {
+      "name": "lzo",
+      "url": "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz",
+      "sha1": "4924676a9bae5db58ef129dc1cebce3baa3c4b5d"
+    },
+    {
+      "name": "opus-dnn",
+      "url": "https://media.xiph.org/opus/models/opus_data-8a07d57c4fce6fb30f23b3e0d264004e04f1d7b421f5392ef61543d021a439af.tar.gz",
+      "sha256": "8a07d57c4fce6fb30f23b3e0d264004e04f1d7b421f5392ef61543d021a439af"
+    }
+  ]
+}

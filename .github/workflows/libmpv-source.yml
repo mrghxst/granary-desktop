@@ -1,0 +1,51 @@
+# Publishes the Corresponding Source of the bundled libmpv build (GPL-3.0; ADR-0005 amendment 2026-11-18): every
+# repository at the commit the build used, the release tarballs, the build recipe with its patches, the manifest and
+# SHA256SUMS, as assets of the release `libmpv-source-<build date>`. Runs when the manifest changes or by hand.
+name: libmpv source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/libmpv-sources.json
+      - scripts/libmpv-source.mjs
+      - .github/workflows/libmpv-source.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: libmpv-source
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Pack the sources
+        run: node scripts/libmpv-source.mjs dist
+
+      - name: Publish as release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          date=$(node -e 'const m=require("./scripts/libmpv-sources.json");console.log(m.libmpv.asset.match(/-(\d{8})-/)[1])')
+          tag="libmpv-source-$date"
+          notes="Corresponding Source of the libmpv build bundled with Granary (${date}): every library at the exact commit the build used, the release tarballs, the build recipe with its patches, and libmpv-sources.json, which says how each commit was determined. Verify with SHA256SUMS. See THIRD_PARTY_NOTICES.md."
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --prerelease --target "$GITHUB_SHA" --title "libmpv corresponding source ($date)" --notes "$notes"
+          fi
+          gh release upload "$tag" --clobber dist/*

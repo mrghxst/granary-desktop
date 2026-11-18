@@ -19,8 +19,14 @@ pin bump (ADR-0005) and every change of bundled components.
 - libplacebo `v7.387.0-13-g9fabf6d-dirty` (commit 9fabf6d plus the build recipe's patches) — source:
   https://code.videolan.org/videolan/libplacebo/-/commit/9fabf6d (LGPL-2.1-or-later); patches in the recipe commit below.
 - Build recipe: https://github.com/shinchiro/mpv-winbuild-cmake/commit/bda10a2816ce9908d419b3f4b564227330457e76,
-  workflow run 42133553972 (`mpv_clang.yml`). Other statically linked libraries (e.g. libass, freetype, harfbuzz,
-  dav1d, zlib) are listed in that run's logs; see ADR-0005 for the known gap on the complete source set.
+  workflow run 42133553972 (`mpv_clang.yml`).
+- **Complete corresponding source** of this build: the release
+  [`libmpv-source-20261106`](https://github.com/mrghxst/granary-desktop/releases/tag/libmpv-source-20261106) holds every
+  statically linked library (libass, freetype, harfbuzz, dav1d, zlib-ng, openssl, x264, x265 and about 80 more) at the
+  commit the build used, the downloaded release tarballs, the recipe with its patches and `libmpv-sources.json`, which
+  records how each commit was determined (`scripts/libmpv-sources.json`). One exception: the recipe never updates
+  curl, so its exact commit is not recorded anywhere; the DLL reports `8.22.0-DEV` and the bundle contains the last
+  curl master commit that matches (details in the manifest).
 
 ## Design tokens and font
 

@@ -70,7 +70,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
   (code-review, security-review, simplify, run) are used instead.
 
 ## Blocked / needs human
-- In-app updates (ADR-0015): add the GitHub secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (contents of `.secrets/updater.key` and `.secrets/updater.key.password`, local only) and back the key up; without them releases have no update feed entry.
+- In-app updates (ADR-0015): secrets set 2026-11-18; the owner keeps a backup of `.secrets/updater.key` and its password.
 - Code signing: owner applies to the SignPath Foundation (docs/signing.md); nothing configured yet.
 - No `.env.local` present: no live Silo server credentials, no TEST_MEDIA_DIR, no DISPLAY_NOTES. Live tests will be
   skipped/mocked; synthetic ffmpeg fixtures used instead. Gate 4 live login/library listing is therefore recorded as
@@ -83,7 +83,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
 - Test machine is a laptop (Intel Arc 140V, one HDR-capable internal panel 60/120 Hz): multi-monitor, VRR, OLED
   desktop monitor and AV-receiver checks go to MANUAL_TEST_CHECKLIST.md. PresentMon not installed (independent flip
   cannot be measured automatically).
-- Distribution to third parties requires a complete libmpv dependency source set (ADR-0005 known gap).
+- (Resolved 2026-11-18) libmpv dependency source set: published as release `libmpv-source-20261106` (ADR-0005 amendment); only curl's exact commit is not recoverable.
 - Tag `v0.1.0` (and its draft release) points to 1257c5f, from before the Gate 9 review fixes. Moving a pushed tag was
   refused by the session's safety policy, so the final build is the draft release `v0.1.0-dev`, built from main by the
   release workflow (workflow_dispatch). Before publishing 0.1.0: delete the old draft, then move the tag to the
@@ -141,6 +141,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
   the mock answers every plan as direct play, so a live transcode check is in MANUAL_TEST_CHECKLIST.md.
 
 ## Log (newest first, one line per completed step)
+- 2026-11-18 libmpv corresponding source: manifest of 83 repositories + 4 tarballs + recipe (exact commits from recipe pins and 77 nightly build logs, cross-checked), packer script and workflow publishing release libmpv-source-20261106; curl commit not recoverable (documented). Updater secrets set on GitHub at the owner's request.
 - 2026-11-18 In-app updates (ADR-0015): updater plugin, Restart to update in the sidebar and About, setting, release workflow signs and attaches latest.json, pages serves the feed; dev build against a local signed test feed found, downloaded and verified 9.9.9 (install step not run on this PC to keep the owner's installed app); verify.ps1 green. Needs the owner: GitHub secrets TAURI_SIGNING_PRIVATE_KEY(_PASSWORD) from .secrets/ and a backup of the key. Signing guide rewritten (docs/signing.md).
 - 2026-11-18 0.6.1: MP3 audiobook parts direct-play (caps containers), early-EOF guard, launch backdrop with reduced motion, calendar band, seek bar ends, parallel start, sidebar groups; tested on the owner's server (Towers of Midnight parts 1-2 direct play, part change, progress restored); tag v0.6.1 at the owner's request.
 - 2026-11-18 0.6.0: streaming quality and audiobook pages; version bump and tag v0.6.0 at the owner's request.
