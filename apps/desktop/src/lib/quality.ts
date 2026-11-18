@@ -274,10 +274,11 @@ const DECISION_REASONS: Record<string, string> = {
   hls_packaging_required: "quality.why.packaging",
   audio_adaptation: "quality.why.audio",
   subtitle_burn_in_required: "quality.why.burnIn",
-  client_managed_dynamic_range: "quality.why.dynamicRange",
-  client_dv8_base_layer: "quality.why.dynamicRange",
-  client_dv7_to_hdr10: "quality.why.dynamicRange",
-  client_dv7_to_dv81: "quality.why.dynamicRange",
+  // `client_*`: the player itself handles the dynamic range (Dolby Vision, HDR); the server does not convert it.
+  client_managed_dynamic_range: "quality.why.clientRange",
+  client_dv8_base_layer: "quality.why.clientRange",
+  client_dv7_to_hdr10: "quality.why.clientRange",
+  client_dv7_to_dv81: "quality.why.clientRange",
   evidence_insufficient_for_direct: "quality.why.unconfirmed",
   copy_exhausted: "quality.why.unconfirmed",
 };
@@ -357,7 +358,11 @@ export function explainPlan(plan: PlanInfo): { reasons: Reason[]; changes: Reaso
     );
   }
   if (method === "direct_stream" && changes.length === 0) changes.push({ key: "quality.change.remux" });
-  const warnings = plan.warnings.map((w) => (WARNINGS[w.code] ? { key: WARNINGS[w.code] ?? "" } : w.message || w.code));
+  // A warning that only repeats a listed change (the tone mapping) is not shown twice.
+  const repeats = (code: string) => code === "hdr_tone_mapped" && plan.transformations.includes("hdr_to_sdr_tonemap");
+  const warnings = plan.warnings
+    .filter((w) => !repeats(w.code))
+    .map((w) => (WARNINGS[w.code] ? { key: WARNINGS[w.code] ?? "" } : w.message || w.code));
   return { reasons, changes, warnings };
 }
 

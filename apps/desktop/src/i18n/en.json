@@ -848,12 +848,12 @@
       "packaging": "This delivery needs the server's streaming format.",
       "audio": "The player cannot play this audio track as it is.",
       "burnIn": "The selected subtitles have to be burned into the picture.",
-      "dynamicRange": "The server adapts the HDR format for this display.",
       "unconfirmed": "The server could not confirm the original plays here.",
       "autoOriginal": "Auto: the connection allows the original.",
       "original": "The original fits the quality you chose.",
       "learned": "Auto keeps to {{limit}} on this connection after it buffered.",
-      "other": "Server decision: {{reason}}"
+      "other": "Server decision: {{reason}}",
+      "clientRange": "The original plays; Granary shows its HDR or Dolby Vision itself."
     },
     "change": {
       "resolution": "Resolution {{from}} → {{to}}",

@@ -175,7 +175,9 @@ export function AudiobookDetail({
   );
   const { play, busy, error: playError } = usePlay(serverId);
   const [allChapters, setAllChapters] = useState(false);
+  const [moreOverview, setMoreOverview] = useState(false);
   const book = item.audiobook;
+  const longOverview = (item.overview?.length ?? 0) > 420;
   const cover = artwork(serverId, item.poster_url);
   const art: LaunchArt = { backdrop: item.backdrop_url ?? null, logo: null, poster: item.poster_url ?? null };
 
@@ -224,13 +226,13 @@ export function AudiobookDetail({
 
       <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-end gap-x-4 gap-y-5 pt-6 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-x-8 sm:gap-y-6 lg:grid-cols-[16.25rem_minmax(0,1fr)] lg:items-start lg:gap-x-14 lg:gap-y-8 lg:pt-10">
         {/* Side: cover and listening controls (a sticky column from lg). */}
-        <div className="contents lg:sticky lg:top-6 lg:row-span-2 lg:grid lg:gap-4 lg:self-start">
+        <div className="contents lg:sticky lg:top-20 lg:row-span-2 lg:grid lg:gap-4 lg:self-start">
           <Cover
             src={cover}
             title={item.title}
             className="rounded-xl shadow-[0_24px_48px_-20px_rgb(0_0_0/0.85)] outline outline-1 -outline-offset-1 outline-white/10 lg:rounded-2xl"
           />
-          <div className="col-span-2 row-start-2 grid gap-3 lg:col-span-1 lg:row-start-auto">
+          <div className="col-span-2 row-start-2 grid grid-cols-[minmax(0,1fr)] gap-3 lg:col-span-1 lg:row-start-auto">
             {loadError ? (
               <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>
             ) : !watch ? (
@@ -290,7 +292,7 @@ export function AudiobookDetail({
         </div>
 
         {/* Head: series, title, author, narrator. */}
-        <header className="grid min-w-0 gap-1.5 lg:gap-2 lg:pt-3">
+        <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5 lg:gap-2 lg:pt-3">
           {book?.series?.name ? (
             <span className="w-fit text-sm font-semibold text-foreground/80">
               {typeof seriesIndex === "number"
@@ -314,8 +316,8 @@ export function AudiobookDetail({
         </header>
 
         {/* Body. */}
-        <div className="col-span-2 grid min-w-0 gap-10 self-start lg:col-span-1 lg:col-start-2 lg:gap-12">
-          <div className="grid gap-6">
+        <div className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-10 self-start lg:col-span-1 lg:col-start-2 lg:gap-12">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
             <dl className="flex flex-wrap gap-x-9 gap-y-3 border-y border-border/60 py-4">
               {total > 0 ? <Fact label={t("book.length")}>{hoursMinutes(total)}</Fact> : null}
               {chapters.length > 0 ? <Fact label={t("book.chaptersHeading")}>{chapters.length}</Fact> : null}
@@ -323,9 +325,25 @@ export function AudiobookDetail({
               {book?.publisher ? <Fact label={t("book.publisher")}>{book.publisher}</Fact> : null}
             </dl>
             {item.overview ? (
-              <p className="max-w-[68ch] text-[15px] leading-relaxed whitespace-pre-line text-foreground/90">
-                {item.overview}
-              </p>
+              <div className="max-w-[68ch]">
+                <p
+                  className={`text-[15px] leading-relaxed whitespace-pre-line text-foreground/90 ${longOverview && !moreOverview ? "line-clamp-5" : ""}`}
+                >
+                  {item.overview}
+                </p>
+                {longOverview ? (
+                  <button
+                    type="button"
+                    aria-expanded={moreOverview}
+                    onClick={() => {
+                      setMoreOverview(!moreOverview);
+                    }}
+                    className="mt-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {moreOverview ? t("person.less") : t("person.more")}
+                  </button>
+                ) : null}
+              </div>
             ) : null}
             {item.genres.length > 0 ? (
               <div className="flex flex-wrap gap-2">
