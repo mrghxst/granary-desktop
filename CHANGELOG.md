@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-18
+Streaming quality with a clear Direct Play, Direct Stream or Transcoding indicator, and web-style audiobook pages.
+
 ### Added
 - Streaming quality: the player always shows how a title plays, as a coloured chip in the top bar: green Direct
   Play, blue Direct Stream, amber Transcoding, with the resolution and bitrate you receive. The quality menu explains
