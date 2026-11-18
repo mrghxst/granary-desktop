@@ -240,6 +240,24 @@ pub trait SiloApi: Send + Sync {
     ) -> Result<SubtitleAppearanceSetting>;
     /// `deleteSubtitleAppearanceDeviceOverride` (`204`): the profile's appearance applies again.
     async fn subtitle_appearance_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
+    /// `listEffectiveSettings`: `keys` resolved for this profile on this device. A key the server does not define is
+    /// a `422 validation_failed`.
+    async fn settings_effective(&self, origin: &str, auth: &Auth, keys: &[&str]) -> Result<EffectiveSettingCollection>;
+    /// `updateSettingValue` at `scope` (this device's row for `profile_device`).
+    async fn setting_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        key: &str,
+        scope: &str,
+        value: &serde_json::Value,
+    ) -> Result<()>;
+    /// `deleteSettingValue` (`204`): the next scope in the key's resolution order applies again.
+    async fn setting_delete(&self, origin: &str, auth: &Auth, key: &str, scope: &str) -> Result<()>;
+    /// `getPlaybackConnection`: this device on the connection it uses now (`buffering_quality_v1`).
+    async fn playback_connection(&self, origin: &str, auth: &Auth) -> Result<PlaybackConnection>;
+    /// `resetPlaybackLearnedLimit` (`204`).
+    async fn playback_learned_limit_reset(&self, origin: &str, auth: &Auth) -> Result<()>;
     /// `getItemMarkers`: the stored intro, recap, credits and preview segments of an item's file.
     async fn item_markers(&self, origin: &str, auth: &Auth, item_id: &str) -> Result<FileMarkers>;
     /// `setItemMarkers` (`permission_gated: marker_edit`, `non_retryable`); edits are stored as `manual`.
@@ -1067,6 +1085,59 @@ impl SiloApi for HttpSiloApi {
             Method::DELETE,
             origin,
             "/api/v2/settings/device/subtitle-appearance",
+            auth,
+        ))
+        .await
+        .map(drop)
+    }
+
+    async fn settings_effective(&self, origin: &str, auth: &Auth, keys: &[&str]) -> Result<EffectiveSettingCollection> {
+        let query: Vec<(&str, &str)> = keys.iter().map(|k| ("keys", *k)).collect();
+        send_json(
+            self.authed(Method::GET, origin, "/api/v2/settings/values/effective", auth)
+                .query(&query),
+        )
+        .await
+    }
+
+    async fn setting_set(
+        &self,
+        origin: &str,
+        auth: &Auth,
+        key: &str,
+        scope: &str,
+        value: &serde_json::Value,
+    ) -> Result<()> {
+        let path = format!("/api/v2/settings/values/{}", url_segment(key));
+        let body = serde_json::json!({ "value": value });
+        send_raw(
+            self.authed(Method::PUT, origin, &path, auth)
+                .query(&[("scope", scope)])
+                .json(&body),
+        )
+        .await
+        .map(drop)
+    }
+
+    async fn setting_delete(&self, origin: &str, auth: &Auth, key: &str, scope: &str) -> Result<()> {
+        let path = format!("/api/v2/settings/values/{}", url_segment(key));
+        send_raw(
+            self.authed(Method::DELETE, origin, &path, auth)
+                .query(&[("scope", scope)]),
+        )
+        .await
+        .map(drop)
+    }
+
+    async fn playback_connection(&self, origin: &str, auth: &Auth) -> Result<PlaybackConnection> {
+        send_json(self.authed(Method::GET, origin, "/api/v2/playback/connection", auth)).await
+    }
+
+    async fn playback_learned_limit_reset(&self, origin: &str, auth: &Auth) -> Result<()> {
+        send_raw(self.authed(
+            Method::DELETE,
+            origin,
+            "/api/v2/playback/connection/learned-limit",
             auth,
         ))
         .await

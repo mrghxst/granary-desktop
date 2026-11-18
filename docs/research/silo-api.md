@@ -334,7 +334,49 @@ Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`CatalogItemDeta
   media_item_id*, status* (success, failure), failure?}], summary*}`. Granary saves the book position here with
   `force_overwrite: true` every 10 s while playing, on pause and on leaving, so the item's `user_data.position_seconds`
   is the book position used to resume.
-- Not used: `listAudiobookGroups` (author/series/narrator browsing), the narrations list, related items, smart rewind.
+- The book page also reads `publisher`, `series {name?, entries*: [AudiobookRelatedItem]}`, `related
+  {also_by_author*, similar*: [AudiobookRelatedItem]}` and `other_narrations* [{content_id*, title*, narrators*,
+  year?}]` from the same extension. `AudiobookRelatedItem` is `{content_id*, title*, poster_url?, duration_seconds?,
+  played?, progress_ratio?, series_index?, year?}`. Browse cards of audiobooks and ebooks carry `authors` (up to three
+  names, `CatalogItem.authors`). The page follows the web layout (`web/src/pages/ItemDetail/AudiobookContent.tsx@749db96a`,
+  `web/src/pages/audiobooks/audiobooks.css@749db96a`): square cover, facts row, chapters, series/author/similar rails.
+- Not used: `listAudiobookGroups` (author/series/narrator browsing), smart rewind.
+### 4.1l Streaming quality, transcoding and buffering (ADR-0014)
+
+Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`listEffectiveSettings` OAS:L219384,
+`updateSettingValue` / `deleteSettingValue` OAS:L220110, `getPlaybackConnection` OAS:L200811,
+`resetPlaybackLearnedLimit` OAS:L200969, `PlaybackPlanV3.bandwidth_limit`, `EffectiveRecipeV3`), the settings
+manifest `contracts/settings/v1/manifest.json@749db96a`, the design `docs/design/2026-10-17-buffering-quality.md@749db96a`
+and its conformance vectors `docs/design/schemas/buffering-quality/v1/vectors.json@749db96a` (copied unchanged into
+`apps/desktop/src/lib/fixtures/buffering-quality-v1.json`), and the fixtures `list_effective_settings_ok.json`,
+`list_effective_settings_unknown_key.json`, `update_setting_value_ok.json` (copied into `crates/silo-api/tests/fixtures/`).
+
+- **Settings values.** `GET /api/v2/settings/values/effective?keys=a,b` answers `{items*: [{key*, value*, source*}],
+  revision}`; an unknown key fails the whole read with 422 `validation_failed` (a server before settings revision 23
+  has no `playback.buffering_quality_mode`, so Granary retries without it and hides that row). `PUT
+  /api/v2/settings/values/{key}?scope=profile_device` with `{value}` stores this profile's value on this device;
+  `DELETE` with the same scope removes it (404 when nothing was stored). `source` is the scope that won.
+- **Keys Granary writes** (manifest): `playback.preferred_quality` (`auto`, `480p`, `720p`, `1080p`, `2160p`;
+  `original` is deprecated and read as `auto`), `playback.max_bitrate_kbps` (nullable integer 100..200000; `null` is
+  "no cap"), `playback.buffering_quality_mode` (`never`, `ask`, `always`; default `always`; scopes `profile` and
+  `profile_device`).
+- **Plan request fields.** Start and replan bodies take `quality_preference`, `bandwidth_cap_kbps`,
+  `bandwidth_estimate_kbps`, and, only with the `buffering_quality_v1` client feature (which a client sends only when
+  the server lists it), `bandwidth_estimate_source: observed_rebuffer`, `observed_throughput_kbps` and `learned_limit`
+  (`ignore` on a start, `clear` on a restore). The server refuses those three without the feature. A lowering sends
+  `quality_change` with the step-down estimate `floor(delivered × 7 / 10)`.
+- **Plan answer fields used.** `delivery` (`original_http` Direct Play, `server_remux_*` Direct Stream,
+  `server_transcode_hls` Transcode), `decision_reason`, `effective_recipe {bitrate_kbps, width, height, codecs,
+  dynamic_range}`, `transformations[]` (`video_to_h264`, `video_to_hevc`, `audio_to_aac`, `hdr_to_sdr_tonemap`,
+  `server_dv7_to_hdr10`, `server_dv7_to_dv81`), `warnings[] {code, message}`, `available_qualities[] {label,
+  display_name, height, bitrate_kbps, preserves_source}`, `active_quality` (`plan_active_quality_v1`) and
+  `bandwidth_limit {kbps, source, expires_at}` (Auto kept below the source by a learned limit).
+- **Connection.** `GET /api/v2/playback/connection` answers `{connection*, learned_limit? {kbps, observed_at,
+  expires_at}, probe?, playback_sample?, auto_budget_kbps?}` for this device on the connection it uses now; `DELETE
+  /api/v2/playback/connection/learned-limit` forgets the learned limit (204). Granary reads it only when the server
+  lists `buffering_quality_v1`.
+- **Not used:** the bandwidth probe, `plan_summary` telemetry (`playback_plan_summary_v1`), profile-scope writes.
+
 ### 4.1k Ebooks and manga (reader)
 
 Read from `silo-server/contracts/api/v2/openapi.json@749db96a` (`getEbookProgress`, `saveEbookProgress`,
@@ -1079,6 +1121,10 @@ Facts confirmed while implementing (all `@6791aac`):
 | GET | /api/v2/artwork/{key}?exp&sig | Artwork bytes (public, signed) | OAS:L142607 | VERIFIED |
 | GET | /api/v2/images/capabilities | Image sizes | OAS:L180324 | VERIFIED |
 | GET | /api/v2/playback/capabilities | installation_id, features, deliveries | OAS:L198406; `PlaybackV2Api.kt@ee178d8` L214 | VERIFIED |
+| GET | /api/v2/playback/connection | This device's connection, learned limit, Auto budget | OAS:L200811 | VERIFIED |
+| DELETE | /api/v2/playback/connection/learned-limit | Forget the learned limit | OAS:L200969 | VERIFIED |
+| GET | /api/v2/settings/values/effective | Resolved quality settings | OAS:L219384 | VERIFIED |
+| PUT / DELETE | /api/v2/settings/values/{key}?scope=profile_device | Store / remove this device's quality setting | OAS:L220110 | VERIFIED |
 | GET | /api/v2/playback/bandwidth-probe | Probe payload | OAS:L198085 | VERIFIED |
 | POST | /api/v2/playback/bandwidth-probe/results | Report probe | OAS:L198221; `PlaybackV2Api.kt` L296 | VERIFIED |
 | GET | /api/v2/playback/connection | Learned limit | OAS:L198607; `PlaybackV2Api.kt` L224 | VERIFIED |

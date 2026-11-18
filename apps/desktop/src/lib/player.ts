@@ -79,6 +79,47 @@ export interface PlanInfo {
   dynamic_range?: string | null;
   degradation_warnings: string[];
   subtitles: PlanSubtitle[];
+  /** The playback attempt; a recovery that starts again begins a new one. */
+  attempt_id: string;
+  /** Counts the plans loaded in this playback; an in-place update keeps it. */
+  adoption: number;
+  /** `start`, `recovery`, `quality_change`, `track_change` or `seek_reanchor`. */
+  cause: string;
+  quality_preference: string;
+  active_quality?: string | null;
+  available_qualities: PlanQuality[];
+  /** The original file. */
+  source: PlanSource;
+  /** What the player receives. */
+  delivered: PlanSource;
+  delivered_kbps?: number | null;
+  bandwidth_limit?: { kbps: number; source: string; expires_at: string } | null;
+  transformations: string[];
+  warnings: { code: string; message: string }[];
+  cap_kbps?: number | null;
+  buffering_feature: boolean;
+}
+
+/** `AvailableQualityV3`. */
+export interface PlanQuality {
+  label: string;
+  display_name?: string | null;
+  height?: number | null;
+  bitrate_kbps?: number | null;
+  preserves_source: boolean;
+}
+
+/** `PlaybackSource` (subset). */
+export interface PlanSource {
+  container?: string | null;
+  video_codec?: string | null;
+  audio_codec?: string | null;
+  audio_channels?: number | null;
+  width?: number | null;
+  height?: number | null;
+  frame_rate?: number | null;
+  bitrate_kbps?: number | null;
+  dynamic_range?: string | null;
 }
 
 /** Mirrors `Notice` in controller.rs (`kind`-tagged). */

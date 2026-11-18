@@ -143,6 +143,15 @@ pub struct PlayRequest {
     pub has_previous: bool,
     #[serde(default)]
     pub has_next: bool,
+    /// `quality_preference` (`auto` when absent): the profile's Streaming quality setting or a pick.
+    #[serde(default)]
+    pub quality: Option<String>,
+    /// `playback.max_bitrate_kbps`.
+    #[serde(default)]
+    pub max_bitrate_kbps: Option<i64>,
+    /// `playback.buffering_quality_mode` is `never`: plan without the learned limit.
+    #[serde(default)]
+    pub ignore_learned_limit: bool,
 }
 
 impl PlayRequest {
@@ -153,6 +162,13 @@ impl PlayRequest {
         }
         if !self.start_seconds.is_finite() || self.start_seconds < 0.0 {
             return Err(bad("start position"));
+        }
+        let quality_ok = self
+            .quality
+            .as_deref()
+            .is_none_or(|q| !q.is_empty() && q.len() <= 40 && q.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'));
+        if !quality_ok || self.max_bitrate_kbps.is_some_and(|k| !(100..=200_000).contains(&k)) {
+            return Err(bad("quality"));
         }
         Ok(())
     }
@@ -1199,6 +1215,9 @@ mod tests {
             subtitle: None,
             has_previous: false,
             has_next: false,
+            quality: None,
+            max_bitrate_kbps: None,
+            ignore_learned_limit: false,
         };
         request.validate()?;
         let poster = detail.poster_url.unwrap_or_default();
@@ -1266,8 +1285,24 @@ mod tests {
             subtitle: None,
             has_previous: false,
             has_next: false,
+            quality: None,
+            max_bitrate_kbps: None,
+            ignore_learned_limit: false,
         };
         assert!(ok.validate().is_ok());
+        for bad in [Some("720p medium"), Some("")] {
+            let q = PlayRequest {
+                quality: bad.map(str::to_owned),
+                ..ok.clone()
+            };
+            assert!(q.validate().is_err());
+        }
+        let capped = PlayRequest {
+            quality: Some("720p-medium".into()),
+            max_bitrate_kbps: Some(50),
+            ..ok.clone()
+        };
+        assert!(capped.validate().is_err());
         let neg = PlayRequest {
             start_seconds: -1.0,
             ..ok.clone()

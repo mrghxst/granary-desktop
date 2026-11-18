@@ -352,7 +352,6 @@
     "subDelay": "Verzögerung",
     "subSize": "Größe",
     "menu": "Player-Menü",
-    "notDirect": "Keine Direktwiedergabe: {{reason}}",
     "keys": {
       "pause": "Wiedergabe / Pause",
       "seekBack": "Zurück (Sprungweite)",
@@ -751,7 +750,29 @@
     "listen": "Anhören",
     "resumeListening": "Fortsetzen",
     "parts_one": "{{count}} Teil",
-    "parts_other": "{{count}} Teile"
+    "parts_other": "{{count}} Teile",
+    "bookN": "Band {{n}}",
+    "listened": "{{percent}} % gehört",
+    "timeLeft": "noch {{time}}",
+    "fromStart": "Von vorne hören",
+    "seriesBook": "{{series}}, Band {{n}}",
+    "by": "von",
+    "narratedByLead": "Gelesen von",
+    "length": "Länge",
+    "chaptersHeading": "Kapitel",
+    "released": "Erschienen",
+    "publisher": "Verlag",
+    "otherNarrations": "Auch gelesen von",
+    "showAll": "Alle {{count}} anzeigen",
+    "showFewer": "Weniger anzeigen",
+    "leftInChapter": "noch {{time}} in diesem Kapitel",
+    "inSeries": "In {{series}}",
+    "inThisSeries": "In dieser Reihe",
+    "booksCount_one": "{{count}} Buch",
+    "booksCount_other": "{{count}} Bücher",
+    "alsoByAuthor": "Mehr von {{author}}",
+    "alsoByThisAuthor": "Mehr von diesem Autor",
+    "youMightAlsoLike": "Das könnte dir auch gefallen"
   },
   "reader": {
     "read": "Lesen",
@@ -785,5 +806,117 @@
     "chapterCount_one": "{{count}} Kapitel",
     "chapterCount_other": "{{count}} Kapitel",
     "volume": "Band {{n}}"
+  },
+  "quality": {
+    "title": "Qualität",
+    "open": "Qualität und Wiedergabeart",
+    "switching": "Qualität wird gewechselt…",
+    "auto": "Automatisch",
+    "autoHint": "Das Original, wenn die Verbindung es erlaubt",
+    "autoLimited": "Nach Puffern auf dieser Verbindung auf {{limit}} begrenzt",
+    "autoCapped": "Bis {{cap}} (deine maximale Bitrate)",
+    "nowRung": "jetzt {{name}}",
+    "choose": "Abspielen in",
+    "default": "Standard",
+    "original": "Original",
+    "originalTag": "Original",
+    "playing": "Wiedergabe",
+    "preservesSource": "Spielt die Originaldatei",
+    "transcodes": "Der Server wandelt das Video um",
+    "noRungs": "Der Server bietet für diese Datei keine andere Qualität an.",
+    "thisPlayback": "Gilt für diese Wiedergabe. Den Standard legst du unter Einstellungen → Streaming-Qualität fest.",
+    "party": "In einer Watch Party spielen alle das Original; die Qualität lässt sich hier nicht ändern.",
+    "method": {
+      "direct_play": "Direktwiedergabe",
+      "direct_stream": "Direktstream",
+      "transcode": "Transkodierung",
+      "transcodeAudio": "Audio wird transkodiert"
+    },
+    "say": {
+      "direct_play": "Die Originaldatei läuft unverändert in voller Qualität. Der Server sendet sie nur.",
+      "direct_stream": "Der Server verpackt die Datei für den Player neu. Bild und Ton werden nicht neu kodiert.",
+      "transcode": "Der Server wandelt dieses Video während der Wiedergabe um.",
+      "transcodeAudio": "Der Server wandelt den Ton während der Wiedergabe um. Das Bild wird nicht neu kodiert."
+    },
+    "why": {
+      "title": "Warum",
+      "picked": "Du hast {{quality}} gewählt.",
+      "cap": "Deine maximale Bitrate ({{cap}}) liegt unter den {{source}} der Datei.",
+      "bandwidth": "Die Verbindung ist für das Original zu langsam, daher hat Automatisch {{quality}} gewählt.",
+      "device": "Dieses Gerät kann die Auflösung oder Bitrate des Originals nicht abspielen.",
+      "container": "Der Container der Datei muss für den Player neu verpackt werden.",
+      "packaging": "Diese Auslieferung braucht das Streaming-Format des Servers.",
+      "audio": "Der Player kann diese Tonspur nicht direkt abspielen.",
+      "burnIn": "Die gewählten Untertitel müssen ins Bild eingebrannt werden.",
+      "dynamicRange": "Der Server passt das HDR-Format für diesen Bildschirm an.",
+      "unconfirmed": "Der Server konnte nicht bestätigen, dass das Original hier läuft.",
+      "autoOriginal": "Automatisch: Die Verbindung erlaubt das Original.",
+      "original": "Das Original passt zur gewählten Qualität.",
+      "learned": "Automatisch bleibt auf dieser Verbindung nach dem Puffern bei {{limit}}.",
+      "other": "Entscheidung des Servers: {{reason}}"
+    },
+    "change": {
+      "resolution": "Auflösung {{from}} → {{to}}",
+      "bitrate": "Bitrate {{from}} → {{to}}",
+      "videoH264": "Video in H.264 umgewandelt",
+      "videoHevc": "Video in HEVC umgewandelt",
+      "audioAac": "Ton in AAC umgewandelt",
+      "toneMap": "HDR auf SDR tonemapped",
+      "dvToHdr10": "Dolby Vision in HDR10 umgewandelt",
+      "dvToDv81": "Dolby Vision Profil 7 in 8.1 umgewandelt",
+      "remux": "Nur neu verpackt: Bild und Ton unverändert",
+      "other": "Geändert: {{name}}"
+    },
+    "warning": {
+      "burnIn": "Untertitel sind ins Bild eingebrannt.",
+      "cap": "Deine maximale Bitrate senkt die Qualität dieses Videos.",
+      "noLower": "Für diese Datei gibt es keine niedrigere Qualität.",
+      "normalized": "Der Server hat die gewünschte Qualität angepasst.",
+      "assumedHdr10": "Der Server hat für diese Datei HDR10 angenommen.",
+      "dvLayer": "Die Dolby-Vision-Erweiterungsebene entfällt.",
+      "dvStrip": "Dolby Vision lässt sich aus dieser Datei nicht entfernen."
+    },
+    "pill": {
+      "promptTitle": "Die Wiedergabe puffert immer wieder",
+      "promptBody": "Qualität senken, damit sie flüssig läuft?",
+      "undoTitle": "Qualität nach Puffern gesenkt",
+      "undoBody": "Der Server sendet jetzt eine niedrigere Qualität, die zur Verbindung passt.",
+      "lower": "Qualität senken",
+      "keep": "Qualität behalten",
+      "restore": "Qualität wiederherstellen",
+      "ok": "OK"
+    },
+    "notice": {
+      "lowered": "Nach Puffern gesenkt: {{summary}}",
+      "cant_lower": "Die Wiedergabe puffert, aber es gibt keine niedrigere Qualität."
+    },
+    "settings": {
+      "title": "Streaming-Qualität",
+      "intro": "Für dieses Profil auf diesem Computer. Andere Computer behalten ihre eigenen Werte.",
+      "preferred": "Qualität",
+      "preferredHint": "Automatisch spielt das Original, wenn die Verbindung es erlaubt. Bei einer festen Qualität wandelt der Server alles darüber um.",
+      "maxBitrate": "Maximale Bitrate",
+      "maxBitrateHint": "Dateien darüber wandelt der Server passend um.",
+      "noLimit": "Keine Grenze",
+      "buffering": "Qualität beim Puffern senken",
+      "bufferingHint": {
+        "always": "Puffert die Wiedergabe immer wieder, die Qualität senken und Rückgängig anbieten.",
+        "ask": "Puffert die Wiedergabe immer wieder, vor dem Senken fragen.",
+        "never": "Die Qualität nie wegen Pufferns ändern."
+      },
+      "bufferingMode": {
+        "always": "Automatisch",
+        "ask": "Zuerst fragen",
+        "never": "Nie"
+      },
+      "useProfile": "Profilwert verwenden",
+      "useProfileHint": "Den Wert dieses Computers entfernen, damit die Einstellung des Profils gilt",
+      "connection": "Diese Verbindung",
+      "budget": "Automatisch streamt hier bis {{rate}}.",
+      "noBudget": "Automatisch streamt das Original, wenn nichts begrenzt.",
+      "learned": "Nach Puffern am {{date}} auf {{rate}} begrenzt",
+      "noLearned": "Keine Grenze gelernt",
+      "resetLearned": "Zurücksetzen"
+    }
   }
 }

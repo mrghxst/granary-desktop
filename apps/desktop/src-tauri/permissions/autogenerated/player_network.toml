@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-player-network"
+description = "Enables the player_network command without any pre-configured scope."
+commands.allow = ["player_network"]
+
+[[permission]]
+identifier = "deny-player-network"
+description = "Denies the player_network command without any pre-configured scope."
+commands.deny = ["player_network"]

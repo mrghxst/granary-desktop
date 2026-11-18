@@ -52,8 +52,22 @@ export interface CatalogItem {
   item_source?: string | null;
   /** Continue-watching cards: when the progress last changed (anchors a dismissal). */
   progress_updated_at?: string | null;
+  /** Audiobook and ebook cards: up to three author names. */
+  authors?: string[];
   user_state?: CatalogItemUserState | null;
   overlay_summary?: CatalogItemOverlay | null;
+}
+
+/** `AudiobookRelatedItem`: a book of the series, by the same author, or similar. */
+export interface AudiobookRelatedItem {
+  content_id: string;
+  title: string;
+  poster_url?: string | null;
+  duration_seconds?: number | null;
+  played?: boolean;
+  progress_ratio?: number | null;
+  series_index?: number | null;
+  year?: number | null;
 }
 
 /** Technical badges of an item's best file (display strings, free-form upstream). */
@@ -570,9 +584,13 @@ export interface CatalogItemDetail {
   } | null;
   /** Authors, narrators and length of an audiobook. */
   audiobook?: {
-    authors: { name: string; person_id?: string | null }[];
-    narrators: { name: string; person_id?: string | null }[];
+    authors: { name: string; person_id?: string | null; photo_url?: string | null }[];
+    narrators: { name: string; person_id?: string | null; photo_url?: string | null }[];
     total_duration_seconds?: number | null;
+    publisher?: string | null;
+    series?: { name?: string | null; entries: AudiobookRelatedItem[] } | null;
+    related?: { also_by_author: AudiobookRelatedItem[]; similar: AudiobookRelatedItem[] } | null;
+    other_narrations?: { content_id: string; title: string; narrators: string[]; year?: number | null }[];
   } | null;
   /** Theme tunes of the title, when the server has any; `owner_id` is the item they are granted for. */
   themes?: { owner_id: string; items: { id: string }[] } | null;
@@ -713,6 +731,12 @@ export interface PlayRequest {
   /** Previous/next episode exist (media keys). */
   hasPrevious?: boolean;
   hasNext?: boolean;
+  /** `quality_preference`: `auto`, a resolution or a rung label. */
+  quality?: string;
+  /** `playback.max_bitrate_kbps`. */
+  maxBitrateKbps?: number | null;
+  /** `playback.buffering_quality_mode` is `never`. */
+  ignoreLearnedLimit?: boolean;
 }
 
 const noHost = (): Error & CommandError => Object.assign(new Error("not running inside Granary"), { code: "no_host" });

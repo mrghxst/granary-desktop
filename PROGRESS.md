@@ -16,6 +16,7 @@ Last updated: 2026-11-08 | Current phase: done | Last commit: 6a14e97 before the
 
 ## Current step
 0.5.0 (2026-11-17): feature roadmap R1 to R10 done and released as a public pre-release. Next: whatever the owner picks from the open items below.
+Unreleased (2026-11-18): streaming quality and transcoding made visible (play-method chip, quality menu with reasons, per-computer Settings → Streaming quality, item-page quality choice, lowering quality when buffering per the server's design; ADR-0014), and audiobook covers and book page in the web's layout. Not cut as a version.
 0.2 web-app parity round (user list of 8 items): detail page + player, library tabs/infinite scroll/A–Z rail/monochrome icon/poster tags, seek previews done; next for files without trickplay, README + Pages site.
 All phases DONE (0.1.0); 0.1.1 fixes the hidden video under the overlay; 0.2.0 adds web-app parity features, local seek previews and the website. Remaining human steps: see "Blocked / needs human" and MANUAL_TEST_CHECKLIST.md.
 
@@ -56,6 +57,8 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
 - [ADR-0010](docs/adr/0010-artwork-cache.md) Bounded on-disk artwork cache (300 MiB, LRU, Continue Watching art kept, weekly revalidation, offline fallback).
 - [ADR-0011](docs/adr/0011-seekr-previews.md) Seek-preview source chain server → Seekr → local (reorderable, each switchable); Seekr key in Credential Manager, sheets proxied by the host.
 - [ADR-0012](docs/adr/0012-rendering-quality-and-gpu-video-processing.md) Per-title rendering options: quality levels (auto = balanced on UMA GPUs, high = mpv as configured, max = high-quality profile), opt-in d3d11vpp RTX/Intel VSR and RTX HDR for SDR, Dolby Vision switch (P7/P8 base layer).
+- [ADR-0013](docs/adr/0013-reader.md) Ebook and manga reader.
+- [ADR-0014](docs/adr/0014-streaming-quality-and-buffering.md) Streaming quality: play-method chip and explained quality menu, settings at `profile_device`, buffering controller in the UI (66 conformance vectors), host keeps the step-down estimate.
 - pnpm 12.18.0 via corepack shim installed to `%APPDATA%\npm` (corepack enable into Program Files needs admin).
 - Toolchain (Phase 0): git 2.53.0, node v24.18.0, pnpm 12.18.0, rustc 1.99.1 (host x86_64-pc-windows-msvc),
   VS Build Tools 2022 17.14 (MSVC 14.44.35207, Windows SDK 10.0.26100), gh 2.103.3, 7-Zip 26.01, ffmpeg 8.1.2,

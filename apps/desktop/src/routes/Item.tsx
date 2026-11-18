@@ -6,8 +6,8 @@ import { Badge, PickerPill, Popover, TrackOption } from "../components/Popover";
 import { PosterCard } from "../components/PosterCard";
 import { Row } from "../components/Row";
 import { MarkerEditor } from "../components/MarkerEditor";
+import { AudiobookDetail } from "./AudiobookDetail";
 import { MangaChapterList, MangaPanel, ReadPanel } from "../components/BookPanels";
-import { bookChapters, bookDuration, bookParts } from "../lib/audiobook";
 import { together } from "../lib/together";
 import { useTogether } from "../player/togetherContext";
 import { Alert } from "../components/ui";
@@ -34,6 +34,7 @@ import { audioInfo, subtitleInfo, trackSummary } from "../lib/tracks";
 import { useLoad } from "../lib/useLoad";
 import { useThemeMusic } from "../lib/useThemeMusic";
 import { usePlay } from "../lib/usePlay";
+import { cachedQuality, resolutionChoices } from "../lib/quality";
 import type { LaunchArt } from "../player/context";
 
 const PLAYABLE = new Set(["movie", "episode"]);
@@ -55,89 +56,6 @@ function useTrackLabels() {
   };
 }
 
-/** Listen/Resume for an audiobook: its parts make one timeline, so there is no version picker. */
-function BookPanel({
-  serverId,
-  item,
-  art,
-  extra,
-}: {
-  serverId: string;
-  item: CatalogItemDetail;
-  art: LaunchArt;
-  extra?: ReactNode;
-}) {
-  const { t } = useTranslation();
-  const refresh = useRefreshTick();
-  const { data: watch, error: loadError } = useLoad(
-    `${serverId}/${item.content_id}`,
-    () => catalog.watch(serverId, item.content_id),
-    refresh,
-  );
-  const { play, busy, error: playError } = usePlay(serverId);
-  if (loadError) return <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>;
-  if (!watch) return <div className="h-12 w-40 animate-pulse rounded-full bg-white/10" />;
-  if (watch.versions.length === 0) return <Alert tone="warning">{t("item.noVersions")}</Alert>;
-  const parts = bookParts(watch.versions);
-  const total = item.audiobook?.total_duration_seconds || bookDuration(parts);
-  const chapters = bookChapters(watch.versions, parts, (n) => String(n)).length;
-  const resume = resumePosition(watch);
-  const progress = resume > 0 && total > 0 ? Math.min(1, resume / total) : 0;
-  const names = (l: { name: string }[] | undefined) => (l ?? []).map((p) => p.name).join(", ");
-  const authors = names(item.audiobook?.authors);
-  const narrators = names(item.audiobook?.narrators);
-  return (
-    <div className="flex flex-col gap-3">
-      {authors || narrators ? (
-        <p className="text-sm text-foreground/80">
-          {authors}
-          {authors && narrators ? " · " : ""}
-          {narrators ? t("book.narratedBy", { names: narrators }) : ""}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void play(item.content_id, { watch, art, fromStart: resume <= 0 })}
-          className="relative isolate inline-flex h-12 items-center gap-2.5 overflow-hidden rounded-full bg-primary pr-6 pl-5 font-semibold text-primary-foreground shadow-lg transition hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none"
-        >
-          {progress > 0 ? (
-            <span
-              aria-hidden
-              className="absolute inset-y-0 left-0 -z-10 bg-black/15"
-              style={{ width: `${String(progress * 100)}%` }}
-            />
-          ) : null}
-          <Play className="size-5 fill-current" />
-          {resume > 0 ? `${t("book.resumeListening")} · ${formatTime(resume)}` : t("book.listen")}
-        </button>
-        {resume > 0 ? (
-          <IconAction
-            label={t("item.fromStart")}
-            disabled={busy}
-            onClick={() => void play(item.content_id, { watch, art, fromStart: true })}
-          >
-            <RotateCcw className="size-5" />
-          </IconAction>
-        ) : null}
-        {extra}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {[
-          total > 0 ? runtimeLabel(Math.round(total / 60)) : null,
-          t("book.chapters", { count: chapters }),
-          parts.length > 1 ? t("book.parts", { count: parts.length }) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
-      {playError ? <Alert>{playError}</Alert> : null}
-    </div>
-  );
-}
-
-/** Play/Resume (with progress fill) plus version/audio/subtitle pickers, for movies and episodes. */
 function PlayPanel({
   serverId,
   itemId,
@@ -158,6 +76,8 @@ function PlayPanel({
     refresh,
   );
   const [picked, setPicked] = useState<{ itemId: string; choice: PlayChoice } | null>(null);
+  // A quality picked here holds for this play only; otherwise the start uses the profile's setting.
+  const [qualityPick, setQualityPick] = useState<{ itemId: string; quality: string } | null>(null);
   const { play, busy, error: playError } = usePlay(serverId);
 
   if (loadError) return <Alert onRetry={retryLoads}>{errorMessage(t, loadError)}</Alert>;
@@ -181,6 +101,12 @@ function PlayPanel({
   const subs = v.subtitle_tracks.filter((s): s is typeof s & { index: number } => typeof s.index === "number");
   const audio = choice.audioIndex === null ? undefined : v.audio_tracks[choice.audioIndex];
   const sub = subs.find((s) => s.index === choice.subtitleIndex);
+  const defaultQuality = cachedQuality(serverId).preferredQuality;
+  const pickedQuality = qualityPick?.itemId === itemId ? qualityPick.quality : null;
+  const playQuality = pickedQuality ?? defaultQuality;
+  const qualityOpts = pickedQuality ? { quality: pickedQuality } : {};
+  const sourceHeight = Number.parseInt(resolutionChoices(v.resolution)[0] ?? "2160", 10);
+  const qualityName = (q: string) => (q === "auto" ? t("quality.auto") : q === "2160p" ? "4K" : q);
 
   return (
     <div className="flex flex-col gap-4">
@@ -188,7 +114,7 @@ function PlayPanel({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void play(itemId, { watch, choice, art, fromStart: resume <= 0 })}
+          onClick={() => void play(itemId, { watch, choice, art, fromStart: resume <= 0, ...qualityOpts })}
           aria-label={resume > 0 ? t("item.resume", { time: formatTime(resume) }) : undefined}
           className="relative isolate inline-flex h-12 items-center gap-2.5 overflow-hidden rounded-full bg-primary pr-6 pl-5 font-semibold text-primary-foreground shadow-lg transition hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.99] disabled:opacity-60 motion-reduce:transition-none"
         >
@@ -215,7 +141,7 @@ function PlayPanel({
           <IconAction
             label={t("item.fromStart")}
             disabled={busy}
-            onClick={() => void play(itemId, { watch, choice, art, fromStart: true })}
+            onClick={() => void play(itemId, { watch, choice, art, fromStart: true, ...qualityOpts })}
           >
             <RotateCcw className="size-5" />
           </IconAction>
@@ -290,6 +216,35 @@ function PlayPanel({
             )}
           </Popover>
         ) : null}
+        <Popover
+          label={t("quality.title")}
+          trigger={(open) => <PickerPill caption={t("quality.title")} value={qualityName(playQuality)} open={open} />}
+        >
+          {(close) => (
+            <div className="max-h-80 overflow-y-auto">
+              {["auto", ...resolutionChoices(v.resolution)].map((q) => (
+                <TrackOption
+                  key={q}
+                  selected={q === playQuality}
+                  info={{
+                    headline: qualityName(q),
+                    detail:
+                      q === "auto"
+                        ? t("quality.autoHint")
+                        : Number.parseInt(q, 10) >= sourceHeight
+                          ? t("quality.preservesSource")
+                          : t("quality.transcodes"),
+                    badges: q === defaultQuality ? [t("quality.default")] : [],
+                  }}
+                  onSelect={() => {
+                    setQualityPick(q === defaultQuality ? null : { itemId, quality: q });
+                    close();
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </Popover>
         <Popover
           label={t("item.subtitles")}
           trigger={(open) => (
@@ -833,8 +788,6 @@ function Hero({ serverId, item }: { serverId: string; item: CatalogItemDetail })
             <ReadPanel serverId={serverId} item={item} extra={actions} />
           ) : item.type === "manga" ? (
             <MangaPanel serverId={serverId} item={item} extra={actions} />
-          ) : item.type === "audiobook" ? (
-            <BookPanel serverId={serverId} item={item} art={art} extra={actions} />
           ) : PLAYABLE.has(item.type) ? (
             <PlayPanel serverId={serverId} itemId={item.content_id} art={art} extra={actions} />
           ) : (
@@ -1252,6 +1205,14 @@ export function Item() {
   if (!item) return <div className="h-[32rem] animate-pulse rounded-2xl border border-border/60 bg-card" />;
 
   const seriesId = item.type === "series" ? item.content_id : item.type === "season" ? item.series_id : null;
+
+  if (item.type === "audiobook") {
+    return (
+      <article>
+        <AudiobookDetail serverId={serverId} item={item} actions={<UserActions serverId={serverId} item={item} />} />
+      </article>
+    );
+  }
 
   return (
     <article className="flex flex-col gap-6">

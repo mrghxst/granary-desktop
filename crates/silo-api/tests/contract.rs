@@ -663,6 +663,7 @@ fn granary_start_body(caps: &PlaybackCapabilities) -> PlaybackStartBody {
         audio_track_index: Some(0),
         subtitle_track_index: None,
         allow_alternate_versions: Some(false),
+        bandwidth: BandwidthFields::default(),
     }
 }
 
@@ -776,12 +777,184 @@ fn granary_playback_request_bodies_match_the_upstream_schemas() {
         client_playback_context: start.client_playback_context.clone(),
         client_features: start.client_features.clone(),
         failure: None,
+        bandwidth: BandwidthFields::default(),
     };
     assert_valid(
         &serde_json::to_value(&replan).unwrap(),
         &schema_of("PlaybackReplanBody"),
         "replan body",
     );
+    // The buffering-quality members (`buffering_quality_v1`): a lowering after buffering, a Restore quality, and a
+    // capped start that ignores the learned limit (`never` mode).
+    let features = vec!["playback_plan_v3".to_owned(), BUFFERING_QUALITY_FEATURE.to_owned()];
+    let lowering = BandwidthFields {
+        cap_kbps: None,
+        estimate_kbps: Some(44_100),
+        estimate_source: Some("observed_rebuffer".into()),
+        observed_kbps: Some(30_000),
+        learned_limit: None,
+    };
+    let quality = PlaybackReplanBody {
+        operation: "quality_change".into(),
+        client_features: features.clone(),
+        bandwidth: lowering.for_features(&features),
+        ..replan.clone()
+    };
+    let v = serde_json::to_value(&quality).unwrap();
+    assert_eq!(v["bandwidth_estimate_kbps"], 44_100);
+    assert_eq!(v["bandwidth_estimate_source"], "observed_rebuffer");
+    assert_eq!(v["observed_throughput_kbps"], 30_000);
+    assert_valid(&v, &schema_of("PlaybackReplanBody"), "quality-change replan body");
+    let restore = PlaybackReplanBody {
+        bandwidth: BandwidthFields {
+            learned_limit: Some("clear".into()),
+            ..BandwidthFields::default()
+        }
+        .for_features(&features),
+        ..quality.clone()
+    };
+    assert_valid(
+        &serde_json::to_value(&restore).unwrap(),
+        &schema_of("PlaybackReplanBody"),
+        "restore replan body",
+    );
+    let capped = PlaybackStartBody {
+        client_features: features.clone(),
+        quality_preference: "720p-medium".into(),
+        bandwidth: BandwidthFields {
+            cap_kbps: Some(8_000),
+            learned_limit: Some("ignore".into()),
+            ..BandwidthFields::default()
+        }
+        .for_features(&features),
+        ..start.clone()
+    };
+    let v = serde_json::to_value(&capped).unwrap();
+    assert_eq!(
+        (v["bandwidth_cap_kbps"].as_i64(), v["learned_limit"].as_str()),
+        (Some(8_000), Some("ignore"))
+    );
+    assert_valid(&v, &schema_of("PlaybackStartBody"), "capped start body");
+    // Without the feature the server refuses these members, so they are not sent; the estimate itself still is.
+    let plain = lowering.for_features(&["playback_plan_v3".to_owned()]);
+    assert_eq!(
+        (plain.estimate_kbps, plain.estimate_source, plain.observed_kbps),
+        (Some(44_100), None, None)
+    );
+}
+
+#[test]
+fn quality_fields_of_upstream_plans_decode() {
+    // `playback-protocol-v3.md` §10 @749db96a: the menu, the active rung, the recipe's delivered size and bitrate.
+    let plan: PlaybackPlan = serde_json::from_value(serde_json::json!({
+        "plan_id": "plan:1",
+        "plan_attempt_key": "v3:1",
+        "delivery": "server_transcode_hls",
+        "decision_reason": "quality_bandwidth_limit",
+        "available_qualities": [
+            {"label": "1080p-high", "display_name": "1080p High", "height": 1080, "bitrate_kbps": 10000, "preserves_source": false},
+            {"label": "720p-medium", "display_name": "720p Medium", "height": 720, "bitrate_kbps": 2000, "preserves_source": false}
+        ],
+        "active_quality": "720p-medium",
+        "effective_recipe": {"video_codec": "h264", "audio_codec": "aac", "dynamic_range": "sdr", "bitrate_kbps": 2000, "width": 1280, "height": 720},
+        "bandwidth_limit": {"kbps": 3000, "source": "observed_rebuffer", "expires_at": "2026-11-19T12:00:00.000Z"},
+        "transformations": [{"name": "video_to_h264", "executor": "server", "recipe_version": "2", "validated_claims": []}],
+        "source": {"media_file_id": "42", "width": 3840, "height": 2160, "bitrate_kbps": 25200, "dynamic_range": "hdr10"}
+    }))
+    .unwrap();
+    assert_eq!(plan.delivered_kbps(), Some(2000));
+    assert_eq!(plan.active_quality.as_deref(), Some("720p-medium"));
+    assert_eq!(plan.bandwidth_limit.as_ref().map(|l| l.kbps), Some(3000));
+    let d = plan.delivered();
+    assert_eq!((d.width, d.height, d.bitrate_kbps), (Some(1280), Some(720), Some(2000)));
+    assert_eq!(plan.transformations[0].name, "video_to_h264");
+}
+
+#[tokio::test]
+async fn settings_and_connection_requests_follow_the_contract() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/settings/values/effective"))
+        .and(wiremock::matchers::query_param("keys", "playback.preferred_quality"))
+        .and(header("X-Profile-Id", "7"))
+        .respond_with(json("list_effective_settings_ok.json", 200))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v2/settings/values/playback.max_bitrate_kbps"))
+        .and(wiremock::matchers::query_param("scope", "profile_device"))
+        .and(wiremock::matchers::body_json(serde_json::json!({ "value": 8000 })))
+        .respond_with(json("update_setting_value_ok.json", 200))
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/v2/settings/values/playback.preferred_quality"))
+        .and(wiremock::matchers::query_param("scope", "profile_device"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+    // `getPlaybackConnection` has no upstream fixture: the body is the design document's example.
+    Mock::given(method("GET"))
+        .and(path("/api/v2/playback/connection"))
+        .and(header("X-Silo-Device-Id", device().id.as_str()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "connection": "remote",
+            "probe": { "kbps": 48000, "lower_bound": false, "measured_at": "2026-10-17T19:02:11Z", "transport": "wifi" },
+            "playback_sample": { "kbps": 51200, "measured_at": "2026-10-18T20:14:03Z" },
+            "learned_limit": { "kbps": 44100, "observed_at": "2026-10-18T16:21:40Z", "expires_at": "2026-10-19T16:21:40Z" },
+            "auto_budget_kbps": 35280
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("DELETE"))
+        .and(path("/api/v2/playback/connection/learned-limit"))
+        .and(header("X-Silo-Device-Id", device().id.as_str()))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+    let api = HttpSiloApi::new(device()).unwrap();
+    let a = auth(Some(("7", None)));
+    let o = server.uri();
+    let set = api
+        .settings_effective(&o, &a, &["ui.theme", "playback.preferred_quality"])
+        .await
+        .unwrap();
+    assert_eq!(set.items[1].key, "playback.preferred_quality");
+    assert_eq!(
+        (set.items[1].value.as_str(), set.items[1].source.as_str()),
+        (Some("auto"), "default")
+    );
+    api.setting_set(
+        &o,
+        &a,
+        "playback.max_bitrate_kbps",
+        "profile_device",
+        &serde_json::json!(8000),
+    )
+    .await
+    .unwrap();
+    api.setting_delete(&o, &a, "playback.preferred_quality", "profile_device")
+        .await
+        .unwrap();
+    let c = api.playback_connection(&o, &a).await.unwrap();
+    assert_eq!(c.learned_limit.map(|l| l.kbps), Some(44_100));
+    assert_eq!(
+        (c.auto_budget_kbps, c.probe.map(|p| p.kbps)),
+        (Some(35_280), Some(48_000))
+    );
+    api.playback_learned_limit_reset(&o, &a).await.unwrap();
+    // A key this server does not define is a validation failure, not an omission.
+    let unknown = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v2/settings/values/effective"))
+        .respond_with(json("list_effective_settings_unknown_key.json", 422))
+        .mount(&unknown)
+        .await;
+    let e = api
+        .settings_effective(&unknown.uri(), &a, &["playback.buffering_quality_mode"])
+        .await
+        .unwrap_err();
+    assert_eq!(e.status(), Some(422));
 }
 
 #[tokio::test]

@@ -76,6 +76,17 @@ import { useLocalPreview } from "./useLocalPreview";
 import { AmbientLetterbox } from "./AmbientLetterbox";
 import { useTogether } from "./togetherContext";
 import { AudiobookView } from "./AudiobookView";
+import { BufferingPill, PlayMethodBadge, QualityButton, QualityPanel } from "./QualityUI";
+import { useBufferingQuality } from "./useBufferingQuality";
+import {
+  cachedQuality,
+  deliveredSummary,
+  explainPlan,
+  formatKbps,
+  methodName,
+  playMethod,
+  streamLine,
+} from "../lib/quality";
 
 const HIDE_PLAYING_MS = 2500;
 /** With the pointer resting on the seek bar (waiting for a preview, reading the time) the controls stay this long. */
@@ -87,7 +98,7 @@ const PROMPT_POP_MS = 8000;
 const HIDE_PAUSED_MS = 30000;
 /** A paused picture dims the controls first. */
 const DIM_PAUSED_MS = 8000;
-type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep" | "subStyle" | "subFind";
+type MenuName = "audio" | "subtitles" | "speed" | "picture" | "sleep" | "subStyle" | "subFind" | "quality";
 
 interface SubtitleOption {
   key: string;
@@ -1014,11 +1025,27 @@ function PlayerControls() {
     };
   }, [statsOpen, active]);
 
-  // Not direct play: say why, once per plan.
+  // How it plays, once per loaded plan: every conversion says so with its reason; Direct Play is announced when a
+  // playback starts or comes back to it (the top bar's chip keeps showing it either way).
+  const lastMethod = useRef<string | null>(null);
+  const announced = useRef("");
   useEffect(() => {
     if (!plan) return;
-    if (!plan.direct_play) showToast(t("player.notDirect", { reason: plan.decision_reason }));
-    else if (plan.degradation_warnings.length > 0) showToast(plan.degradation_warnings.join(" · "));
+    const key = `${plan.attempt_id}:${String(plan.adoption)}`;
+    if (key === announced.current) return;
+    announced.current = key;
+    const method = playMethod(plan);
+    const changed = lastMethod.current !== method;
+    lastMethod.current = method;
+    const head = `${methodName(t, plan)} · ${deliveredSummary(plan)}`;
+    if (method !== "direct_play") {
+      const why = explainPlan(plan).reasons[0];
+      showToast(why ? `${head} — ${t(why.key, why.values ?? {})}` : head);
+    } else if (changed) {
+      showToast(head);
+    } else if (plan.degradation_warnings.length > 0) {
+      showToast(plan.degradation_warnings.join(" · "));
+    }
   }, [plan, showToast, t]);
 
   useEffect(() => {
@@ -1396,6 +1423,30 @@ function PlayerControls() {
   // again in the final stretch whenever the countdown is not running (autoplay off or cancelled).
   const showNext = near.next !== undefined && !counting && !asking && (marker?.kind === "credits" || inWindow);
   const promptKey = counting || asking ? "up-next" : skip ? `skip:${String(skip.to)}` : showNext ? "next" : null;
+  // Lower quality when buffering (ADR-0014): video outside a Watch Party; the pill waits while something covers it.
+  const bufferingMode = ctx ? (cachedQuality(ctx.serverId).bufferingMode ?? "always") : "always";
+  const bq = useBufferingQuality({
+    plan,
+    state,
+    title: ctx?.watch.content_id ?? null,
+    enabled: !party.room,
+    mode: bufferingMode,
+    obscured: menu !== null || help || win.mini || skip !== null || showNext || counting || asking,
+    onNotice: (key) => {
+      showToast(
+        key === "lowered" && plan
+          ? t("quality.notice.lowered", { summary: `${methodName(t, plan)} · ${deliveredSummary(plan)}` })
+          : t(`quality.notice.${key}`),
+      );
+    },
+    onError: fail,
+  });
+  const pickQuality = useCallback(
+    (label: string) => {
+      bq.pick(label).catch(fail);
+    },
+    [bq, fail],
+  );
   const popped = promptKey !== null && (promptKey === "up-next" || expired !== promptKey);
   useEffect(() => {
     if (promptKey === null || promptKey === "up-next") return;
@@ -1510,9 +1561,19 @@ function PlayerControls() {
               {lines.subtitle ? <div className="truncate text-sm text-white/70">{lines.subtitle}</div> : null}
             </div>
           ) : null}
+          <div className="flex-1" />
+          {plan ? (
+            <PlayMethodBadge
+              plan={plan}
+              busy={bq.busy}
+              onClick={() => {
+                setMenu(menu === "quality" ? null : "quality");
+              }}
+            />
+          ) : null}
           {party.room ? (
             <div
-              className="ml-auto flex shrink-0 items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-sm"
+              className="flex shrink-0 items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-sm"
               title={t(`together.link.${party.link}`)}
             >
               <span
@@ -1600,6 +1661,15 @@ function PlayerControls() {
             <div className="flex-1" />
             {!win.mini ? (
               <>
+                {plan ? (
+                  <QualityButton
+                    plan={plan}
+                    active={menu === "quality"}
+                    onClick={() => {
+                      setMenu(menu === "quality" ? null : "quality");
+                    }}
+                  />
+                ) : null}
                 <IconButton
                   label={t("item.audio")}
                   active={menu === "audio"}
@@ -1783,6 +1853,19 @@ function PlayerControls() {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {bq.pill ? <BufferingPill pill={bq.pill} onAct={bq.act} /> : null}
+
+      {menu === "quality" && plan ? (
+        <Popover
+          title={t("quality.title")}
+          onClose={() => {
+            setMenu(null);
+          }}
+        >
+          <QualityPanel plan={plan} busy={bq.busy} inParty={party.room !== null} onPick={pickQuality} />
+        </Popover>
       ) : null}
 
       {menu === "audio" && ctx ? (
@@ -2014,13 +2097,21 @@ function PlayerControls() {
           {plan ? (
             <>
               <div>
-                delivery: {plan.delivery}
-                {plan.direct_play ? " (direct)" : ""} · {plan.decision_reason}
+                method: {methodName(t, plan)} · {plan.delivery} · {plan.decision_reason}
               </div>
+              <div>source: {streamLine(plan.source) || "?"}</div>
+              <div>playing: {streamLine(plan.delivered, plan.delivered_kbps) || "?"}</div>
               <div>
                 {plan.container ?? "?"} · {plan.video_codec ?? "?"} / {plan.audio_codec ?? "?"} ·{" "}
                 {plan.dynamic_range ?? "SDR"}
               </div>
+              <div>
+                quality: {plan.quality_preference}
+                {plan.active_quality ? ` → ${plan.active_quality}` : ""}
+                {plan.cap_kbps ? ` · cap ${formatKbps(plan.cap_kbps)}` : ""}
+                {plan.bandwidth_limit ? ` · limit ${formatKbps(plan.bandwidth_limit.kbps)}` : ""} · cause {plan.cause}
+              </div>
+              {plan.transformations.length > 0 ? <div>changes: {plan.transformations.join(", ")}</div> : null}
             </>
           ) : null}
           {Object.entries(stats ?? {}).map(([k, v]) => (

@@ -77,6 +77,62 @@ pub struct MockSiloApi {
     ebook_progress: Mutex<HashMap<String, EbookProgress>>,
     /// Polls of the mock translation job so far (it completes on the second).
     ai_polls: Mutex<u32>,
+    /// Setting values stored at `profile_device` scope (the only scope the app writes), by key.
+    settings: Mutex<HashMap<String, serde_json::Value>>,
+    /// The limit learned on this device after buffering (`buffering_quality_v1`).
+    learned_limit: Mutex<Option<LearnedLimit>>,
+    /// Simulated link speed: media is served no faster than a stream of the plan's delivered bitrate would arrive on
+    /// it (`GRANARY_MOCK_LINK_KBPS`), so buffering and lowering can be tried without a slow network.
+    link_kbps: Option<u64>,
+}
+
+/// The server's quality rungs (`playback-protocol-v3.md` §10 @749db96a): label, display name, height, kbps.
+const QUALITY_LADDER: &[(&str, &str, i64, i64)] = &[
+    ("2160p-high", "4K High", 2160, 40_000),
+    ("2160p-medium", "4K Medium", 2160, 20_000),
+    ("2160p-low", "4K Low", 2160, 10_000),
+    ("1080p-high", "1080p High", 1080, 10_000),
+    ("1080p-medium", "1080p Medium", 1080, 6_000),
+    ("1080p-low", "1080p Low", 1080, 3_000),
+    ("720p-high", "720p High", 720, 4_000),
+    ("720p-medium", "720p Medium", 720, 2_000),
+    ("720p-low", "720p Low", 720, 1_500),
+    ("480p", "480p", 480, 1_500),
+    ("480p-low", "480p Low", 480, 800),
+    ("360p", "360p", 360, 300),
+];
+
+/// The real bitrate of `sdr_h264_1080p.mkv`, which encodes stream.
+const SDR_1080P_CLIP_KBPS: i64 = 6_337;
+
+#[derive(Debug, Clone, Copy)]
+struct SourceFacts {
+    width: i64,
+    height: i64,
+    kbps: i64,
+}
+
+/// The smallest resolution class whose bounds hold both dimensions (§10).
+fn resolution_class(width: i64, height: i64) -> i64 {
+    [
+        (854, 480, 480),
+        (1280, 962, 720),
+        (2560, 1440, 1080),
+        (4096, 3072, 2160),
+    ]
+    .into_iter()
+    .find(|(w, h, _)| width <= *w && height <= *h)
+    .map_or(4320, |(.., c)| c)
+}
+
+/// A class's bitrate for automatic and plain-label encodes (§10).
+fn class_kbps(height: i64) -> i64 {
+    match height {
+        h if h >= 2160 => 20_000,
+        h if h >= 1080 => 6_000,
+        h if h >= 720 => 2_000,
+        _ => 1_500,
+    }
 }
 
 /// Installation id the mock advertises; a start/progress/stop/replan with another one is refused with 409.
@@ -85,6 +141,10 @@ pub const MOCK_INSTALLATION_ID: &str = "mock-installation-1";
 #[derive(Debug, Clone, Default)]
 struct MockSession {
     file_id: String,
+    /// The current plan converts the file (it then streams the SDR 1080p clip).
+    transcoded: bool,
+    /// The current plan's delivered bitrate.
+    delivered_kbps: i64,
     decision: PlaybackDecision,
     last_sequence: i64,
     accepted: Option<PlaybackAccepted>,
@@ -107,6 +167,28 @@ pub struct MockPlayback {
     pub replans: Vec<PlaybackReplanBody>,
     /// Media requests: (session, range header).
     pub media_requests: Vec<(String, Option<String>)>,
+}
+
+/// Defaults of the settings the mock defines (`contracts/settings/v1/manifest.json` @749db96a); `None` for an
+/// unknown key.
+fn mock_setting_default(key: &str) -> Option<serde_json::Value> {
+    match key {
+        "playback.preferred_quality" => Some("auto".into()),
+        "playback.max_bitrate_kbps" => Some(serde_json::Value::Null),
+        "playback.buffering_quality_mode" => Some("always".into()),
+        _ => None,
+    }
+}
+
+fn mock_setting_valid(key: &str, value: &serde_json::Value) -> bool {
+    match key {
+        "playback.preferred_quality" => value
+            .as_str()
+            .is_some_and(|v| ["auto", "480p", "720p", "1080p", "2160p", "original"].contains(&v)),
+        "playback.max_bitrate_kbps" => value.is_null() || value.as_i64().is_some_and(|k| (100..=200_000).contains(&k)),
+        "playback.buffering_quality_mode" => value.as_str().is_some_and(|v| ["never", "ask", "always"].contains(&v)),
+        _ => false,
+    }
 }
 
 fn profile(id: &str, name: &str, has_pin: bool, is_child: bool) -> Profile {
@@ -166,7 +248,11 @@ impl MockSiloApi {
             users: vec![("alice".into(), "pw".into(), account)],
             profiles: vec![profile("1", "Alice", false, false), profile("2", "Kids", true, true)],
             pins: HashMap::from([("2".to_owned(), "1234".to_owned())]),
-            libraries: vec![library("1", "Movies", "movies", 0), library("2", "Shows", "series", 1)],
+            libraries: vec![
+                library("1", "Movies", "movies", 0),
+                library("2", "Shows", "series", 1),
+                library("3", "Audiobooks", "audiobooks", 2),
+            ],
             restrictions: HashMap::from([("2".to_owned(), vec!["2".to_owned()])]),
             state: Mutex::new(State {
                 access_lifetime: 3600,
@@ -181,7 +267,17 @@ impl MockSiloApi {
             markers: Mutex::new(HashMap::new()),
             ebook_progress: Mutex::new(HashMap::new()),
             ai_polls: Mutex::new(0),
+            settings: Mutex::new(HashMap::new()),
+            learned_limit: Mutex::new(None),
+            link_kbps: None,
         }
+    }
+
+    /// Serve media as if over a link of this speed (see [`MockSiloApi::link_kbps`]).
+    #[must_use]
+    pub fn with_link_kbps(mut self, kbps: Option<u64>) -> Self {
+        self.link_kbps = kbps.filter(|k| *k > 0);
+        self
     }
 
     /// The demo home rows with the saved overrides applied, in order: removed rows are left out, hidden ones kept.
@@ -245,9 +341,11 @@ impl MockSiloApi {
     }
 
     /// The clip a demo file plays: the HDR10 clip for the 2160p HDR version of the first movie, SDR clips otherwise.
-    fn clip_for(&self, file_id: &str) -> Option<PathBuf> {
+    fn clip_for(&self, file_id: &str, transcoded: bool) -> Option<PathBuf> {
         let dir = self.media_dir.as_ref()?;
-        let name = if file_id == "m1-f1" {
+        let name = if transcoded {
+            "sdr_h264_1080p.mkv"
+        } else if file_id == "m1-f1" {
             "hdr10_hevc_main10_2160p.mkv"
         } else if file_id.ends_with("-f2") || file_id.starts_with('m') {
             "sdr_h264_1080p.mkv"
@@ -349,9 +447,204 @@ impl MockSiloApi {
                 dynamic_range: Some(Self::clip_facts(&version.file_id).0.into()),
                 frame_rate: Some(Self::clip_facts(&version.file_id).1),
                 duration_seconds: Some(version.duration_seconds as f64),
+                width: Some(Self::source_facts(&version.file_id).width),
+                height: Some(Self::source_facts(&version.file_id).height),
+                bitrate_kbps: Some(Self::source_facts(&version.file_id).kbps),
                 ..PlaybackSource::default()
             },
+            available_qualities: Self::quality_menu(&version.file_id),
             ..PlaybackPlan::default()
+        }
+    }
+
+    /// Size and bitrate of the clip a file streams (the real clips': ffprobe of `scripts/gen-test-media.ps1` output).
+    fn source_facts(file_id: &str) -> SourceFacts {
+        if file_id == "m1-f1" {
+            SourceFacts {
+                width: 3840,
+                height: 2160,
+                kbps: 19_173,
+            }
+        } else if file_id.ends_with("-f2") || file_id.starts_with('m') {
+            SourceFacts {
+                width: 1920,
+                height: 1080,
+                kbps: SDR_1080P_CLIP_KBPS,
+            }
+        } else {
+            SourceFacts {
+                width: 1920,
+                height: 1080,
+                kbps: 5_410,
+            }
+        }
+    }
+
+    /// The quality menu as the server builds it (`playback-protocol-v3.md` §10 @749db96a): every rung below the
+    /// source's resolution class, and those of its own class that undercut its bitrate. Audiobooks have none.
+    fn quality_menu(file_id: &str) -> Vec<AvailableQuality> {
+        if file_id.starts_with('b') {
+            return Vec::new();
+        }
+        let src = Self::source_facts(file_id);
+        let class = resolution_class(src.width, src.height);
+        QUALITY_LADDER
+            .iter()
+            .filter(|(_, _, h, kbps)| *h < class || (*h == class && *kbps < src.kbps))
+            .map(|(label, name, h, kbps)| AvailableQuality {
+                label: (*label).into(),
+                display_name: Some((*name).into()),
+                height: Some(*h),
+                bitrate_kbps: Some(*kbps),
+                preserves_source: false,
+            })
+            .collect()
+    }
+
+    /// Record or clear the learned limit as the server does (`buffering_quality_v1` requests only) and return the
+    /// one that applies to this request.
+    fn learn(&self, features: &[String], bw: &BandwidthFields) -> Option<LearnedLimit> {
+        if !features.iter().any(|f| f == BUFFERING_QUALITY_FEATURE) {
+            return None;
+        }
+        let mut stored = self.learned_limit.lock().ok()?;
+        match bw.learned_limit.as_deref() {
+            Some("clear") => {
+                *stored = None;
+                return None;
+            }
+            Some("ignore") => return None,
+            _ => {}
+        }
+        if bw.estimate_source.as_deref() == Some("observed_rebuffer")
+            && let Some(estimate) = bw.estimate_kbps
+        {
+            let kbps = bw.observed_kbps.map_or(estimate, |o| o.min(estimate));
+            *stored = Some(LearnedLimit {
+                kbps,
+                observed_at: "2026-11-18T12:00:00.000Z".into(),
+                expires_at: "2026-11-19T12:00:00.000Z".into(),
+            });
+        }
+        stored.clone()
+    }
+
+    /// Plan the quality the request asks for, like the server's planner in outline: a fixed rung or a resolution
+    /// below the source encodes; Auto plays the source unless the cap, an estimate or the learned limit cannot carry
+    /// it. Encodes stream the SDR 1080p clip.
+    fn apply_quality(
+        plan: &mut PlaybackPlan,
+        version: &FileVersion,
+        quality: &str,
+        bw: &BandwidthFields,
+        limit: Option<LearnedLimit>,
+    ) {
+        if plan.available_qualities.is_empty() {
+            return;
+        }
+        let src = Self::source_facts(&version.file_id);
+        let class = resolution_class(src.width, src.height);
+        let cap = bw.cap_kbps.filter(|k| *k > 0);
+        let q = match quality.to_ascii_lowercase().as_str() {
+            "original" | "source" | "max" => "auto".to_owned(),
+            "4k" | "uhd" => "2160p".to_owned(),
+            "fhd" => "1080p".to_owned(),
+            "hd" => "720p".to_owned(),
+            "sd" => "480p".to_owned(),
+            other => other.to_owned(),
+        };
+        let mut limited_by = None;
+        let target: Option<(i64, i64, &str)> =
+            if let Some((label, _, h, kbps)) = QUALITY_LADDER.iter().find(|(l, ..)| *l == q) {
+                plan.active_quality = Some((*label).into());
+                if *h >= class && *kbps >= src.kbps {
+                    None
+                } else {
+                    Some((*h, cap.map_or(*kbps, |c| c.min(*kbps)), "quality_fixed_rung"))
+                }
+            } else if let Some(h) = ["2160p", "1080p", "720p", "480p"]
+                .iter()
+                .find(|l| **l == q)
+                .and_then(|l| l.trim_end_matches('p').parse::<i64>().ok())
+            {
+                if h >= class && cap.is_none_or(|c| src.kbps <= c) {
+                    None
+                } else {
+                    let h = h.min(class);
+                    Some((
+                        h,
+                        cap.map_or(class_kbps(h), |c| c.min(class_kbps(h))),
+                        "quality_fixed_rung",
+                    ))
+                }
+            } else {
+                let mut estimate = bw.estimate_kbps;
+                if let Some(l) = &limit
+                    && estimate.is_none_or(|e| l.kbps < e)
+                {
+                    estimate = Some(l.kbps);
+                    limited_by = Some(l.clone());
+                }
+                let budget = estimate.map(|e| e * 8 / 10);
+                match (budget, cap) {
+                    (Some(b), _) if src.kbps > b => {
+                        let h = [2160, 1080, 720, 480]
+                            .into_iter()
+                            .find(|h| *h <= class && class_kbps(*h) <= b)
+                            .unwrap_or(360);
+                        let top = QUALITY_LADDER
+                            .iter()
+                            .find(|(_, _, rh, _)| *rh == h)
+                            .map_or(b, |(.., k)| *k);
+                        Some((h, b.min(top).max(64), "quality_bandwidth_limit"))
+                    }
+                    (_, Some(c)) if src.kbps > c => {
+                        let h = [2160, 1080, 720, 480]
+                            .into_iter()
+                            .find(|h| *h <= class && class_kbps(*h) <= c)
+                            .unwrap_or(480);
+                        Some((h, c.min(class_kbps(h)), "quality_bandwidth_cap"))
+                    }
+                    _ => None,
+                }
+            };
+        let Some((height, kbps, reason)) = target else {
+            return;
+        };
+        if plan.active_quality.is_none() {
+            plan.active_quality = QUALITY_LADDER
+                .iter()
+                .find(|(_, _, h, k)| *h == height && *k == kbps)
+                .map(|(l, ..)| (*l).into());
+        }
+        let width = (src.width * height / src.height.max(1) + 1) & !1;
+        plan.delivery = "server_transcode_hls".into();
+        plan.decision_reason = reason.into();
+        plan.bandwidth_limit = limited_by.map(|l| BandwidthLimit {
+            kbps: l.kbps,
+            source: "observed_rebuffer".into(),
+            expires_at: l.expires_at,
+        });
+        let hdr = plan.source.dynamic_range.as_deref().is_some_and(|r| r != "sdr");
+        plan.effective_recipe = Some(EffectiveRecipe {
+            video_codec: Some("h264".into()),
+            audio_codec: Some("aac".into()),
+            frame_rate: Some(25.0),
+            dynamic_range: Some("sdr".into()),
+            audio_channels: Some(2),
+            bitrate_kbps: Some(kbps),
+            width: Some(width),
+            height: Some(height),
+        });
+        let t = |name: &str| Transformation {
+            name: name.into(),
+            executor: "server".into(),
+            recipe_version: "1".into(),
+            validated_claims: Vec::new(),
+        };
+        plan.transformations = vec![t("video_to_h264"), t("audio_to_aac")];
+        if hdr {
+            plan.transformations.push(t("hdr_to_sdr_tonemap"));
         }
     }
 
@@ -606,10 +899,78 @@ mod demo {
         }
     }
 
+    /// A mock audiobook: (id, title, author, narrator, series index, year, parts, listened seconds).
+    type Book = (
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        Option<i64>,
+        i64,
+        i64,
+        f64,
+    );
+
+    const BOOKS: [Book; 3] = [
+        (
+            "b1",
+            "The Quiet Orchard",
+            "Ada Fenwick",
+            "Tom Ellery",
+            Some(1),
+            2022,
+            3,
+            0.0,
+        ),
+        (
+            "b2",
+            "Winter Grafts",
+            "Ada Fenwick",
+            "Tom Ellery",
+            Some(2),
+            2023,
+            4,
+            95.0,
+        ),
+        ("b3", "The Salt Road", "Noor Calder", "Ines Vale", None, 2021, 2, 0.0),
+    ];
+
+    fn book_card(b: &Book) -> CatalogItem {
+        let (id, title, author, _, _, year, parts, listened) = *b;
+        CatalogItem {
+            content_id: id.into(),
+            title: title.into(),
+            kind: "audiobook".into(),
+            year: Some(year),
+            runtime: Some(parts),
+            duration_seconds: Some((parts * 60) as f64),
+            position_seconds: (listened > 0.0).then_some(listened),
+            authors: vec![author.into()],
+            genres: vec!["Fiction".into()],
+            poster_url: art("poster", id),
+            ..CatalogItem::default()
+        }
+    }
+
+    fn related_book(b: &Book) -> AudiobookRelatedItem {
+        let (id, title, _, _, index, year, parts, listened) = *b;
+        AudiobookRelatedItem {
+            content_id: id.into(),
+            title: title.into(),
+            poster_url: art("poster", id),
+            duration_seconds: Some(parts * 60),
+            progress_ratio: (listened > 0.0).then(|| listened / (parts * 60) as f64),
+            series_index: index,
+            year: Some(year),
+            ..AudiobookRelatedItem::default()
+        }
+    }
+
     /// (library id, card) for every top-level item.
     pub fn cards() -> Vec<(&'static str, CatalogItem)> {
         let mut v: Vec<_> = MOVIES.iter().map(|m| ("1", movie_card(m))).collect();
         v.push(("2", series_card()));
+        v.extend(BOOKS.iter().map(|b| ("3", book_card(b))));
         v
     }
 
@@ -712,7 +1073,7 @@ mod demo {
         };
         let author = |name: &str| AudiobookPerson {
             name: name.into(),
-            person_id: None,
+            ..AudiobookPerson::default()
         };
         match id {
             "k1" | "k2" => {
@@ -771,10 +1132,11 @@ mod demo {
             }
             _ => {}
         }
-        if id == "b1" {
-            // An audiobook in three one-minute parts, one chapter each (as many books on real servers are split).
+        if let Some(b) = BOOKS.iter().find(|b| b.0 == id) {
+            // Audiobooks in one-minute parts, one chapter each (as many books on real servers are split).
+            let (id, title, writer, narrator, index, year, parts, _) = *b;
             let part = |n: i64| FileVersion {
-                file_id: format!("b1-f{n}"),
+                file_id: format!("{id}-f{n}"),
                 container: "mp4".into(),
                 codec_audio: "aac".into(),
                 duration_seconds: 60,
@@ -787,25 +1149,41 @@ mod demo {
                 }],
                 ..FileVersion::default()
             };
+            let others = |keep: &dyn Fn(&Book) -> bool| {
+                BOOKS
+                    .iter()
+                    .filter(|x| x.0 != id && keep(x))
+                    .map(related_book)
+                    .collect::<Vec<_>>()
+            };
             return Some(CatalogItemDetail {
-                content_id: "b1".into(),
-                title: "The Quiet Orchard".into(),
+                content_id: id.into(),
+                title: title.into(),
                 kind: "audiobook".into(),
-                overview: Some("A keeper of old apple trees writes letters to the next one.".into()),
-                year: Some(2022),
-                poster_url: art("poster", "b1"),
-                audiobook: Some(AudiobookDetail {
-                    authors: vec![AudiobookPerson {
-                        name: "Ada Fenwick".into(),
-                        person_id: None,
-                    }],
-                    narrators: vec![AudiobookPerson {
-                        name: "Tom Ellery".into(),
-                        person_id: None,
-                    }],
-                    total_duration_seconds: Some(180),
+                overview: Some(match id {
+                    "b1" => "A keeper of old apple trees writes letters to the next one.".into(),
+                    "b2" => "The orchard's second winter, and the grafts that have to survive it.".into(),
+                    _ => "Two cousins walk the old salt road to the sea and argue the whole way.".into(),
                 }),
-                versions: (1..=3).map(part).collect(),
+                year: Some(year),
+                genres: vec!["Fiction".into(), "Literary".into()],
+                poster_url: art("poster", id),
+                audiobook: Some(AudiobookDetail {
+                    authors: vec![author(writer)],
+                    narrators: vec![author(narrator)],
+                    total_duration_seconds: Some(parts * 60),
+                    publisher: Some("Fenwick & Vale".into()),
+                    series: index.map(|_| AudiobookSeries {
+                        name: Some("Orchard Letters".into()),
+                        entries: BOOKS.iter().filter(|x| x.4.is_some()).map(related_book).collect(),
+                    }),
+                    related: AudiobookRelated {
+                        also_by_author: others(&|x| x.2 == writer),
+                        similar: others(&|x| x.2 != writer),
+                    },
+                    other_narrations: Vec::new(),
+                }),
+                versions: (1..=parts).map(part).collect(),
                 ..CatalogItemDetail::default()
             });
         }
@@ -1280,6 +1658,8 @@ impl SiloApi for MockSiloApi {
                 "embedded_subtitles_v1",
                 "marker_segments_v1",
                 "trickplay_v1",
+                BUFFERING_QUALITY_FEATURE,
+                "plan_active_quality_v1",
             ]
             .map(String::from)
             .to_vec(),
@@ -1313,7 +1693,7 @@ impl SiloApi for MockSiloApi {
             p.counter += 1;
             let sid = format!("ps-{}", p.counter);
             let start = body.start_position.unwrap_or(0.0);
-            let plan = Self::plan(
+            let mut plan = Self::plan(
                 &sid,
                 1,
                 &version,
@@ -1321,6 +1701,9 @@ impl SiloApi for MockSiloApi {
                 body.audio_track_index,
                 body.subtitle_track_index,
             );
+            let limit = self.learn(&body.client_features, &body.bandwidth);
+            Self::apply_quality(&mut plan, &version, &body.quality_preference, &body.bandwidth, limit);
+            let (transcoded, delivered_kbps) = (!plan.is_direct(), plan.delivered_kbps().unwrap_or(0));
             let decision = PlaybackDecision {
                 protocol_version: PROTOCOL_VERSION,
                 outcome: "playable".into(),
@@ -1336,6 +1719,8 @@ impl SiloApi for MockSiloApi {
                     file_id: body.file_id.clone(),
                     decision: decision.clone(),
                     plans: 1,
+                    transcoded,
+                    delivered_kbps,
                     ..MockSession::default()
                 },
             );
@@ -1480,6 +1865,7 @@ impl SiloApi for MockSiloApi {
         }
         let sess = self.live_session(session_id)?;
         let (_, version) = Self::known_file(&sess.file_id).ok_or_else(|| problem(404, "not_found"))?;
+        let limit = self.learn(&body.client_features, &body.bandwidth);
         self.with_playback(|p| {
             p.replans.push(body.clone());
             let Some(s) = p.sessions.get_mut(session_id) else {
@@ -1488,7 +1874,10 @@ impl SiloApi for MockSiloApi {
             s.plans += 1;
             let audio = body.selected_tracks.audio.as_ref().and_then(|t| t.index);
             let subtitle = body.selected_tracks.subtitle.as_ref().and_then(|t| t.index);
-            let plan = Self::plan(session_id, s.plans, &version, body.position_seconds, audio, subtitle);
+            let mut plan = Self::plan(session_id, s.plans, &version, body.position_seconds, audio, subtitle);
+            Self::apply_quality(&mut plan, &version, &body.quality_preference, &body.bandwidth, limit);
+            s.transcoded = !plan.is_direct();
+            s.delivered_kbps = plan.delivered_kbps().unwrap_or(0);
             s.decision.playback_plan = Some(plan);
             Ok(s.decision.clone())
         })
@@ -1622,7 +2011,20 @@ impl SiloApi for MockSiloApi {
             .find(|(k, _)| k == "range")
             .map(|(_, v)| v.clone());
         self.with_playback(|p| p.media_requests.push((session_id.to_owned(), range_header.clone())));
-        let file = self.clip_for(&sess.file_id).ok_or_else(|| problem(404, "not_found"))?;
+        let file = self
+            .clip_for(&sess.file_id, sess.transcoded)
+            .ok_or_else(|| problem(404, "not_found"))?;
+        // Bytes per second the simulated link carries for this plan: the clip's real bitrate stands in for the plan's
+        // delivered bitrate, so a lower plan arrives proportionally faster.
+        let clip_kbps = if sess.transcoded {
+            SDR_1080P_CLIP_KBPS
+        } else {
+            Self::source_facts(&sess.file_id).kbps
+        };
+        let throttle = self.link_kbps.map(|link| {
+            let delivered = u64::try_from(sess.delivered_kbps.max(1)).unwrap_or(1);
+            (link * 125).saturating_mul(u64::try_from(clip_kbps).unwrap_or(1)) / delivered
+        });
         let mut f = tokio::fs::File::open(&file)
             .await
             .map_err(|_| problem(404, "not_found"))?;
@@ -1630,7 +2032,10 @@ impl SiloApi for MockSiloApi {
         let mut headers = vec![
             ("content-type".to_owned(), "video/x-matroska".to_owned()),
             ("accept-ranges".to_owned(), "bytes".to_owned()),
-            ("etag".to_owned(), format!("\"{}-{len}\"", sess.file_id)),
+            (
+                "etag".to_owned(),
+                format!("\"{}-{}-{len}\"", sess.file_id, u8::from(sess.transcoded)),
+            ),
         ];
         let (status, start, count) = match parse_range(range_header.as_deref(), len) {
             None => (200, 0, len),
@@ -1659,11 +2064,14 @@ impl SiloApi for MockSiloApi {
         f.seek(std::io::SeekFrom::Start(start))
             .await
             .map_err(|e| ApiError::Internal(e.to_string()))?;
-        let body = futures_util::stream::unfold((f, count), |(mut f, left)| async move {
+        let body = futures_util::stream::unfold((f, count), move |(mut f, left)| async move {
             if left == 0 {
                 return None;
             }
             let want = usize::try_from(left.min(256 * 1024)).unwrap_or(256 * 1024);
+            if let Some(rate) = throttle.filter(|r| *r > 0) {
+                tokio::time::sleep(Duration::from_secs_f64(want as f64 / rate as f64)).await;
+            }
             let mut buf = vec![0u8; want];
             match f.read(&mut buf).await {
                 Ok(0) => None,
@@ -2198,6 +2606,86 @@ impl SiloApi for MockSiloApi {
     async fn subtitle_appearance_reset(&self, _origin: &str, auth: &Auth) -> Result<()> {
         self.check(auth)?;
         *self.subtitle_device.lock().map_err(|_| problem(500, "internal"))? = None;
+        Ok(())
+    }
+
+    async fn settings_effective(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        keys: &[&str],
+    ) -> Result<EffectiveSettingCollection> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let stored = self.settings.lock().map_err(|_| problem(500, "internal"))?;
+        let items = keys
+            .iter()
+            .map(|key| {
+                let default = mock_setting_default(key).ok_or_else(|| problem(422, "validation_failed"))?;
+                Ok(match stored.get(*key) {
+                    Some(v) => EffectiveSetting {
+                        key: (*key).into(),
+                        value: v.clone(),
+                        source: "profile_device".into(),
+                    },
+                    None => EffectiveSetting {
+                        key: (*key).into(),
+                        value: default,
+                        source: "default".into(),
+                    },
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(EffectiveSettingCollection { items, revision: 23 })
+    }
+
+    async fn setting_set(
+        &self,
+        _origin: &str,
+        auth: &Auth,
+        key: &str,
+        scope: &str,
+        value: &serde_json::Value,
+    ) -> Result<()> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        if !matches!(scope, "profile" | "profile_device") || !mock_setting_valid(key, value) {
+            return Err(problem(422, "validation_failed"));
+        }
+        self.settings
+            .lock()
+            .map_err(|_| problem(500, "internal"))?
+            .insert(key.into(), value.clone());
+        Ok(())
+    }
+
+    async fn setting_delete(&self, _origin: &str, auth: &Auth, key: &str, scope: &str) -> Result<()> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        if !matches!(scope, "profile" | "profile_device") || mock_setting_default(key).is_none() {
+            return Err(problem(422, "validation_failed"));
+        }
+        self.settings.lock().map_err(|_| problem(500, "internal"))?.remove(key);
+        Ok(())
+    }
+
+    async fn playback_connection(&self, _origin: &str, auth: &Auth) -> Result<PlaybackConnection> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        let limit = self.learned_limit.lock().map_err(|_| problem(500, "internal"))?.clone();
+        Ok(PlaybackConnection {
+            connection: "local".into(),
+            auto_budget_kbps: limit.as_ref().map(|l| l.kbps * 8 / 10),
+            learned_limit: limit,
+            probe: None,
+            playback_sample: None,
+        })
+    }
+
+    async fn playback_learned_limit_reset(&self, _origin: &str, auth: &Auth) -> Result<()> {
+        self.check(auth)?;
+        self.check_profile(auth)?;
+        *self.learned_limit.lock().map_err(|_| problem(500, "internal"))? = None;
         Ok(())
     }
 

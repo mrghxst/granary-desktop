@@ -243,6 +243,60 @@ pub struct PlaybackStartBody {
     /// `false` pins the requested file through every replan (`fixed_media_file_v1`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_alternate_versions: Option<bool>,
+    #[serde(flatten)]
+    pub bandwidth: BandwidthFields,
+}
+
+/// The bandwidth members start and replan share (`PlaybackStartBody`, `PlaybackReplanBody` @749db96a, and the
+/// buffering-quality design's "Wire contract"). The estimate source, the observed throughput and `learned_limit`
+/// need the `buffering_quality_v1` client feature: [`BandwidthFields::for_features`] drops them without it, because
+/// the server refuses them then.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct BandwidthFields {
+    /// `playback.max_bitrate_kbps`: the viewer's cap on what playback may use.
+    #[serde(rename = "bandwidth_cap_kbps", skip_serializing_if = "Option::is_none")]
+    pub cap_kbps: Option<i64>,
+    /// The client's belief about its link: a step-down estimate after buffering, or a kept one repeated.
+    #[serde(rename = "bandwidth_estimate_kbps", skip_serializing_if = "Option::is_none")]
+    pub estimate_kbps: Option<i64>,
+    /// `probe | observed_rebuffer`; only with an estimate.
+    #[serde(rename = "bandwidth_estimate_source", skip_serializing_if = "Option::is_none")]
+    pub estimate_source: Option<String>,
+    /// What the plan that kept buffering received (100..=1,000,000); only with `observed_rebuffer`.
+    #[serde(rename = "observed_throughput_kbps", skip_serializing_if = "Option::is_none")]
+    pub observed_kbps: Option<i64>,
+    /// `ignore | clear`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub learned_limit: Option<String>,
+}
+
+/// The client feature that lets start and replan carry the buffering-quality members.
+pub const BUFFERING_QUALITY_FEATURE: &str = "buffering_quality_v1";
+
+impl BandwidthFields {
+    /// These fields as the server accepts them for `client_features`. Without `buffering_quality_v1` only the cap
+    /// and a plain estimate go out. An estimate source without an estimate is dropped (a 400 otherwise), and so is
+    /// an observed throughput without `observed_rebuffer` or outside its bounds (a 422 otherwise).
+    #[must_use]
+    pub fn for_features(&self, client_features: &[String]) -> Self {
+        let mut out = self.clone();
+        if !client_features.iter().any(|f| f == BUFFERING_QUALITY_FEATURE) {
+            out.estimate_source = None;
+            out.observed_kbps = None;
+            out.learned_limit = None;
+        }
+        out.estimate_kbps = out.estimate_kbps.filter(|k| (100..=1_000_000).contains(k));
+        out.cap_kbps = out.cap_kbps.filter(|k| *k > 0);
+        if out.estimate_kbps.is_none() {
+            out.estimate_source = None;
+        }
+        if out.estimate_source.as_deref() != Some("observed_rebuffer")
+            || !out.observed_kbps.is_some_and(|k| (100..=1_000_000).contains(&k))
+        {
+            out.observed_kbps = None;
+        }
+        out
+    }
 }
 
 /// `TerminalV3`: why a decision is not playable.
@@ -408,6 +462,20 @@ pub struct EffectiveRecipe {
     pub frame_rate: Option<f64>,
     pub dynamic_range: Option<String>,
     pub audio_channels: Option<i64>,
+    /// An encode's bitrate: the buffering-quality design's "delivered bitrate" when present.
+    pub bitrate_kbps: Option<i64>,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+}
+
+/// `PlaybackBandwidthLimit`: the learned limit lowered this plan (present only then).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BandwidthLimit {
+    pub kbps: i64,
+    /// `observed_rebuffer`.
+    pub source: String,
+    pub expires_at: String,
 }
 
 /// `PlaybackPlan` (OAS:L44282) subset.
@@ -431,12 +499,26 @@ pub struct PlaybackPlan {
     pub source: PlaybackSource,
     pub effective_recipe: Option<EffectiveRecipe>,
     pub expires_at: Option<String>,
+    pub bandwidth_limit: Option<BandwidthLimit>,
+    /// What the server or the player does to the file (`video_to_h264`, `audio_to_aac`, `hdr_to_sdr_tonemap`, ...).
+    pub transformations: Vec<Transformation>,
 }
 
 impl PlaybackPlan {
     /// The original file, byte for byte: the player owns tracks, subtitles and dynamic range.
     pub fn is_direct(&self) -> bool {
         self.delivery == "original_http"
+    }
+
+    /// The delivered bitrate: the recipe's, else the source's (the buffering-quality design's "Terms"); `None` when
+    /// neither is known.
+    pub fn delivered_kbps(&self) -> Option<i64> {
+        self.effective_recipe
+            .as_ref()
+            .and_then(|r| r.bitrate_kbps)
+            .filter(|k| *k > 0)
+            .or(self.source.bitrate_kbps)
+            .filter(|k| *k > 0)
     }
 
     /// What the player receives: the source descriptor with the recipe's codecs, frame rate and dynamic range laid
@@ -464,6 +546,13 @@ impl PlaybackPlan {
         }
         if r.audio_channels.is_some() {
             s.audio_channels = r.audio_channels;
+        }
+        if let (Some(w), Some(h)) = (r.width.filter(|w| *w > 0), r.height.filter(|h| *h > 0)) {
+            s.width = Some(w);
+            s.height = Some(h);
+        }
+        if let Some(k) = r.bitrate_kbps.filter(|k| *k > 0) {
+            s.bitrate_kbps = Some(k);
         }
         s
     }
@@ -571,6 +660,48 @@ pub struct PlaybackReplanBody {
     /// Required for failure recovery, forbidden for intent replans.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure: Option<Failure>,
+    #[serde(flatten)]
+    pub bandwidth: BandwidthFields,
+}
+
+/// `PlaybackLearnedLimit`: the limit learned on this device and connection after buffering.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LearnedLimit {
+    pub kbps: i64,
+    pub observed_at: String,
+    pub expires_at: String,
+}
+
+/// `PlaybackProbe`: the latest speed-test result on this connection.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ConnectionProbe {
+    pub kbps: i64,
+    pub lower_bound: bool,
+    pub measured_at: Option<String>,
+    pub transport: Option<String>,
+}
+
+/// `PlaybackSample`: the best recent playback throughput on this connection (a lower bound).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ConnectionSample {
+    pub kbps: i64,
+    pub measured_at: Option<String>,
+}
+
+/// `PlaybackConnection` (`getPlaybackConnection`): this device on the connection it uses now.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlaybackConnection {
+    /// `local`, `remote` or `provider:<name>`.
+    pub connection: String,
+    pub learned_limit: Option<LearnedLimit>,
+    pub probe: Option<ConnectionProbe>,
+    pub playback_sample: Option<ConnectionSample>,
+    /// What Auto plays without converting, as the server computes it.
+    pub auto_budget_kbps: Option<i64>,
 }
 
 /// `WatchTrickplaySheet`.

@@ -88,6 +88,9 @@ const CLIENT_FEATURES: &[&str] = &[
     "header_authenticated_media_v1",
     "plan_source_duration_v1",
     "output_display_evidence_v1",
+    // Lowering after buffering reports `observed_rebuffer`, restores with `learned_limit: clear`, and `never` mode
+    // sends `learned_limit: ignore` (the buffering-quality design, ADR-0014).
+    "buffering_quality_v1",
 ];
 
 /// Facts about the output the player window is on.

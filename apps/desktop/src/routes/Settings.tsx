@@ -1,9 +1,18 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useParams } from "react-router";
 import { ArtworkCache, PreviewSources } from "../components/PreviewSettings";
 import { Alert } from "../components/ui";
 import { errorMessage } from "../lib/errors";
+import {
+  BITRATE_PRESETS,
+  QUALITY_KEYS,
+  cachedQuality,
+  formatKbps,
+  quality,
+  type PlaybackConnection,
+  type QualitySettings,
+} from "../lib/quality";
 import {
   DEFAULT_MONITOR,
   gpuInfo,
@@ -195,8 +204,217 @@ function useOutputs() {
 
 const CODECS = ["ac3", "eac3", "dts", "dts-hd", "truehd"] as const;
 
+/** A select whose value this computer may override, with a way back to the profile's value. */
+function QualitySelect({
+  label,
+  hint,
+  value,
+  options,
+  overridden,
+  disabled,
+  onChange,
+  onReset,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  options: { value: string; label: string }[];
+  overridden: boolean;
+  disabled: boolean;
+  onChange: (v: string) => void;
+  onReset: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <RowLabel label={label} hint={hint}>
+      <div className="flex items-center gap-2">
+        {overridden ? (
+          <button
+            type="button"
+            disabled={disabled}
+            className="rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            title={t("quality.settings.useProfileHint")}
+            onClick={onReset}
+          >
+            {t("quality.settings.useProfile")}
+          </button>
+        ) : null}
+        <select
+          aria-label={label}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => {
+            onChange(e.target.value);
+          }}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none disabled:opacity-60"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </RowLabel>
+  );
+}
+
+/**
+ * Streaming quality for the signed-in profile on this computer (ADR-0014): the default quality, a bitrate cap, what
+ * happens when playback keeps buffering, and the limit this connection learned. Stored on the server at
+ * `profile_device` scope, so another computer of the same profile keeps its own.
+ */
+function StreamingQuality({ serverId }: { serverId: string }) {
+  const { t, i18n } = useTranslation();
+  const [q, setQ] = useState<QualitySettings>(() => cachedQuality(serverId));
+  const [conn, setConn] = useState<PlaybackConnection | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    quality
+      .settings(serverId)
+      .then((v) => {
+        if (alive) setQ(v);
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(e);
+      });
+    quality
+      .connection(serverId)
+      .then((c) => {
+        if (alive) setConn(c);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [serverId]);
+  const run = (op: Promise<QualitySettings>) => {
+    setBusy(true);
+    setError(null);
+    op.then(setQ)
+      .catch((e: unknown) => {
+        setError(e);
+      })
+      .finally(() => {
+        setBusy(false);
+      });
+  };
+  const overridden = (key: string) => q.deviceOverrides.includes(key);
+  const limit = conn?.learned_limit ?? null;
+  const date = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(i18n.language, { day: "numeric", month: "short" });
+  };
+  const bitrate = q.maxBitrateKbps === null ? "none" : String(q.maxBitrateKbps);
+  const bitrateOptions = [
+    { value: "none", label: t("quality.settings.noLimit") },
+    ...BITRATE_PRESETS.map((k) => ({ value: String(k), label: formatKbps(k) })),
+  ];
+  if (q.maxBitrateKbps !== null && !BITRATE_PRESETS.includes(q.maxBitrateKbps)) {
+    bitrateOptions.push({ value: bitrate, label: formatKbps(q.maxBitrateKbps) });
+  }
+  return (
+    <Section id="s-streaming" title={t("quality.settings.title")}>
+      <p className="-mt-1 mb-1 text-xs text-muted-foreground">{t("quality.settings.intro")}</p>
+      {error ? <Alert>{errorMessage(t, error)}</Alert> : null}
+      <QualitySelect
+        label={t("quality.settings.preferred")}
+        hint={t("quality.settings.preferredHint")}
+        value={q.preferredQuality}
+        disabled={busy}
+        overridden={overridden(QUALITY_KEYS.preferred)}
+        options={[
+          { value: "auto", label: t("quality.auto") },
+          { value: "2160p", label: "4K (2160p)" },
+          { value: "1080p", label: "1080p" },
+          { value: "720p", label: "720p" },
+          { value: "480p", label: "480p" },
+        ]}
+        onChange={(v) => {
+          run(quality.set(serverId, QUALITY_KEYS.preferred, v));
+        }}
+        onReset={() => {
+          run(quality.reset(serverId, QUALITY_KEYS.preferred));
+        }}
+      />
+      <QualitySelect
+        label={t("quality.settings.maxBitrate")}
+        hint={t("quality.settings.maxBitrateHint")}
+        value={bitrate}
+        disabled={busy}
+        overridden={overridden(QUALITY_KEYS.maxBitrate)}
+        options={bitrateOptions}
+        onChange={(v) => {
+          run(quality.set(serverId, QUALITY_KEYS.maxBitrate, v === "none" ? null : Number(v)));
+        }}
+        onReset={() => {
+          run(quality.reset(serverId, QUALITY_KEYS.maxBitrate));
+        }}
+      />
+      {q.bufferingMode !== null ? (
+        <QualitySelect
+          label={t("quality.settings.buffering")}
+          hint={t(`quality.settings.bufferingHint.${q.bufferingMode}`)}
+          value={q.bufferingMode}
+          disabled={busy}
+          overridden={overridden(QUALITY_KEYS.buffering)}
+          options={[
+            { value: "always", label: t("quality.settings.bufferingMode.always") },
+            { value: "ask", label: t("quality.settings.bufferingMode.ask") },
+            { value: "never", label: t("quality.settings.bufferingMode.never") },
+          ]}
+          onChange={(v) => {
+            run(quality.set(serverId, QUALITY_KEYS.buffering, v));
+          }}
+          onReset={() => {
+            run(quality.reset(serverId, QUALITY_KEYS.buffering));
+          }}
+        />
+      ) : null}
+      {conn ? (
+        <RowLabel
+          label={t("quality.settings.connection")}
+          hint={
+            conn.auto_budget_kbps
+              ? t("quality.settings.budget", { rate: formatKbps(conn.auto_budget_kbps) })
+              : t("quality.settings.noBudget")
+          }
+        >
+          <div className="flex items-center gap-3 text-sm">
+            <span className={limit ? "text-amber-500" : "text-muted-foreground"}>
+              {limit
+                ? t("quality.settings.learned", { rate: formatKbps(limit.kbps), date: date(limit.observed_at) })
+                : t("quality.settings.noLearned")}
+            </span>
+            {limit ? (
+              <button
+                type="button"
+                className="rounded-lg bg-secondary px-3 py-1.5 text-sm font-medium hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring"
+                onClick={() => {
+                  quality
+                    .resetLearnedLimit(serverId)
+                    .then(() => quality.connection(serverId))
+                    .then(setConn)
+                    .catch((e: unknown) => {
+                      setError(e);
+                    });
+                }}
+              >
+                {t("quality.settings.resetLearned")}
+              </button>
+            ) : null}
+          </div>
+        </RowLabel>
+      ) : null}
+    </Section>
+  );
+}
+
 export function Settings() {
   const { t } = useTranslation();
+  const { serverId } = useParams();
   const { settings: s, update, error } = useSettings();
   const { monitors, devices, gpu } = useOutputs();
   const vsr = gpu?.vendor === "intel" || (gpu?.vendor === "nvidia" && gpu.rtxVsr);
@@ -288,6 +506,8 @@ export function Settings() {
         </RowLabel>
         <ArtworkCache />
       </Section>
+
+      {serverId ? <StreamingQuality serverId={serverId} /> : null}
 
       <Section id="s-player" title={t("settings.player")}>
         <Choice

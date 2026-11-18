@@ -385,6 +385,10 @@ describe("connect flow", () => {
         title: "Northern Lights",
         hasPrevious: false,
         hasNext: false,
+        // The profile's streaming quality on this computer (defaults until the server's settings are read).
+        quality: "auto",
+        maxBitrateKbps: null,
+        ignoreLearnedLimit: false,
       },
     });
     expect(document.querySelector("video")).toBeNull();
@@ -453,20 +457,40 @@ describe("connect flow", () => {
     expect(host.calls.find((c) => c.cmd === "player_set")?.args).toEqual({ name: "mute", value: "yes" });
     expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();
 
-    // Not direct play: the reason is shown.
+    // A transcode: the top bar says so, and the notice says why.
     emit("player://notice", {
       kind: "plan",
       session_id: "s",
       plan_id: "p",
-      delivery: "hls",
-      decision_reason: "video codec not supported",
+      delivery: "server_transcode_hls",
+      decision_reason: "quality_bandwidth_cap",
       direct_play: false,
       relayed: true,
       protocol: "hls",
       degradation_warnings: [],
       subtitles: [],
+      attempt_id: "a1",
+      adoption: 1,
+      cause: "start",
+      quality_preference: "auto",
+      active_quality: "1080p-medium",
+      available_qualities: [
+        { label: "1080p-medium", display_name: "1080p", bitrate_kbps: 6000, preserves_source: false },
+      ],
+      source: { video_codec: "hevc", width: 3840, height: 2160, bitrate_kbps: 19173, dynamic_range: "hdr10" },
+      delivered: { video_codec: "h264", width: 1920, height: 1080, bitrate_kbps: 6000, dynamic_range: "sdr" },
+      delivered_kbps: 6000,
+      transformations: ["video_to_h264", "hdr_to_sdr_tonemap"],
+      warnings: [],
+      cap_kbps: 8000,
+      buffering_feature: true,
     });
-    expect(await screen.findByText("Not direct play: video codec not supported")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "Transcoding · 1080p · 6 Mbps — Your maximum bitrate (8 Mbps) is below the file's 19 Mbps.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Transcoding · 1080p · 6 Mbps\./ })).toBeTruthy();
 
     // A fatal end: the overlay goes, the library is back with the error card.
     emit("player://notice", { kind: "error", code: "stream_failed", message: "relay 503", fatal: true });

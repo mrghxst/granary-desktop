@@ -5,6 +5,23 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Streaming quality: the player always shows how a title plays, as a coloured chip in the top bar: green Direct
+  Play, blue Direct Stream, amber Transcoding, with the resolution and bitrate you receive. The quality menu explains
+  why (your choice, your maximum bitrate, the connection, the device, the subtitles, the HDR format) and what the
+  server changes, and lets you pick Auto or a lower quality that the server transcodes.
+- Settings → Streaming quality (per computer): default quality, maximum bitrate and what happens when playback keeps
+  buffering (lower automatically with Undo, ask first, or never). The limit a connection learned after buffering is
+  shown with Reset.
+- The item page has a quality choice next to the version, audio and subtitle pickers.
+- Lower quality when buffering: when playback keeps stalling on a slow link, Granary asks the server for a lower
+  quality (or offers to), and Restore quality brings the original back.
+
+### Changed
+- Audiobooks look like the web app's: square covers with the author and time left on cards, and a book page with the
+  cover and Listen beside the series, author, narrator, length, chapters, publisher, the chapter list and rails of
+  the series, the author's other books and similar ones.
+
 ## [0.5.0] - 2026-11-17
 The whole feature roadmap: lists, collections, calendar, recommendations, requests, notifications, home row
 editing, theme music, player extras, Watch Together, audiobooks and a reader for ebooks and manga.

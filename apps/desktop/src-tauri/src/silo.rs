@@ -605,7 +605,7 @@ mod tests {
         assert_eq!(servers[0].last_profile_id.as_deref(), Some("2"));
         assert!(s2.selected_profile(&id).await.is_none(), "PIN profile is not restored");
         s2.select_profile(&id, "1", None).await?;
-        assert_eq!(s2.libraries(&id).await?.len(), 2);
+        assert_eq!(s2.libraries(&id).await?.len(), 3);
 
         s2.logout(&id).await?;
         assert!(store.is_empty());

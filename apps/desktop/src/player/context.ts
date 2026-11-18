@@ -24,6 +24,8 @@ export interface StartOptions {
   startAt?: number;
   /** The same title goes on (an audiobook's next part, a chapter in another part): no launch card. */
   continuing?: boolean;
+  /** Play at this quality (`auto`, a resolution or a rung label) instead of the Streaming quality setting. */
+  quality?: string;
 }
 
 /** What the launch screen shows between Play and the first frame (artwork references, not URLs). */

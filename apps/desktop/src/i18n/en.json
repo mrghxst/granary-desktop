@@ -352,7 +352,6 @@
     "subDelay": "Delay",
     "subSize": "Size",
     "menu": "Player menu",
-    "notDirect": "Not direct play: {{reason}}",
     "keys": {
       "pause": "Play / pause",
       "seekBack": "Back (seek step)",
@@ -751,7 +750,29 @@
     "listen": "Listen",
     "resumeListening": "Resume",
     "parts_one": "{{count}} part",
-    "parts_other": "{{count}} parts"
+    "parts_other": "{{count}} parts",
+    "bookN": "Book {{n}}",
+    "listened": "{{percent}}% listened",
+    "timeLeft": "{{time}} left",
+    "fromStart": "Listen from the start",
+    "seriesBook": "{{series}}, Book {{n}}",
+    "by": "by",
+    "narratedByLead": "Narrated by",
+    "length": "Length",
+    "chaptersHeading": "Chapters",
+    "released": "Released",
+    "publisher": "Publisher",
+    "otherNarrations": "Also narrated by",
+    "showAll": "Show all {{count}}",
+    "showFewer": "Show fewer",
+    "leftInChapter": "{{time}} left in this chapter",
+    "inSeries": "In {{series}}",
+    "inThisSeries": "In this series",
+    "booksCount_one": "{{count}} book",
+    "booksCount_other": "{{count}} books",
+    "alsoByAuthor": "More by {{author}}",
+    "alsoByThisAuthor": "More by this author",
+    "youMightAlsoLike": "You might also like"
   },
   "reader": {
     "read": "Read",
@@ -785,5 +806,117 @@
     "chapterCount_one": "{{count}} chapter",
     "chapterCount_other": "{{count}} chapters",
     "volume": "Volume {{n}}"
+  },
+  "quality": {
+    "title": "Quality",
+    "open": "Quality and how this plays",
+    "switching": "Switching quality…",
+    "auto": "Auto",
+    "autoHint": "The original when the connection allows it",
+    "autoLimited": "Limited to {{limit}} after buffering on this connection",
+    "autoCapped": "Up to {{cap}} (your maximum bitrate)",
+    "nowRung": "now {{name}}",
+    "choose": "Play at",
+    "default": "Default",
+    "original": "Original",
+    "originalTag": "Original",
+    "playing": "Playing",
+    "preservesSource": "Plays the original file",
+    "transcodes": "The server converts the video",
+    "noRungs": "The server offers no other quality for this file.",
+    "thisPlayback": "Applies to this playback. Set the default in Settings → Streaming quality.",
+    "party": "In a Watch Party everyone plays the original; quality cannot be changed here.",
+    "method": {
+      "direct_play": "Direct Play",
+      "direct_stream": "Direct Stream",
+      "transcode": "Transcoding",
+      "transcodeAudio": "Transcoding audio"
+    },
+    "say": {
+      "direct_play": "The original file plays untouched, at full quality. The server only sends it.",
+      "direct_stream": "The server repackages the file for the player. Picture and sound are not re-encoded.",
+      "transcode": "The server converts this video while it plays.",
+      "transcodeAudio": "The server converts the sound while it plays. The picture is not re-encoded."
+    },
+    "why": {
+      "title": "Why",
+      "picked": "You picked {{quality}}.",
+      "cap": "Your maximum bitrate ({{cap}}) is below the file's {{source}}.",
+      "bandwidth": "The connection is too slow for the original, so Auto picked {{quality}}.",
+      "device": "This device cannot play the original's resolution or bitrate.",
+      "container": "The file's container needs repackaging for the player.",
+      "packaging": "This delivery needs the server's streaming format.",
+      "audio": "The player cannot play this audio track as it is.",
+      "burnIn": "The selected subtitles have to be burned into the picture.",
+      "dynamicRange": "The server adapts the HDR format for this display.",
+      "unconfirmed": "The server could not confirm the original plays here.",
+      "autoOriginal": "Auto: the connection allows the original.",
+      "original": "The original fits the quality you chose.",
+      "learned": "Auto keeps to {{limit}} on this connection after it buffered.",
+      "other": "Server decision: {{reason}}"
+    },
+    "change": {
+      "resolution": "Resolution {{from}} → {{to}}",
+      "bitrate": "Bitrate {{from}} → {{to}}",
+      "videoH264": "Video converted to H.264",
+      "videoHevc": "Video converted to HEVC",
+      "audioAac": "Audio converted to AAC",
+      "toneMap": "HDR tone-mapped to SDR",
+      "dvToHdr10": "Dolby Vision converted to HDR10",
+      "dvToDv81": "Dolby Vision profile 7 converted to 8.1",
+      "remux": "Repackaged only: picture and sound unchanged",
+      "other": "Changed: {{name}}"
+    },
+    "warning": {
+      "burnIn": "Subtitles are burned into the picture.",
+      "cap": "Your maximum bitrate lowers this video.",
+      "noLower": "No lower quality is available for this file.",
+      "normalized": "The server adjusted the requested quality.",
+      "assumedHdr10": "The server assumed HDR10 for this file.",
+      "dvLayer": "The Dolby Vision enhancement layer is dropped.",
+      "dvStrip": "Dolby Vision cannot be removed from this file."
+    },
+    "pill": {
+      "promptTitle": "Playback keeps buffering",
+      "promptBody": "Lower the quality so it plays smoothly?",
+      "undoTitle": "Quality lowered after buffering",
+      "undoBody": "The server now sends a lower quality that fits the connection.",
+      "lower": "Lower quality",
+      "keep": "Keep quality",
+      "restore": "Restore quality",
+      "ok": "OK"
+    },
+    "notice": {
+      "lowered": "Lowered after buffering: {{summary}}",
+      "cant_lower": "Playback is buffering, but there is no lower quality to switch to."
+    },
+    "settings": {
+      "title": "Streaming quality",
+      "intro": "For this profile on this computer. Other computers keep their own.",
+      "preferred": "Quality",
+      "preferredHint": "Auto plays the original when the connection allows it. A fixed quality has the server convert anything above it.",
+      "maxBitrate": "Maximum bitrate",
+      "maxBitrateHint": "Files above it are converted by the server to fit.",
+      "noLimit": "No limit",
+      "buffering": "Lower quality when buffering",
+      "bufferingHint": {
+        "always": "When playback keeps buffering, lower the quality and offer to undo it.",
+        "ask": "When playback keeps buffering, ask before lowering the quality.",
+        "never": "Never change the quality because of buffering."
+      },
+      "bufferingMode": {
+        "always": "Automatically",
+        "ask": "Ask first",
+        "never": "Never"
+      },
+      "useProfile": "Use profile setting",
+      "useProfileHint": "Remove this computer's value so the profile's setting applies",
+      "connection": "This connection",
+      "budget": "Auto streams up to {{rate}} here.",
+      "noBudget": "Auto streams the original when nothing limits it.",
+      "learned": "Limited to {{rate}} after buffering on {{date}}",
+      "noLearned": "No limit learned",
+      "resetLearned": "Reset"
+    }
   }
 }

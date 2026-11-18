@@ -4,6 +4,7 @@ import { errorMessage } from "../lib/errors";
 import { catalog, type Episode } from "../lib/catalog";
 import { bumpRefresh } from "../lib/events";
 import { defaultChoice, playRequest, resumePosition } from "../lib/play";
+import { cachedQuality, quality } from "../lib/quality";
 import { bookParts, partAt } from "../lib/audiobook";
 import { applyTrackPicks } from "../lib/trackMemory";
 import {
@@ -121,8 +122,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setCtx(next);
     setPlan(null);
     setError(null);
+    // The Streaming quality settings as last seen; refreshed for the next start without holding up this one.
+    const prefs = cachedQuality(serverId);
+    void quality.settings(serverId).catch(() => undefined);
     await catalog.play({
       ...playRequest(serverId, w, choice, opts.fromStart ?? false),
+      quality: opts.quality ?? prefs.preferredQuality,
+      maxBitrateKbps: prefs.maxBitrateKbps,
+      ignoreLearnedLimit: prefs.bufferingMode === "never",
       ...(startAt !== undefined ? { startSeconds: Math.max(0, startAt) } : {}),
       ...mediaLines(w),
       hasPrevious: near.previous !== undefined,

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quality-setting-set"
+description = "Enables the quality_setting_set command without any pre-configured scope."
+commands.allow = ["quality_setting_set"]
+
+[[permission]]
+identifier = "deny-quality-setting-set"
+description = "Denies the quality_setting_set command without any pre-configured scope."
+commands.deny = ["quality_setting_set"]

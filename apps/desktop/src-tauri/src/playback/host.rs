@@ -205,6 +205,13 @@ pub enum Cmd {
     PreviewSource(oneshot::Sender<Option<String>>),
     /// Seconds the main player has buffered ahead (`demuxer-cache-duration`), if playing.
     CacheAhead(oneshot::Sender<Option<f64>>),
+    /// A quality pick, a lowering after buffering or a restore (`quality_change` replan).
+    Quality {
+        request: super::controller::QualityRequest,
+        reply: oneshot::Sender<Result<(), String>>,
+    },
+    /// How media is arriving, for the buffering-quality controller in the UI.
+    Network(oneshot::Sender<Option<NetworkReading>>),
     State(oneshot::Sender<UiState>),
     MediaKey(&'static str),
     Event(MpvEvent),
@@ -225,6 +232,19 @@ pub enum Cmd {
     AudioDevices(oneshot::Sender<Vec<AudioDevice>>),
     /// App exit: stop playback and restore the display state at once.
     Shutdown(oneshot::Sender<()>),
+}
+
+/// How media is arriving now (mpv's demuxer cache): the buffering-quality controller tells a slow link from an outage
+/// and measures the throughput a plan received.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkReading {
+    /// Bytes per second the cache is filling at (`cache-speed`).
+    pub cache_speed: Option<f64>,
+    /// Seconds buffered past the playhead (`demuxer-cache-duration`).
+    pub cache_ahead: Option<f64>,
+    /// The demuxer has read everything it wants (`demuxer-cache-idle`).
+    pub cache_idle: bool,
 }
 
 /// One mpv audio output device.
@@ -479,6 +499,21 @@ impl Runner {
                         .and_then(|v| v.parse::<f64>().ok())
                 });
                 let _ = reply.send(ahead);
+            }
+            Cmd::Quality { request, reply } => {
+                let r = match self.controller.as_mut() {
+                    Some(c) => c.change_quality(request).await.map_err(|e| e.to_string()),
+                    None => Err("nothing is playing".into()),
+                };
+                let _ = reply.send(r);
+            }
+            Cmd::Network(reply) => {
+                let reading = self.active_backend().map(|b| NetworkReading {
+                    cache_speed: b.get_property("cache-speed").and_then(|v| v.parse().ok()),
+                    cache_ahead: b.get_property("demuxer-cache-duration").and_then(|v| v.parse().ok()),
+                    cache_idle: b.get_property("demuxer-cache-idle").as_deref() == Some("yes"),
+                });
+                let _ = reply.send(reading);
             }
             Cmd::State(reply) => {
                 let _ = reply.send(self.state.clone());
@@ -903,6 +938,9 @@ mod tests {
             start_seconds: 0.0,
             audio_index: None,
             subtitle_index: None,
+            quality: "auto".into(),
+            cap_kbps: None,
+            ignore_learned_limit: false,
         };
         let r = host
             .ask(|reply| Cmd::Play {
@@ -982,6 +1020,9 @@ mod tests {
             start_seconds: 0.0,
             audio_index: None,
             subtitle_index: None,
+            quality: "auto".into(),
+            cap_kbps: None,
+            ignore_learned_limit: false,
         };
         let r = host
             .ask(|reply| Cmd::Play {

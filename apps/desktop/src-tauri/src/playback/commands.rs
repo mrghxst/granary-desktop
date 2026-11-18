@@ -396,6 +396,9 @@ pub async fn player_play(
         start_seconds: request.start_seconds,
         audio_index: request.audio_index,
         subtitle_index: request.subtitle_index,
+        quality: request.quality.clone().unwrap_or_else(|| "auto".into()),
+        cap_kbps: request.max_bitrate_kbps,
+        ignore_learned_limit: request.ignore_learned_limit,
     };
     let item = MediaItem {
         title: request.title.clone().unwrap_or_default(),
@@ -413,6 +416,31 @@ pub async fn player_play(
         .await
         .ok_or_else(|| CommandError::internal("player host stopped".into()))?;
     r.map_err(|(code, message)| CommandError::plain(&code, message))
+}
+
+/// Change the quality of what plays: a pick from the quality menu, or the buffering controller's lowering or restore.
+#[tauri::command]
+pub async fn player_quality(host: State<'_, PlayerHost>, request: super::controller::QualityRequest) -> CmdResult<()> {
+    let bounded = |k: Option<i64>| k.is_none_or(|k| (1..=1_000_000).contains(&k));
+    if !bounded(request.estimate_kbps)
+        || !bounded(request.observed_kbps)
+        || request
+            .estimate_source
+            .as_deref()
+            .is_some_and(|s| !matches!(s, "observed_rebuffer" | "probe"))
+    {
+        return Err(CommandError::invalid("quality request".into()));
+    }
+    host.ask(|reply| Cmd::Quality { request, reply })
+        .await
+        .unwrap_or_else(|| Err("player host stopped".into()))
+        .map_err(|e| CommandError::plain("quality_change_failed", e))
+}
+
+/// How media is arriving now (`None` while nothing plays).
+#[tauri::command]
+pub async fn player_network(host: State<'_, PlayerHost>) -> CmdResult<Option<super::host::NetworkReading>> {
+    Ok(host.ask(Cmd::Network).await.flatten())
 }
 
 #[tauri::command]

@@ -48,6 +48,28 @@ pub struct StartArgs {
     pub audio_index: Option<u32>,
     /// `SubtitleTrack.index` (the probed stream index); `None` = off.
     pub subtitle_index: Option<i64>,
+    /// `quality_preference`: `auto`, a resolution (`1080p`) or a rung label (`720p-medium`).
+    pub quality: String,
+    /// `playback.max_bitrate_kbps`, sent as `bandwidth_cap_kbps`.
+    pub cap_kbps: Option<i64>,
+    /// `learned_limit: ignore` on every request (`playback.buffering_quality_mode` = `never`).
+    pub ignore_learned_limit: bool,
+}
+
+/// A viewer's quality pick or the buffering controller's lowering or restore (the buffering-quality design's
+/// "Lower automatically" and "Ask first"), sent as a `quality_change` replan.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct QualityRequest {
+    /// The new `quality_preference`.
+    pub quality: String,
+    /// A step-down estimate after buffering (with `source: observed_rebuffer`).
+    pub estimate_kbps: Option<i64>,
+    pub estimate_source: Option<String>,
+    /// What the plan that kept buffering received.
+    pub observed_kbps: Option<i64>,
+    /// Restore quality: forget the learned limit (`learned_limit: clear`).
+    pub clear_learned_limit: bool,
 }
 
 /// Facts about this machine for the capability declaration.
@@ -80,6 +102,33 @@ pub struct PlanInfo {
     pub dynamic_range: Option<String>,
     pub degradation_warnings: Vec<String>,
     pub subtitles: Vec<SubtitleInventoryItem>,
+    /// The playback attempt (a recovery that starts again begins a new one).
+    pub attempt_id: String,
+    /// Counts every plan the player loads in this playback; an in-place update (a subtitle list refresh) keeps it.
+    pub adoption: u64,
+    /// Why this plan was loaded: `start`, `recovery`, `quality_change`, `track_change` or `seek_reanchor`.
+    pub cause: String,
+    /// The `quality_preference` this plan was asked for.
+    pub quality_preference: String,
+    /// The `available_qualities` entry the plan delivers (`plan_active_quality_v1`).
+    pub active_quality: Option<String>,
+    pub available_qualities: Vec<AvailableQuality>,
+    /// The original file as the server probed it.
+    pub source: PlaybackSource,
+    /// What the player receives: the source with the recipe laid over it (size, bitrate, codecs, range).
+    pub delivered: PlaybackSource,
+    /// The delivered bitrate (the recipe's, else the source's).
+    pub delivered_kbps: Option<i64>,
+    /// The learned limit lowered this plan.
+    pub bandwidth_limit: Option<BandwidthLimit>,
+    /// What is done to the file: `video_to_h264`, `audio_to_aac`, `hdr_to_sdr_tonemap`, ...
+    pub transformations: Vec<String>,
+    /// The warnings with the server's own wording.
+    pub warnings: Vec<DegradationWarning>,
+    /// The viewer's cap (`bandwidth_cap_kbps`) this playback was planned under.
+    pub cap_kbps: Option<i64>,
+    /// The server takes buffering reports and learns limits (`buffering_quality_v1`).
+    pub buffering_feature: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -197,6 +246,13 @@ pub struct Controller {
     sidecars_prefetched: bool,
     /// `gapless-audio` value to put back once an audio switch that kept the open audio device has landed.
     gapless_restore: Option<String>,
+    /// The step-down estimate of the latest lowering after buffering, repeated on this attempt's own Auto replans
+    /// (the buffering-quality design's "Later replans after a lowering"). Never stored.
+    kept_estimate: Option<i64>,
+    /// Plans loaded so far ([`PlanInfo::adoption`]).
+    adoption: u64,
+    /// Why the next plan is loaded ([`PlanInfo::cause`]).
+    cause: &'static str,
 }
 
 /// How long selecting a sidecar subtitle waits for its background download before mpv is given the URL instead.
@@ -336,6 +392,9 @@ impl Controller {
             sub_files: SubFiles::default(),
             sidecars_prefetched: false,
             gapless_restore: None,
+            kept_estimate: None,
+            adoption: 0,
+            cause: "start",
             stop_id: None,
             stopped: false,
             server_ended: false,
@@ -370,15 +429,33 @@ impl Controller {
         Ok(caps)
     }
 
+    /// The bandwidth members every request of this playback carries: the viewer's cap, `learned_limit: ignore` in
+    /// `never` mode, and on Auto the kept step-down estimate.
+    fn bandwidth(&self, features: &[String]) -> BandwidthFields {
+        BandwidthFields {
+            cap_kbps: self.args.cap_kbps,
+            estimate_kbps: if self.args.quality == "auto" {
+                self.kept_estimate
+            } else {
+                None
+            },
+            learned_limit: self.args.ignore_learned_limit.then(|| "ignore".to_owned()),
+            ..BandwidthFields::default()
+        }
+        .for_features(features)
+    }
+
     fn start_body(&self, start_seconds: f64) -> PlaybackStartBody {
+        let client_features = client_features(&self.caps);
         PlaybackStartBody {
             installation_id: self.installation_id.clone(),
             protocol_version: PROTOCOL_VERSION,
-            client_features: client_features(&self.caps),
+            bandwidth: self.bandwidth(&client_features),
+            client_features,
             file_id: self.args.file_id.clone(),
             profile_id: self.args.profile_id.clone(),
             playback_attempt_id: self.attempt_id.clone(),
-            quality_preference: "auto".into(),
+            quality_preference: self.args.quality.clone(),
             subtitle_fidelity_preference: "preserve".into(),
             client_capabilities: client_capabilities(&self.env.hardware),
             client_playback_context: playback_context(&self.env.app_version, &self.env.os_version, &self.env.output),
@@ -393,6 +470,8 @@ impl Controller {
     /// Start a new attempt at `start_seconds` and load it.
     async fn negotiate(&mut self, start_seconds: f64) -> Result<(), ControllerError> {
         self.attempt_id = mint_id();
+        // A new attempt discards the kept estimate (the server's learned limit, if any, still applies).
+        self.kept_estimate = None;
         let decision = match self.session.start_playback(&self.start_body(start_seconds)).await {
             Err(e) if e.problem_id() == Some("installation_changed") => {
                 tracing::warn!("installation changed; refreshing playback capabilities");
@@ -461,12 +540,17 @@ impl Controller {
         self.sync_check = None;
         self.sidecars.clear();
         self.sidecars_prefetched = false;
+        self.adoption += 1;
         let info = self.plan_info(relayed);
         tracing::info!(
             session = %self.session_id,
             delivery = %info.delivery,
             reason = %info.decision_reason,
             direct_play = info.direct_play,
+            quality = %info.quality_preference,
+            active_quality = ?info.active_quality,
+            delivered_kbps = ?info.delivered_kbps,
+            cause = info.cause,
             relayed,
             stream = %url_shape(&server_url),
             "playback plan accepted"
@@ -505,6 +589,20 @@ impl Controller {
             dynamic_range: p.source.dynamic_range.clone(),
             degradation_warnings: p.degradation_warnings.iter().map(|w| w.code.clone()).collect(),
             subtitles: p.subtitle.inventory.clone(),
+            attempt_id: self.attempt_id.clone(),
+            adoption: self.adoption,
+            cause: self.cause.to_owned(),
+            quality_preference: self.args.quality.clone(),
+            active_quality: p.active_quality.clone(),
+            available_qualities: p.available_qualities.clone(),
+            source: p.source.clone(),
+            delivered: p.delivered(),
+            delivered_kbps: p.delivered_kbps(),
+            bandwidth_limit: p.bandwidth_limit.clone(),
+            transformations: p.transformations.iter().map(|t| t.name.clone()).collect(),
+            warnings: p.degradation_warnings.clone(),
+            cap_kbps: self.args.cap_kbps,
+            buffering_feature: self.caps.has_feature(BUFFERING_QUALITY_FEATURE),
         }
     }
 
@@ -818,6 +916,7 @@ impl Controller {
             position = format!("{position:.1}"),
             "subtitle list refreshed; reloading"
         );
+        self.cause = "track_change";
         self.plan = plan.clone();
         self.args.subtitle_index = self.plan.selected_tracks.subtitle.as_ref().and_then(|t| t.index);
         self.last_source_position = position.max(0.0);
@@ -1026,6 +1125,7 @@ impl Controller {
             position = format!("{position:.1}"),
             "tracks changed on the server; reloading"
         );
+        self.cause = "track_change";
         self.plan = plan.clone();
         self.args.subtitle_index = self.plan.selected_tracks.subtitle.as_ref().and_then(|t| t.index);
         self.last_source_position = position.max(0.0);
@@ -1052,10 +1152,73 @@ impl Controller {
         let Some((_, plan)) = decision.playable() else {
             return Err(ControllerError::NotPlayable(decision.outcome));
         };
+        self.cause = "seek_reanchor";
         self.plan = plan.clone();
         self.last_source_position = source_seconds.max(0.0);
         self.started_reported = false;
         self.load_plan()
+    }
+
+    /// A quality pick, a lowering after buffering or a restore: replan with `quality_change` and load the new plan.
+    /// The pick holds for the rest of this playback (recoveries and later replans ask for it too).
+    pub async fn change_quality(&mut self, req: QualityRequest) -> Result<(), ControllerError> {
+        let quality = req.quality.trim().to_ascii_lowercase();
+        let ok = !quality.is_empty()
+            && quality.len() <= 40
+            && quality.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+        if !ok {
+            return Err(ControllerError::NotPlayable("invalid quality".into()));
+        }
+        let position = self.source_position();
+        let mut body = self.replan_body("quality_change", position);
+        body.quality_preference.clone_from(&quality);
+        let lowering = req.estimate_source.as_deref() == Some("observed_rebuffer") && req.estimate_kbps.is_some();
+        body.bandwidth = BandwidthFields {
+            cap_kbps: self.args.cap_kbps,
+            estimate_kbps: req.estimate_kbps,
+            estimate_source: req.estimate_source.clone(),
+            observed_kbps: req.observed_kbps,
+            learned_limit: if req.clear_learned_limit {
+                Some("clear".into())
+            } else {
+                self.args.ignore_learned_limit.then(|| "ignore".to_owned())
+            },
+        }
+        .for_features(&body.client_features);
+        // A lowering's estimate is kept from the moment it is sent; a pick or a restore discards it once its plan is
+        // adopted, and changes nothing when it is refused.
+        if lowering {
+            self.kept_estimate = req.estimate_kbps;
+        }
+        let decision = self.session.replan_playback(&self.session_id, &body).await?;
+        let Some((_, plan)) = decision.playable() else {
+            return Err(ControllerError::NotPlayable(decision.outcome));
+        };
+        if !lowering {
+            self.kept_estimate = None;
+        }
+        tracing::info!(
+            position = format!("{position:.1}"),
+            quality = %quality,
+            estimate = ?body.bandwidth.estimate_kbps,
+            source = ?body.bandwidth.estimate_source,
+            clear = req.clear_learned_limit,
+            "quality changed on the server; reloading"
+        );
+        self.args.quality = quality;
+        self.cause = "quality_change";
+        self.plan = plan.clone();
+        self.last_source_position = position.max(0.0);
+        self.started_reported = false;
+        self.load_plan()
+    }
+
+    /// Tests: the seek-reanchor replan a seek outside the window sends.
+    #[cfg(test)]
+    async fn seek_reanchor_for_test(&mut self, source_seconds: f64) -> Result<(), ControllerError> {
+        self.plan.timeline.can_seek_anywhere = false;
+        self.plan.timeline.seek_window_end_seconds = Some(0.0);
+        self.seek(source_seconds).await
     }
 
     fn replan_body(&self, operation: &str, position: f64) -> PlaybackReplanBody {
@@ -1070,11 +1233,12 @@ impl Controller {
             plan_attempt_key: self.plan.plan_attempt_key.clone(),
             attempted_plan_keys: vec![self.plan.plan_attempt_key.clone()],
             attempt_count: 1,
-            quality_preference: "auto".into(),
+            quality_preference: self.args.quality.clone(),
             position_seconds: position.max(0.0),
             selected_tracks: self.plan.selected_tracks.clone(),
             client_capabilities: client_capabilities(&self.env.hardware),
             client_playback_context: playback_context(&self.env.app_version, &self.env.os_version, &self.env.output),
+            bandwidth: self.bandwidth(&client_features(&self.caps)),
             client_features: client_features(&self.caps),
             failure: None,
         }
@@ -1229,6 +1393,7 @@ impl Controller {
         self.stop_server_session(STOP_WAIT).await;
         self.relay.clear();
         self.started_reported = false;
+        self.cause = "recovery";
         if let Err(e) = self.negotiate(resume).await {
             self.reloads = RELOADS_PER_SESSION;
             self.schedule_recovery(&e.to_string());
@@ -1436,6 +1601,9 @@ mod tests {
             start_seconds: 30.0,
             audio_index: Some(1),
             subtitle_index: None,
+            quality: "auto".into(),
+            cap_kbps: None,
+            ignore_learned_limit: false,
         }
     }
 
@@ -1928,6 +2096,125 @@ mod tests {
                 .is_err()
         );
         assert_eq!(r.api.playback_log().replans.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn quality_changes_replan_and_a_lowering_estimate_is_kept_for_later_replans() {
+        // ADR-0014: a pick and a lowering go out as `quality_change`; the lowering's estimate rides on this attempt's
+        // own Auto replans without a source, a pick or a restore drops it, and every request carries the cap.
+        let mut r = rig(StartArgs {
+            cap_kbps: Some(30_000),
+            ..args()
+        })
+        .await;
+        let start = r.api.playback_log().starts[0].clone();
+        assert_eq!(start.quality_preference, "auto");
+        assert_eq!(start.bandwidth.cap_kbps, Some(30_000));
+        assert!(start.client_features.iter().any(|f| f == BUFFERING_QUALITY_FEATURE));
+        let plans = |r: &Rig| -> Vec<PlanInfo> {
+            r.notices
+                .all()
+                .into_iter()
+                .filter_map(|n| match n {
+                    Notice::Plan(p) => Some(*p),
+                    _ => None,
+                })
+                .collect()
+        };
+        let first = plans(&r).pop().unwrap();
+        assert!(first.direct_play && first.cause == "start" && first.adoption == 1);
+        assert!(first.available_qualities.iter().any(|q| q.label == "1080p-high"));
+        assert_eq!(first.delivered_kbps, Some(19_173));
+
+        let c = &mut r.controller;
+        c.on_event(&MpvEvent::FileLoaded).await;
+        c.on_event(&MpvEvent::PlaybackRestart).await;
+        play_to(c, 50.0).await;
+        // A lowering after buffering.
+        c.change_quality(QualityRequest {
+            quality: "auto".into(),
+            estimate_kbps: Some(13_421),
+            estimate_source: Some("observed_rebuffer".into()),
+            observed_kbps: Some(9_000),
+            clear_learned_limit: false,
+        })
+        .await
+        .unwrap();
+        let lowered = plans(&r).pop().unwrap();
+        assert_eq!((lowered.cause.as_str(), lowered.adoption), ("quality_change", 2));
+        assert!(!lowered.direct_play);
+        assert_eq!(lowered.delivery, "server_transcode_hls");
+        assert!(lowered.delivered_kbps.unwrap() < 19_173);
+        assert_eq!(lowered.delivered.dynamic_range.as_deref(), Some("sdr"));
+        assert!(lowered.transformations.iter().any(|t| t == "hdr_to_sdr_tonemap"));
+        let log = r.api.playback_log();
+        let q = &log.replans[0];
+        assert_eq!(q.operation, "quality_change");
+        assert_eq!(
+            (
+                q.bandwidth.estimate_kbps,
+                q.bandwidth.estimate_source.as_deref(),
+                q.bandwidth.observed_kbps
+            ),
+            (Some(13_421), Some("observed_rebuffer"), Some(9_000))
+        );
+        // The client's own Auto replan repeats the estimate without a source.
+        r.controller.seek_reanchor_for_test(60.0).await.unwrap();
+        let log = r.api.playback_log();
+        let again = &log.replans[1];
+        assert_eq!(again.operation, "seek_reanchor");
+        assert_eq!(
+            (
+                again.bandwidth.estimate_kbps,
+                again.bandwidth.estimate_source.as_deref()
+            ),
+            (Some(13_421), None)
+        );
+        assert_eq!(again.bandwidth.cap_kbps, Some(30_000));
+        // A pick: no estimate, and later replans keep the picked quality.
+        r.controller
+            .change_quality(QualityRequest {
+                quality: "720p-medium".into(),
+                ..QualityRequest::default()
+            })
+            .await
+            .unwrap();
+        let picked = plans(&r).pop().unwrap();
+        assert_eq!(picked.quality_preference, "720p-medium");
+        assert_eq!(picked.active_quality.as_deref(), Some("720p-medium"));
+        assert_eq!(picked.delivered.height, Some(720));
+        r.controller.seek_reanchor_for_test(70.0).await.unwrap();
+        let log = r.api.playback_log();
+        let after_pick = log.replans.last().unwrap();
+        assert_eq!(after_pick.quality_preference, "720p-medium");
+        assert_eq!(after_pick.bandwidth.estimate_kbps, None);
+        // Restore quality clears the learned limit.
+        r.controller
+            .change_quality(QualityRequest {
+                quality: "auto".into(),
+                clear_learned_limit: true,
+                ..QualityRequest::default()
+            })
+            .await
+            .unwrap();
+        let log = r.api.playback_log();
+        assert_eq!(
+            log.replans.last().unwrap().bandwidth.learned_limit.as_deref(),
+            Some("clear")
+        );
+        assert!(plans(&r).pop().unwrap().direct_play, "back to the original file");
+        // A malformed quality is refused without a request.
+        let n = r.api.playback_log().replans.len();
+        assert!(
+            r.controller
+                .change_quality(QualityRequest {
+                    quality: "720p medium".into(),
+                    ..QualityRequest::default()
+                })
+                .await
+                .is_err()
+        );
+        assert_eq!(r.api.playback_log().replans.len(), n);
     }
 
     #[tokio::test]

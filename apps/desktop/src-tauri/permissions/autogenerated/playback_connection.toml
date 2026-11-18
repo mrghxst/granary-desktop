@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-playback-connection"
+description = "Enables the playback_connection command without any pre-configured scope."
+commands.allow = ["playback_connection"]
+
+[[permission]]
+identifier = "deny-playback-connection"
+description = "Denies the playback_connection command without any pre-configured scope."
+commands.deny = ["playback_connection"]

@@ -598,6 +598,31 @@ impl Session {
             .await
     }
 
+    pub async fn settings_effective(&self, keys: &[&str]) -> Result<EffectiveSettingCollection> {
+        self.call_profile(|auth| async move { self.api.settings_effective(&self.origin, &auth, keys).await })
+            .await
+    }
+
+    pub async fn setting_set(&self, key: &str, scope: &str, value: &serde_json::Value) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.setting_set(&self.origin, &auth, key, scope, value).await })
+            .await
+    }
+
+    pub async fn setting_delete(&self, key: &str, scope: &str) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.setting_delete(&self.origin, &auth, key, scope).await })
+            .await
+    }
+
+    pub async fn playback_connection(&self) -> Result<PlaybackConnection> {
+        self.call_profile(|auth| async move { self.api.playback_connection(&self.origin, &auth).await })
+            .await
+    }
+
+    pub async fn playback_learned_limit_reset(&self) -> Result<()> {
+        self.call_profile(|auth| async move { self.api.playback_learned_limit_reset(&self.origin, &auth).await })
+            .await
+    }
+
     /// The home page's rows and the profile's saved overrides, read together for editing.
     pub async fn home_rows(&self) -> Result<HomeRows> {
         let rows = self
@@ -1017,7 +1042,8 @@ mod tests {
             .await
             .map(|c| c.items.len())
             .ok();
-        assert_eq!((all, movies), (Some(4), Some(3)));
+        // 3 films, 1 series and 3 audiobooks.
+        assert_eq!((all, movies), (Some(7), Some(3)));
         let found = s
             .catalog_browse(&CatalogQuery {
                 q: Some("harbor".into()),

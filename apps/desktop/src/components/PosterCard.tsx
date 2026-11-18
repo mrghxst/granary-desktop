@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { cardActions, cardDismissal, type CardAction } from "../lib/cardActions";
 import { artwork, catalog, type CatalogItem, type HomeSurface } from "../lib/catalog";
 import { bumpRefresh } from "../lib/events";
-import { qualityTags } from "../lib/format";
+import { qualityTags, runtimeLabel } from "../lib/format";
 import { itemPath } from "../lib/nav";
 import { ContextMenu } from "./ContextMenu";
 
@@ -17,6 +17,20 @@ export interface CardProps {
   onPlay?: (item: CatalogItem, opts?: { fromStart?: boolean }) => void;
   /** The home surface the card sits on (Continue Watching, Next Up): offers removing it from there. */
   surface?: HomeSurface | undefined;
+}
+
+/**
+ * An audiobook card's detail line (the web's `audiobookStatusLabel`): the time left while the profile is partway
+ * through, else the book's length; the year when neither is known.
+ */
+function bookStatus(item: CatalogItem, left: (time: string) => string): string {
+  const duration = item.duration_seconds ?? (item.runtime ? item.runtime * 60 : 0);
+  const position = item.user_state?.played ? 0 : (item.position_seconds ?? 0);
+  if (position > 0 && duration > 0) {
+    const minutes = Math.max(1, Math.round((duration - position) / 60));
+    return left(runtimeLabel(minutes) ?? "");
+  }
+  return runtimeLabel(item.runtime ?? Math.round(duration / 60)) ?? (item.year != null ? String(item.year) : "");
 }
 
 function subtitle(item: CatalogItem): string {
@@ -46,8 +60,12 @@ export function PosterCard({ serverId, item, wide = false, onPlay, surface }: Ca
       ? Math.min(1, item.position_seconds / duration)
       : 0;
   const to = itemPath(serverId, item.content_id);
-  const sub = subtitle(item);
-  const tags = wide ? [] : qualityTags(item.overlay_summary).slice(0, 3);
+  // Audiobooks have square covers, an author line and the time left (as on the web's cards).
+  const book = !wide && item.type === "audiobook";
+  const wideCover = wide && item.type === "audiobook" && !item.backdrop_url;
+  const authorLine = book && item.authors?.length ? item.authors.join(", ") : null;
+  const sub = book ? bookStatus(item, (time) => t("book.timeLeft", { time })) : subtitle(item);
+  const tags = wide || book ? [] : qualityTags(item.overlay_summary).slice(0, 3);
 
   const setWatched = (on: boolean) => {
     setPlayedLocal(on);
@@ -124,8 +142,29 @@ export function PosterCard({ serverId, item, wide = false, onPlay, surface }: Ca
         className="media-card-image relative block overflow-hidden rounded-xl bg-surface-raised ring-ring outline outline-1 -outline-offset-1 outline-white/[0.07] focus-visible:ring-2 focus-visible:outline-none"
         aria-label={sub ? `${item.title}, ${sub}` : item.title}
       >
-        <div className={wide ? "aspect-video" : "aspect-[2/3]"}>
-          {src ? (
+        <div className={wide ? "aspect-video" : book ? "aspect-square" : "aspect-[2/3]"}>
+          {src && wideCover ? (
+            // A square book cover in a wide card: whole, over a blurred copy of itself.
+            <div className="relative size-full overflow-hidden">
+              <img
+                src={src}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 size-full scale-125 object-cover opacity-60 blur-xl"
+              />
+              <img
+                src={src}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                className="relative mx-auto aspect-square h-full object-cover shadow-xl"
+                onError={() => {
+                  setFailed(true);
+                }}
+              />
+            </div>
+          ) : src ? (
             <img
               src={src}
               alt=""
@@ -171,6 +210,7 @@ export function PosterCard({ serverId, item, wide = false, onPlay, surface }: Ca
         <Link to={to} className="block truncate text-sm font-semibold hover:underline" tabIndex={-1}>
           {item.title}
         </Link>
+        {authorLine ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{authorLine}</p> : null}
         {sub ? <p className="truncate text-xs font-medium text-muted-foreground">{sub}</p> : null}
       </div>
       {menu ? (

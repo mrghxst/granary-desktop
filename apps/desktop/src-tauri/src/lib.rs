@@ -14,6 +14,7 @@ pub mod commands;
 pub mod logging;
 pub mod paths;
 pub mod playback;
+pub mod quality;
 pub mod redact;
 pub mod seekr;
 pub mod settings;
@@ -97,7 +98,15 @@ fn silo_state(version: &str) -> Result<silo::SiloState, Box<dyn std::error::Erro
         let media = std::env::var_os("GRANARY_MOCK_MEDIA")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../test-media"));
-        let api: Arc<dyn SiloApi> = Arc::new(granary_silo_api::mock::MockSiloApi::demo().with_media_dir(media));
+        let api: Arc<dyn SiloApi> = Arc::new(
+            granary_silo_api::mock::MockSiloApi::demo()
+                .with_media_dir(media)
+                .with_link_kbps(
+                    std::env::var("GRANARY_MOCK_LINK_KBPS")
+                        .ok()
+                        .and_then(|v| v.parse().ok()),
+                ),
+        );
         let store: Arc<dyn CredentialStore> = Arc::new(MemoryStore::default());
         return Ok(silo::SiloState::new(
             api,
@@ -323,6 +332,12 @@ pub fn run() {
             playback::commands::player_pause,
             playback::commands::player_subtitle_style,
             playback::commands::player_subtitles_refresh,
+            playback::commands::player_quality,
+            playback::commands::player_network,
+            quality::quality_settings,
+            quality::quality_setting_set,
+            quality::playback_connection,
+            quality::playback_learned_limit_reset,
             catalog::subtitle_appearance,
             catalog::subtitle_features,
             catalog::subtitle_search,

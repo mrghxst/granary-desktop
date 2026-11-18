@@ -1,9 +1,11 @@
 import {
   Bell,
+  BookOpen,
   Bookmark,
   CalendarDays,
   Clapperboard,
   Folder,
+  Headphones,
   Heart,
   History,
   Home,
@@ -32,6 +34,8 @@ function libraryIcon(kind: string) {
   if (kind === "movie" || kind === "movies") return <Clapperboard className="size-[18px] shrink-0" />;
   if (kind === "show" || kind === "shows" || kind === "series" || kind === "tv")
     return <Tv className="size-[18px] shrink-0" />;
+  if (kind === "audiobooks" || kind === "audiobook") return <Headphones className="size-[18px] shrink-0" />;
+  if (kind === "ebooks" || kind === "books" || kind === "manga") return <BookOpen className="size-[18px] shrink-0" />;
   return <Folder className="size-[18px] shrink-0" />;
 }
 

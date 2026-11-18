@@ -70,6 +70,8 @@ pub struct CatalogItem {
     /// Continue-watching cards: when the progress last changed; anchors a dismissal (`HomeDismissal`,
     /// `internal/apiv2/home.go@6791aac` L72-75).
     pub progress_updated_at: Option<String>,
+    /// Audiobook and ebook cards: up to three author names in credit order.
+    pub authors: Vec<String>,
     pub user_state: Option<CatalogItemUserState>,
     /// Technical badges of the best file (poster tags).
     pub overlay_summary: Option<CatalogItemOverlay>,
@@ -713,6 +715,47 @@ impl MarkerUpdate {
 pub struct AudiobookPerson {
     pub name: String,
     pub person_id: Option<String>,
+    pub photo_url: Option<String>,
+}
+
+/// `AudiobookRelatedItem`: a book in the series, by the same author, or similar.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudiobookRelatedItem {
+    pub content_id: String,
+    pub title: String,
+    pub poster_url: Option<String>,
+    pub duration_seconds: Option<i64>,
+    pub played: bool,
+    pub progress_ratio: Option<f64>,
+    pub series_index: Option<i64>,
+    pub year: Option<i64>,
+}
+
+/// `AudiobookRelatedContent`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudiobookRelated {
+    pub also_by_author: Vec<AudiobookRelatedItem>,
+    pub similar: Vec<AudiobookRelatedItem>,
+}
+
+/// `AudiobookSeriesGroup`: the series the book belongs to, with its books in order.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudiobookSeries {
+    pub name: Option<String>,
+    pub entries: Vec<AudiobookRelatedItem>,
+}
+
+/// `AudiobookNarration`: the same book read by someone else.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AudiobookNarration {
+    pub content_id: String,
+    pub title: String,
+    pub narrators: Vec<String>,
+    pub year: Option<i64>,
 }
 
 /// `AudiobookDetailExtension` subset.
@@ -722,6 +765,10 @@ pub struct AudiobookDetail {
     pub authors: Vec<AudiobookPerson>,
     pub narrators: Vec<AudiobookPerson>,
     pub total_duration_seconds: Option<i64>,
+    pub publisher: Option<String>,
+    pub series: Option<AudiobookSeries>,
+    pub related: AudiobookRelated,
+    pub other_narrations: Vec<AudiobookNarration>,
 }
 
 /// `EbookDetailExtension` subset.
@@ -1106,6 +1153,25 @@ pub struct SubtitleAppearanceSetting {
     pub has_device_override: bool,
 }
 
+/// `EffectiveSettingValue` subset: a setting resolved for this profile on this device (`listEffectiveSettings`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EffectiveSetting {
+    pub key: String,
+    /// The resolved value, typed by the key's `value_schema` (a string, a number or `null`).
+    pub value: serde_json::Value,
+    /// The scope that won: `profile_device`, `profile`, `account` or `default`.
+    pub source: String,
+}
+
+/// `EffectiveSettingCollection`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EffectiveSettingCollection {
+    pub items: Vec<EffectiveSetting>,
+    pub revision: i64,
+}
+
 /// `SubtitleProviderStatus` / `SubtitleAIStatus`: whether the viewer may search providers or start AI jobs.
 /// `state` is `available | disabled | not_configured | unsupported`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1226,6 +1292,34 @@ pub struct HomeRows {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    /// `AudiobookDetailExtension` and `CatalogItem.authors` in the shapes of the OAS schemas @749db96a.
+    #[test]
+    fn audiobook_page_fields_decode() {
+        let d: CatalogItemDetail = serde_json::from_str(
+            r#"{"content_id":"b2","title":"Winter Grafts","type":"audiobook","audiobook":{
+                "authors":[{"name":"Ada Fenwick","person_id":"p1","photo_url":"/a.jpg"}],
+                "narrators":[{"name":"Tom Ellery"}],"total_duration_seconds":41520,"publisher":"Fenwick & Vale",
+                "series":{"name":"Orchard Letters","entries":[{"content_id":"b1","title":"The Quiet Orchard",
+                  "series_index":1,"played":true},{"content_id":"b2","title":"Winter Grafts","series_index":2,
+                  "progress_ratio":0.42,"duration_seconds":41520}]},
+                "related":{"also_by_author":[{"content_id":"b1","title":"The Quiet Orchard","year":2022}],"similar":[]},
+                "other_narrations":[{"content_id":"b9","title":"Winter Grafts","narrators":["Ines Vale"],"year":2024}]}}"#,
+        )
+        .unwrap();
+        let b = d.audiobook.unwrap();
+        assert_eq!(b.publisher.as_deref(), Some("Fenwick & Vale"));
+        let series = b.series.unwrap();
+        assert_eq!(series.name.as_deref(), Some("Orchard Letters"));
+        assert!(series.entries[0].played);
+        assert_eq!(series.entries[1].progress_ratio, Some(0.42));
+        assert_eq!(b.related.also_by_author[0].year, Some(2022));
+        assert_eq!(b.other_narrations[0].narrators, ["Ines Vale"]);
+        let card: CatalogItem =
+            serde_json::from_str(r#"{"content_id":"b2","title":"W","type":"audiobook","authors":["Ada Fenwick"]}"#)
+                .unwrap();
+        assert_eq!(card.authors, ["Ada Fenwick"]);
+    }
 
     #[test]
     fn lenient_card_and_aliases() {
