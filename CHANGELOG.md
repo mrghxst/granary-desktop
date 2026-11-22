@@ -5,6 +5,10 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-22
+A redesigned audiobook player, and audiobooks no longer open in full screen. The first version installed through the
+in-app updater (from 0.7.0).
+
 ### Changed
 
 - The audiobook player is redesigned in the style of the video player: cover-coloured backdrop, a custom timeline
