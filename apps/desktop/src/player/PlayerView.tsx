@@ -2223,14 +2223,20 @@ export function PlayerView() {
 
   const wasActive = useRef(false);
   const browseFullscreen = useRef<boolean | null>(null);
+  // Audiobooks never take over the video player's full screen and never change what it remembers: full screen is
+  // only entered there on request.
+  const isBook = ctx?.watch.type === "audiobook";
+  const bookSession = useRef(false);
   useEffect(() => {
     if (state.active) {
       if (wasActive.current) return;
       wasActive.current = true;
+      bookSession.current = isBook;
       void player
         .window()
         .then(async (w) => {
           browseFullscreen.current = w.fullscreen;
+          if (isBook) return;
           const want = readPlayerFullscreen();
           if (want !== null && want !== w.fullscreen && !w.mini) setWindow(await player.fullscreen(want));
         })
@@ -2245,12 +2251,12 @@ export function PlayerView() {
     void player
       .window()
       .then(async (w) => {
-        if (!w.mini) writePlayerFullscreen(w.fullscreen);
+        if (!w.mini && !bookSession.current) writePlayerFullscreen(w.fullscreen);
         if (w.mini) await player.mini(false);
         setWindow(await player.fullscreen(browseFullscreen.current ?? false));
       })
       .catch(() => undefined);
-  }, [state.active, setWindow]);
+  }, [state.active, setWindow, isBook]);
 
   // A new attempt (next episode, autoplay) can start while the controls had hidden the WebView over the video: the
   // launch card lives in the WebView, so it must be shown, or the desktop shows through the transparent window.

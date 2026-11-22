@@ -89,7 +89,7 @@ a receiver. Granary keeps the calm look of the server's web app and hands playba
 - Sign-ins in Windows Credential Manager; the UI never sees a token.
 - English and German, full keyboard control, layout-aware shortcuts.
 - Redacted logs, an offline banner with automatic reload, optional power-user `mpv.conf`.
-- No telemetry, no auto-updater.
+- No telemetry. Updates are signed, downloaded in the background and installed only when you click **Restart to update**.
 
 </td>
 </tr>

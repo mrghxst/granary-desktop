@@ -5,6 +5,17 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The audiobook player is redesigned in the style of the video player: cover-coloured backdrop, a custom timeline
+  with chapter ticks and hover labels, a chapter pill with the time left in the chapter, glass menus for speed and
+  the sleep timer, and a chapter panel that opens beside the book.
+
+### Fixed
+
+- Audiobooks no longer open in full screen because the last video ended there, and closing a book no longer changes
+  how the next video opens. Full screen in the audiobook player is entered with its button or F.
+
 ## [0.7.0] - 2026-11-18
 In-app updates with Restart to update, and the complete source of the bundled player libraries.
 
