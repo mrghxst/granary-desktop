@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-28
+No more needless transcoding when a server is slow to open a file.
+
 ### Fixed
 
 - A slow first second of a start no longer counts as a slow connection. Servers that read from network storage

@@ -142,6 +142,7 @@ Releases: tags are published by the workflow as public pre-releases; no drafts (
 
 ## Log (newest first, one line per completed step)
 - 2026-11-22 0.7.1: redesigned audiobook player, no automatic full screen for audiobooks; first release delivered through the in-app updater; tag v0.7.1 at the owner's request.
+- 2026-11-28 0.7.2: a slow first second no longer lowers quality to a transcode; tag v0.7.2 at the owner's request.
 - 2026-11-18 0.7.0: first version with in-app updates (ADR-0015) and the libmpv source release; tag v0.7.0 at the owner's request.
 - 2026-11-18 libmpv corresponding source: manifest of 83 repositories + 4 tarballs + recipe (exact commits from recipe pins and 77 nightly build logs, cross-checked), packer script and workflow publishing release libmpv-source-20261106; curl commit not recoverable (documented). Updater secrets set on GitHub at the owner's request.
 - 2026-11-18 In-app updates (ADR-0015): updater plugin, Restart to update in the sidebar and About, setting, release workflow signs and attaches latest.json, pages serves the feed; dev build against a local signed test feed found, downloaded and verified 9.9.9 (install step not run on this PC to keep the owner's installed app); verify.ps1 green. Needs the owner: GitHub secrets TAURI_SIGNING_PRIVATE_KEY(_PASSWORD) from .secrets/ and a backup of the key. Signing guide rewritten (docs/signing.md).
