@@ -13,6 +13,12 @@ const OUTAGE_PROGRESSIVE_MS = 4_000;
 /** The same on segmented delivery, where the server holds a segment request while it produces it. */
 const OUTAGE_SEGMENTED_MS = 15_000;
 const NETWORK_POLL_MS = 1_000;
+/**
+ * Seconds of media arrival before a start wait can count as a slow link. The first second also holds the server
+ * opening the file, which on network-backed storage (Usenet, debrid) can take seconds on a fast link; one such sample
+ * would lower a fast connection and leave a learned limit for a day.
+ */
+const START_EVIDENCE_MS = 3_000;
 
 type Status = "none" | "playing" | "paused" | "seeking" | "loading" | "waiting" | "other";
 
@@ -144,9 +150,9 @@ export function useBufferingQuality(o: BufferingQualityOptions) {
       now: () => performance.now(),
       onOutput,
       throughput,
-      // Before the first frame only a link measured slower than the plan counts.
+      // Before the first frame only a link measured slower than the plan, over a few seconds, counts.
       startEvidence: () => {
-        const k = throughput();
+        const k = net.current.ms >= START_EVIDENCE_MS ? throughput() : undefined;
         const delivered = latest.current.plan?.delivered_kbps ?? 0;
         return k !== undefined && delivered > 0 && k < delivered;
       },

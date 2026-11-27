@@ -5,6 +5,13 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A slow first second of a start no longer counts as a slow connection. Servers that read from network storage
+  (Usenet or debrid mounts) can take seconds to open a large file on a fast link; that single sample lowered quality
+  to a transcode and left a learned limit that kept every later play transcoding for a day. A start wait now counts
+  only after 3 seconds of measured throughput below the plan's bitrate.
+
 ## [0.7.1] - 2026-11-22
 A redesigned audiobook player, and audiobooks no longer open in full screen. The first version installed through the
 in-app updater (from 0.7.0).
