@@ -5,6 +5,9 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-28
+Blu-ray subtitles show right away after switching tracks.
+
 ### Fixed
 
 - Switching to a Blu-ray (PGS), DVD or DVB subtitle track during playback shows the subtitle already on screen at
