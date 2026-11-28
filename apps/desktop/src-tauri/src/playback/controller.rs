@@ -796,6 +796,22 @@ impl Controller {
         })
     }
 
+    /// Whether mpv subtitle track `sid` is a picture format (Blu-ray PGS, DVD, DVB).
+    fn sub_is_picture(&self, sid: &str) -> bool {
+        let count: usize = self
+            .backend
+            .get_property("track-list/count")
+            .and_then(|c| c.parse().ok())
+            .unwrap_or(0);
+        (0..count).any(|n| {
+            let get = |k: &str| self.backend.get_property(&format!("track-list/{n}/{k}"));
+            get("type").as_deref() == Some("sub")
+                && get("id").as_deref() == Some(sid)
+                && get("codec")
+                    .is_some_and(|c| matches!(c.as_str(), "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle"))
+        })
+    }
+
     /// Start downloading the plan's separate subtitle files (external and downloaded ones), so selecting one later only
     /// parses it. Embedded tracks are never fetched ahead: the server extracts each one from the whole file, which on
     /// a large remux competes with the video stream (0.4.3 regression). mpv selects those inside the stream instead.
@@ -874,10 +890,14 @@ impl Controller {
                 if self.backend.get_property("sid").as_deref() != Some(sid.as_str()) {
                     self.set("sid", &sid);
                     // mpv's own refresh for a newly selected stream drops the whole read-ahead, re-reads from 11 s
-                    // back and then waits for a 3 s buffer, so on a network stream the line on screen shows late or
-                    // only after the viewer seeks. Seeking to the current position restarts every stream from the
-                    // index instead (Matroska subtitle preroll finds the line already on screen), without that wait.
-                    self.seek_in_place();
+                    // back and then waits for a 3 s buffer, so on a network stream a text line shows late. Seeking to
+                    // the current position restarts every stream from the index instead (Matroska subtitle preroll
+                    // finds the text line already on screen), without that wait. Picture subtitles (PGS, DVD, DVB)
+                    // carry no duration, so that preroll skips the picture on screen and nothing shows until the next
+                    // line; mpv's refresh shows it in about a second.
+                    if !self.sub_is_picture(&sid) {
+                        self.seek_in_place();
+                    }
                 }
             }
             SubtitleChoice::External { track_id } => {
@@ -1999,6 +2019,17 @@ mod tests {
             .unwrap();
         let calls = r.backend.calls();
         assert_eq!(&calls[calls.len() - 2..], ["set sid=2", "cmd seek 42.500 absolute"]);
+        // A picture track: mpv's own refresh shows the picture on screen; a seek would lose it.
+        r.backend
+            .set_property("track-list/0/codec", "hdmv_pgs_subtitle")
+            .unwrap();
+        c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 2 })
+            .await
+            .unwrap();
+        assert_eq!(r.backend.calls().last().unwrap(), "set sid=1");
+        c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 3 })
+            .await
+            .unwrap();
         // The same track again: nothing to refill, no seek.
         let n = r.backend.calls().len();
         c.select_subtitle(&SubtitleChoice::Embedded { stream_index: 3 })

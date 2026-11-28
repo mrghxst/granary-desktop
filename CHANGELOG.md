@@ -5,6 +5,13 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching to a Blu-ray (PGS), DVD or DVB subtitle track during playback shows the subtitle already on screen at
+  once. The seek that makes a new text track show its current line skipped that picture, so nothing appeared until
+  the next line, often seconds later. Picture tracks now use the player's own refresh, which shows it in about a
+  second; text tracks switch as before.
+
 ## [0.7.2] - 2026-11-28
 No more needless transcoding when a server is slow to open a file.
 
